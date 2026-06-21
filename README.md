@@ -6,6 +6,8 @@ A unified, low-latency, bare-metal dual console emulator for the Raspberry Pi 3B
 
 Built on the **Circle C++ bare-metal environment**, **Snes9x**, and **Picodrive**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
 
+🎥 **Video Demonstration**: [Watch MEGA-SNES Pi Metal running on a Raspberry Pi 3B+](https://youtu.be/jyMUjcQem-0)
+
 ---
 
 ### 🚀 Key Features
