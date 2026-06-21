@@ -1,0 +1,20 @@
+# Ignore standard object and dependency files
+*.o
+*.d
+
+# Ignore mega-emulator build outputs
+/mega-emulator/*.elf
+/mega-emulator/*.img
+/mega-emulator/*.lst
+/mega-emulator/*.map
+
+# Ignore snes-emulator build outputs
+/snes-emulator/*.elf
+/snes-emulator/*.img
+/snes-emulator/*.lst
+/snes-emulator/*.map
+
+# Other files to ignore
+/roms/
+/snes-emulator/pico
+/snes-emulator/pico_int_offs.h
