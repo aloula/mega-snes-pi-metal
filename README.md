@@ -17,7 +17,7 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, and **Picodrive*
   * Real-time console switching via **L** and **R** shoulder buttons.
   * Auto-balanced alphabetical ROM folders (splits games across custom tabs based on active systems).
   * Favorite lists (`favorites.txt`) managed directly from the UI.
-* **Automatic Save States**: Game states are loaded/saved in Slot 0 (stored as `.s0` files) located alongside the ROMs.
+* **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** to save, and **SELECT + D-pad Right** to load.
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 
@@ -115,25 +115,58 @@ Maps the standard six-button Sega controller layout:
 
 ### 🛠️ Compilation & Deployment
 
-To compile the projects, you must have the `arm-none-eabi` cross-compilation toolchain installed on your host system.
+To compile the projects, you must have the `arm-none-eabi` cross-compilation toolchain and standard build utilities installed on your host system.
 
-### Build Unified Dual Emulator (Default)
+#### 1. Installing the Toolchain & Build Tools
+
+##### Linux (Ubuntu / Debian)
+```bash
+sudo apt update
+sudo apt install gcc-arm-none-eabi g++-arm-none-eabi build-essential zip
+```
+
+##### Linux (Arch Linux)
+```bash
+sudo pacman -S arm-none-eabi-gcc arm-none-eabi-newlib base-devel zip
+```
+
+##### Linux (Fedora)
+```bash
+sudo dnf install gcc-arm-none-eabi newlib-arm-none-eabi make zip
+```
+
+##### macOS
+Install the toolchain via [Homebrew](https://brew.sh/):
+```bash
+brew tap osx-cross/arm
+brew install arm-none-eabi-gcc
+```
+Or alternatively:
+```bash
+brew install --cask gcc-arm-embedded
+```
+You will also need `make` and `zip` if you don't already have them installed:
+```bash
+brew install make zip
+```
+
+#### 2. Building the Unified Dual Emulator (Default)
 To build the unified kernel:
 ```bash
 cd snes-emulator
-make -j$(nproc)
+make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
-This produces `snes-emulator/boot/kernel8-32.img`. Copy the files inside the `snes-emulator/boot/` directory to the fat32 boot partition of your SD card.
+This produces `snes-emulator/boot/kernel8-32.img`. Copy the files inside the `snes-emulator/boot/` directory to the FAT32 boot partition of your SD card.
 
-### Build Standalone Mega Drive Emulator
+#### 3. Building the Standalone Mega Drive Emulator
 To build the standalone Sega emulator:
 ```bash
 cd mega-emulator
-make -j$(nproc)
+make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
 This produces `mega-emulator/boot/kernel8-32.img`. Copy the files inside `mega-emulator/boot/` to your SD card.
 
-### Generate SD Card Release Package
+#### 4. Generating the SD Card Release Package
 To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, and `bios`) automatically:
 ```bash
 ./build_release.sh

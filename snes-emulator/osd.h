@@ -31,9 +31,12 @@ private:
     void CalculateTabLabels();
     void LoadFavorites();
     void SaveFavorites();
+    boolean IsMCD(int sys_idx) const;
+    char GetChar(int sys_idx) const;
+    static int GetLetterIdx(char c);
 
 private:
-    enum RomSystem {
+    enum RomSystem : int {
         RomSystem_SNES,
         RomSystem_MD,
         RomSystem_MCD

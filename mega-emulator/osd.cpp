@@ -56,40 +56,55 @@ void COSDMenu::ScanRoms() {
     m_GenesisCount = 0;
     m_MegaCDCount = 0;
 
-    DIR dir;
-    FILINFO fileInfo;
-    FRESULT res = f_findfirst(&dir, &fileInfo, "SD:/roms", "*");
-    if (res != FR_OK) {
-        CLogger::Get()->Write("OSD", LogError, "f_findfirst failed on SD:/roms: %d", res);
-        return;
-    }
+    auto scan_dir = [this](const char *dirPath, const char *prefix) {
+        DIR dir;
+        FILINFO fileInfo;
+        FRESULT res = f_findfirst(&dir, &fileInfo, dirPath, "*");
+        if (res != FR_OK) {
+            CLogger::Get()->Write("OSD", LogWarning, "f_findfirst failed on %s: %d", dirPath, res);
+            return;
+        }
 
-    while (res == FR_OK && fileInfo.fname[0] != '\0' && m_RomCount < MAX_ROMS) {
-        if (!(fileInfo.fattrib & AM_DIR) && !(fileInfo.fattrib & (AM_HID | AM_SYS))) {
-            const char *pDot = strrchr(fileInfo.fname, '.');
-            if (pDot != 0) {
-                pDot++;
-                if (my_strcasecmp(pDot, "bin") == 0 ||
-                    my_strcasecmp(pDot, "md") == 0 ||
-                    my_strcasecmp(pDot, "gen") == 0 ||
-                    my_strcasecmp(pDot, "iso") == 0 ||
-                    my_strcasecmp(pDot, "cue") == 0 ||
-                    my_strcasecmp(pDot, "chd") == 0) {
-                    strncpy(m_RomFiles[m_RomCount], fileInfo.fname, sizeof(m_RomFiles[m_RomCount]) - 1);
-                    m_RomFiles[m_RomCount][sizeof(m_RomFiles[m_RomCount]) - 1] = '\0';
-                    m_RomSizes[m_RomCount] = fileInfo.fsize;
-                    m_RomCount++;
+        while (res == FR_OK && fileInfo.fname[0] != '\0' && m_RomCount < MAX_ROMS) {
+            if (!(fileInfo.fattrib & AM_DIR) && !(fileInfo.fattrib & (AM_HID | AM_SYS))) {
+                const char *pDot = strrchr(fileInfo.fname, '.');
+                if (pDot != 0) {
+                    pDot++;
+                    if (my_strcasecmp(pDot, "bin") == 0 ||
+                        my_strcasecmp(pDot, "md") == 0 ||
+                        my_strcasecmp(pDot, "gen") == 0 ||
+                        my_strcasecmp(pDot, "iso") == 0 ||
+                        my_strcasecmp(pDot, "cue") == 0 ||
+                        my_strcasecmp(pDot, "chd") == 0) {
+                        snprintf(m_RomFiles[m_RomCount], sizeof(m_RomFiles[m_RomCount]), "%s%s", prefix, fileInfo.fname);
+                        m_RomSizes[m_RomCount] = fileInfo.fsize;
+                        m_RomCount++;
+                    }
                 }
             }
+            res = f_findnext(&dir, &fileInfo);
         }
-        res = f_findnext(&dir, &fileInfo);
-    }
-    f_closedir(&dir);
+        if (res != FR_OK) {
+            CLogger::Get()->Write("OSD", LogWarning, "f_findnext failed on %s: %d (scanned %d ROMs)", dirPath, res, m_RomCount);
+        }
+        f_closedir(&dir);
+    };
 
-    // Sort ROMs alphabetically
+    scan_dir("SD:/roms/megadrive", "megadrive/");
+    scan_dir("SD:/roms/megacd", "megacd/");
+
+    // Sort ROMs alphabetically on the base filename (excluding prefix)
     for (int i = 0; i < m_RomCount - 1; i++) {
         for (int j = i + 1; j < m_RomCount; j++) {
-            if (my_strcasecmp(m_RomFiles[i], m_RomFiles[j]) > 0) {
+            const char *name_i = m_RomFiles[i];
+            const char *slash_i = strchr(name_i, '/');
+            if (slash_i) name_i = slash_i + 1;
+
+            const char *name_j = m_RomFiles[j];
+            const char *slash_j = strchr(name_j, '/');
+            if (slash_j) name_j = slash_j + 1;
+
+            if (my_strcasecmp(name_i, name_j) > 0) {
                 // Swap files
                 char tempFile[128];
                 strcpy(tempFile, m_RomFiles[i]);
@@ -142,6 +157,10 @@ void COSDMenu::CalculateTabLabels() {
         if (genesis_idx < 0 || genesis_idx >= m_GenesisCount) return '?';
         const char *name = m_RomFiles[m_GenesisIndices[genesis_idx]];
         if (name == nullptr || *name == '\0') return '?';
+        const char *slash = strchr(name, '/');
+        if (slash != nullptr) {
+            name = slash + 1;
+        }
         char c = *name;
         if (c >= 'a' && c <= 'z') c -= 32;
         if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
@@ -287,6 +306,10 @@ void COSDMenu::BuildFilteredList() {
                 if (genesis_idx < 0 || genesis_idx >= m_GenesisCount) return '?';
                 const char *name = m_RomFiles[m_GenesisIndices[genesis_idx]];
                 if (name == nullptr || *name == '\0') return '?';
+                const char *slash = strchr(name, '/');
+                if (slash != nullptr) {
+                    name = slash + 1;
+                }
                 char c = *name;
                 if (c >= 'a' && c <= 'z') c -= 32;
                 if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
@@ -349,8 +372,14 @@ void COSDMenu::Update() {
             *pDot = '\0';
         }
 
+        const char *displayName = temp;
+        const char *slash = strchr(temp, '/');
+        if (slash != nullptr) {
+            displayName = slash + 1;
+        }
+
         char cleanName[80];
-        strncpy(cleanName, temp, sizeof(cleanName) - 1);
+        strncpy(cleanName, displayName, sizeof(cleanName) - 1);
         cleanName[sizeof(cleanName) - 1] = '\0';
         
         int max_len = 52;

@@ -29,7 +29,8 @@ make -C snes-emulator clean
 echo -e "${BLUE}Compiling snes-emulator...${NC}"
 make -C snes-emulator -j$(nproc)
 
-# 5. Verify kernel output image exists
+# 5. Copy the compiled kernel image to the boot directory and verify it exists
+cp snes-emulator/kernel8-32.img snes-emulator/boot/kernel8-32.img
 IMAGE_FILE="snes-emulator/boot/kernel8-32.img"
 if [ ! -f "$IMAGE_FILE" ]; then
     echo -e "${RED}Error: $IMAGE_FILE was not compiled successfully!${NC}"

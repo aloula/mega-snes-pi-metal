@@ -4,7 +4,7 @@
 #include <circle/types.h>
 #include "audio_ring_buffer.h"
 
-#define MAX_ROMS 2048
+#define MAX_ROMS 4096
 
 struct SharedState {
     volatile u16 pad1 __attribute__((aligned(64)));

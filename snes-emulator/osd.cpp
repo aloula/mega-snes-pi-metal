@@ -105,6 +105,9 @@ void COSDMenu::ScanRoms() {
             }
             res = f_findnext(&dir, &fileInfo);
         }
+        if (res != FR_OK) {
+            CLogger::Get()->Write("OSD", LogWarning, "f_findnext failed on %s: %d (scanned %d ROMs)", dirPath, res, m_RomCount);
+        }
         f_closedir(&dir);
     };
 
@@ -175,41 +178,13 @@ void COSDMenu::CalculateTabLabels() {
         m_TabLabels[5][0] = '\0';
     }
 
-    // Helper to see if game is MCD
-    auto is_mcd = [this](int sys_idx) -> boolean {
-        if (sys_idx < 0 || sys_idx >= m_SystemCount) return FALSE;
-        int orig_idx = m_SystemIndices[sys_idx];
-        return m_RomSystems[orig_idx] == RomSystem_MCD;
-    };
-
-    // Helper to get uppercase starting character or '#' for numbers/symbols
-    auto get_char = [this](int sys_idx) -> char {
-        if (sys_idx < 0 || sys_idx >= m_SystemCount) return '?';
-        const char *name = m_RomFiles[m_SystemIndices[sys_idx]];
-        if (name == nullptr || *name == '\0') return '?';
-        const char *slash = strchr(name, '/');
-        if (slash != nullptr) {
-            name = slash + 1;
-        }
-        char c = *name;
-        if (c >= 'a' && c <= 'z') c -= 32;
-        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
-        return '#';
-    };
-
-    // Helper to get letter index (0 to 26)
-    auto get_letter_idx = [](char c) -> int {
-        if (c >= 'A' && c <= 'Z') return c - 'A' + 1; // 1 to 26
-        return 0; // '#' or others
-    };
-
     // Count non-MCD games per letter
     int letter_counts[27] = {0};
     int non_mcd_count = 0;
     for (int i = 0; i < m_SystemCount; i++) {
-        if (!is_mcd(i)) {
-            char c = get_char(i);
-            int idx = get_letter_idx(c);
+        if (!IsMCD(i)) {
+            char c = GetChar(i);
+            int idx = GetLetterIdx(c);
             if (idx >= 0 && idx < 27) {
                 letter_counts[idx]++;
                 non_mcd_count++;
@@ -252,9 +227,9 @@ void COSDMenu::CalculateTabLabels() {
     // Now generate labels based on the actual games present in each split
     int start0 = -1, end0 = -1;
     for (int i = 0; i < m_SystemCount; i++) {
-        if (!is_mcd(i)) {
-            char c = get_char(i);
-            int idx = get_letter_idx(c);
+        if (!IsMCD(i)) {
+            char c = GetChar(i);
+            int idx = GetLetterIdx(c);
             if (idx <= m_TabSplitK1) {
                 if (start0 == -1) start0 = i;
                 end0 = i;
@@ -262,8 +237,8 @@ void COSDMenu::CalculateTabLabels() {
         }
     }
     if (start0 != -1 && end0 != -1) {
-        char c_start = get_char(start0);
-        char c_end = get_char(end0);
+        char c_start = GetChar(start0);
+        char c_end = GetChar(end0);
         if (c_start == c_end) {
             snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
         } else {
@@ -275,9 +250,9 @@ void COSDMenu::CalculateTabLabels() {
 
     int start1 = -1, end1 = -1;
     for (int i = 0; i < m_SystemCount; i++) {
-        if (!is_mcd(i)) {
-            char c = get_char(i);
-            int idx = get_letter_idx(c);
+        if (!IsMCD(i)) {
+            char c = GetChar(i);
+            int idx = GetLetterIdx(c);
             if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
                 if (start1 == -1) start1 = i;
                 end1 = i;
@@ -285,8 +260,8 @@ void COSDMenu::CalculateTabLabels() {
         }
     }
     if (start1 != -1 && end1 != -1) {
-        char c_start = get_char(start1);
-        char c_end = get_char(end1);
+        char c_start = GetChar(start1);
+        char c_end = GetChar(end1);
         if (c_start == c_end) {
             snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
         } else {
@@ -298,9 +273,9 @@ void COSDMenu::CalculateTabLabels() {
 
     int start2 = -1, end2 = -1;
     for (int i = 0; i < m_SystemCount; i++) {
-        if (!is_mcd(i)) {
-            char c = get_char(i);
-            int idx = get_letter_idx(c);
+        if (!IsMCD(i)) {
+            char c = GetChar(i);
+            int idx = GetLetterIdx(c);
             if (idx > m_TabSplitK2) {
                 if (start2 == -1) start2 = i;
                 end2 = i;
@@ -308,8 +283,8 @@ void COSDMenu::CalculateTabLabels() {
         }
     }
     if (start2 != -1 && end2 != -1) {
-        char c_start = get_char(start2);
-        char c_end = get_char(end2);
+        char c_start = GetChar(start2);
+        char c_end = GetChar(end2);
         if (c_start == c_end) {
             snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
         } else {
@@ -322,12 +297,6 @@ void COSDMenu::CalculateTabLabels() {
 
 void COSDMenu::BuildFilteredList() {
     m_FilteredCount = 0;
-
-    auto is_mcd = [this](int sys_idx) -> boolean {
-        if (sys_idx < 0 || sys_idx >= m_SystemCount) return FALSE;
-        int orig_idx = m_SystemIndices[sys_idx];
-        return m_RomSystems[orig_idx] == RomSystem_MCD;
-    };
 
     if (m_ActiveTab == 0) {
         // ALL tab: include all scanned roms of the current system
@@ -347,30 +316,11 @@ void COSDMenu::BuildFilteredList() {
     else if (m_ActiveTab >= 2 && m_ActiveTab <= 4) {
         // Alphabetical splits (Tabs 2 to 4)
         if (m_SystemCount > 0) {
-            auto get_char = [this](int sys_idx) -> char {
-                if (sys_idx < 0 || sys_idx >= m_SystemCount) return '?';
-                const char *name = m_RomFiles[m_SystemIndices[sys_idx]];
-                if (name == nullptr || *name == '\0') return '?';
-                const char *slash = strchr(name, '/');
-                if (slash != nullptr) {
-                    name = slash + 1;
-                }
-                char c = *name;
-                if (c >= 'a' && c <= 'z') c -= 32;
-                if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
-                return '#';
-            };
-
-            auto get_letter_idx = [](char c) -> int {
-                if (c >= 'A' && c <= 'Z') return c - 'A' + 1; // 1 to 26
-                return 0; // '#' or others
-            };
-
             int part = m_ActiveTab - 2;
             for (int i = 0; i < m_SystemCount; i++) {
-                if (!is_mcd(i)) {
-                    char c = get_char(i);
-                    int idx = get_letter_idx(c);
+                if (!IsMCD(i)) {
+                    char c = GetChar(i);
+                    int idx = GetLetterIdx(c);
                     
                     if (part == 0) {
                         if (idx <= m_TabSplitK1) {
@@ -392,7 +342,7 @@ void COSDMenu::BuildFilteredList() {
     else if (m_ActiveTab == 5) {
         // MCD tab: include only Mega CD games of the current system
         for (int i = 0; i < m_SystemCount; i++) {
-            if (is_mcd(i)) {
+            if (IsMCD(i)) {
                 m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
             }
         }
@@ -574,4 +524,32 @@ void COSDMenu::UnfavoriteCurrent() {
     m_RomFavorites[orig_idx] = FALSE;
     SaveFavorites();
     Update();
+}
+
+boolean COSDMenu::IsMCD(int sys_idx) const {
+    if (sys_idx < 0 || sys_idx >= m_SystemCount) return FALSE;
+    int orig_idx = m_SystemIndices[sys_idx];
+    if (strncmp(m_RomFiles[orig_idx], "megacd/", 7) == 0) {
+        return TRUE;
+    }
+    return m_RomSystems[orig_idx] == RomSystem_MCD;
+}
+
+char COSDMenu::GetChar(int sys_idx) const {
+    if (sys_idx < 0 || sys_idx >= m_SystemCount) return '?';
+    const char *name = m_RomFiles[m_SystemIndices[sys_idx]];
+    if (name == nullptr || *name == '\0') return '?';
+    const char *slash = strchr(name, '/');
+    if (slash != nullptr) {
+        name = slash + 1;
+    }
+    char c = *name;
+    if (c >= 'a' && c <= 'z') c -= 32;
+    if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) return c;
+    return '#';
+}
+
+int COSDMenu::GetLetterIdx(char c) {
+    if (c >= 'A' && c <= 'Z') return c - 'A' + 1;
+    return 0;
 }

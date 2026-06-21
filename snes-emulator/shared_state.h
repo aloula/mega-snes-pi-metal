@@ -4,7 +4,7 @@
 #include <circle/types.h>
 #include "audio_ring_buffer.h"
 
-#define MAX_ROMS 2048
+#define MAX_ROMS 4096
 
 enum EmuMode {
     EmuMode_SNES,
