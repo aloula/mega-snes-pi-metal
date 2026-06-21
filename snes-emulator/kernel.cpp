@@ -730,28 +730,39 @@ void CKernel::RunVideoDomain() {
  
                     if (game_w == 256) {
                         if (game_h <= 240) {
-                            // Case 1: 256x224/239 -> scale 2x horizontally and 2x vertically to 512x448/478
+                            // Case 1: 256x224/239 -> scale 2x horizontally and 2x vertically to 512x448/478 (using optimized 64-bit nearest-neighbor)
                             for (int y = 0; y < game_h; y++) {
-                                u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
-                                u16 *dest1 = pBackBuffer + (start_y + 2 * y) * SCREEN_WIDTH + start_x;
-                                u16 *dest2 = dest1 + SCREEN_WIDTH;
-                                u32 *dest32_1 = (u32 *)dest1;
-                                u32 *dest32_2 = (u32 *)dest2;
-                                for (int x = 0; x < 256; x++) {
-                                    u32 color32 = ((u32)src[x] << 16) | src[x];
-                                    dest32_1[x] = color32;
-                                    dest32_2[x] = color32;
+                                u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256);
+                                u64 *dest64_1 = (u64 *)(pBackBuffer + (start_y + 2 * y) * SCREEN_WIDTH + start_x);
+                                u64 *dest64_2 = dest64_1 + (SCREEN_WIDTH / 4);
+                                for (int x = 0; x < 128; x++) {
+                                    u32 pixels = src32[x];
+                                    u32 p1 = pixels & 0xFFFF;
+                                    u32 p2 = pixels >> 16;
+                                    
+                                    u32 p1_32 = (p1 << 16) | p1;
+                                    u32 p2_32 = (p2 << 16) | p2;
+                                    u64 color64 = ((u64)p2_32 << 32) | p1_32;
+
+                                    dest64_1[x] = color64;
+                                    dest64_2[x] = color64;
                                 }
                             }
                         } else {
                             // Case 3: 256x448/478 (interlaced width 256) -> scale 2x horizontally and 1x vertically to 512x448/478
                             for (int y = 0; y < game_h; y++) {
-                                u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
-                                u16 *dest = pBackBuffer + (start_y + y) * SCREEN_WIDTH + start_x;
-                                u32 *dest32 = (u32 *)dest;
-                                for (int x = 0; x < 256; x++) {
-                                    u32 color32 = ((u32)src[x] << 16) | src[x];
-                                    dest32[x] = color32;
+                                u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256);
+                                u64 *dest64 = (u64 *)(pBackBuffer + (start_y + y) * SCREEN_WIDTH + start_x);
+                                for (int x = 0; x < 128; x++) {
+                                    u32 pixels = src32[x];
+                                    u32 p1 = pixels & 0xFFFF;
+                                    u32 p2 = pixels >> 16;
+                                    
+                                    u32 p1_32 = (p1 << 16) | p1;
+                                    u32 p2_32 = (p2 << 16) | p2;
+                                    u64 color64 = ((u64)p2_32 << 32) | p1_32;
+
+                                    dest64[x] = color64;
                                 }
                             }
                         }
