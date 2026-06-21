@@ -105,6 +105,9 @@ void COSDMenu::ScanRoms() {
             }
             res = f_findnext(&dir, &fileInfo);
         }
+        if (res != FR_OK) {
+            CLogger::Get()->Write("OSD", LogWarning, "f_findnext failed on %s: %d (scanned %d ROMs)", dirPath, res, m_RomCount);
+        }
         f_closedir(&dir);
     };
 
