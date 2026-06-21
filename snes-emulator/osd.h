@@ -36,7 +36,7 @@ private:
     static int GetLetterIdx(char c);
 
 private:
-    enum RomSystem {
+    enum RomSystem : int {
         RomSystem_SNES,
         RomSystem_MD,
         RomSystem_MCD

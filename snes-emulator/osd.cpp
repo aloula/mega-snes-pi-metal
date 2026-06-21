@@ -526,6 +526,9 @@ void COSDMenu::UnfavoriteCurrent() {
 boolean COSDMenu::IsMCD(int sys_idx) const {
     if (sys_idx < 0 || sys_idx >= m_SystemCount) return FALSE;
     int orig_idx = m_SystemIndices[sys_idx];
+    if (strncmp(m_RomFiles[orig_idx], "megacd/", 7) == 0) {
+        return TRUE;
+    }
     return m_RomSystems[orig_idx] == RomSystem_MCD;
 }
 
