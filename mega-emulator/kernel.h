@@ -93,7 +93,7 @@ private:
     COSDMenu           *m_pOSDMenu;
     CEmuOrchestrator   *m_pEmuOrchestrator;
 
-    TShutdownMode       m_ShutdownMode;
+    volatile TShutdownMode m_ShutdownMode;
 
     CGPIOPin            m_PowerPin;
     CGPIOPin            m_ResetPin;

@@ -95,7 +95,7 @@ private:
     CSNESOrchestrator  *m_pSNESOrchestrator;
     CMDOrchestrator    *m_pMDOrchestrator;
 
-    TShutdownMode       m_ShutdownMode;
+    volatile TShutdownMode m_ShutdownMode;
 
     CGPIOPin            m_PowerPin;
     CGPIOPin            m_ResetPin;

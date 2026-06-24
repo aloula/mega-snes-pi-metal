@@ -115,6 +115,27 @@ Maps the standard six-button Sega controller layout:
 
 ---
 
+### 🔌 Retroflag Safe Shutdown & Reset (NESPi, SuperPi, MegaPi cases)
+
+This bare-metal kernel provides native, hardware-level support for the physical buttons and status indicators on Retroflag cases without needing an underlying operating system or Python scripts.
+
+#### Hardware Wiring & Pin Mapping
+* **Power Button** (BCM GPIO 3): Monitored by the kernel. Toggling the power switch to OFF triggers a safe shutdown routine.
+* **Reset Button** (BCM GPIO 2): Monitored by the kernel. Pressing the physical reset button triggers a system reboot.
+* **Status LED** (BCM GPIO 14): Controlled by the kernel. Set to solid HIGH on boot and turns off upon shutdown.
+* **Power Enable / Keep-Alive** (BCM GPIO 4): Kept HIGH on boot to maintain the case power supply circuit. Pulls LOW during shutdown to instruct the case hardware to safely cut the 5V line.
+
+> [!IMPORTANT]
+> Make sure the physical **SAFE SHUTDOWN** switch located on the internal PCB of your Retroflag case is set to **ON** to enable this hardware-level signaling.
+
+#### OSD Safe Shutdown & Reset Messages
+When a button press is detected, the emulator instantly halts gameplay or OSD menu loops and overlays an on-screen dialog:
+* **Shutdown:** Clears the screen and displays `"SHUTTING DOWN..."` on a dark-themed container for 2 seconds. The FAT filesystem is cleanly unmounted, the status LED is turned off, and the power enable pin is pulled low to safely cut the power.
+* **Reset:** Clears the screen and displays `"REBOOTING SYSTEM..."` for 2 seconds. The FAT filesystem is cleanly unmounted, and the system reboots back into the bootloader/OSD menu.
+
+---
+
+
 ### 🛠️ Compilation & Deployment
 
 To compile the projects, you must have the `arm-none-eabi` cross-compilation toolchain and standard build utilities installed on your host system.
