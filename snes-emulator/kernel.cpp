@@ -203,7 +203,7 @@ CKernel::CKernel(void)
       m_pOSDMenu(nullptr),
       m_pSNESOrchestrator(nullptr),
       m_pMDOrchestrator(nullptr),
-      m_ShutdownMode(ShutdownHalt)
+      m_ShutdownMode(ShutdownNone)
 {
     s_pThis = this;
     m_pGamePad[0] = nullptr;
@@ -337,11 +337,13 @@ void CKernel::RunOrchestrator() {
         if (m_PowerPin.Read() == LOW) {
             m_Logger.Write("orchestrator", LogNotice, "Safe shutdown signal detected (Power Button LOW). Shutting down...");
             m_ShutdownMode = ShutdownHalt;
+            CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
             break;
         }
         if (m_ResetPin.Read() == LOW) {
             m_Logger.Write("orchestrator", LogNotice, "Reboot signal detected (Reset Button LOW). Rebooting...");
             m_ShutdownMode = ShutdownReboot;
+            CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
             break;
         }
 
@@ -581,6 +583,30 @@ void CKernel::RunVideoDomain() {
     memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
 
     while (1) {
+        if (m_ShutdownMode != ShutdownNone) {
+            DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
+            
+            // Draw a nice centered dark container
+            int bx1 = SCREEN_WIDTH / 2 - 180;
+            int by1 = SCREEN_HEIGHT / 2 - 50;
+            int bx2 = SCREEN_WIDTH / 2 + 180;
+            int by2 = SCREEN_HEIGHT / 2 + 50;
+            
+            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(3, 3, 3));
+            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(28, 28, 28), 2);
+            
+            const char* msg = (m_ShutdownMode == ShutdownHalt) ? "SHUTTING DOWN..." : "REBOOTING SYSTEM...";
+            int msg_w = strlen(msg) * 8;
+            int msg_x = bx1 + ((bx2 - bx1) - msg_w) / 2;
+            int msg_y = by1 + 42;
+            
+            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(31, 31, 31), 0);
+            
+            memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+            CTimer::SimpleMsDelay(50);
+            continue;
+        }
+
         if (g_SharedState.in_menu) {
             if (g_SharedState.menu_needs_redraw) {
                 g_SharedState.menu_needs_redraw = FALSE;
