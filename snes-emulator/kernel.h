@@ -27,6 +27,7 @@
 #include <circle/usb/usbgamepad.h>
 #include <circle/usb/usbkeyboard.h>
 #include <SDCard/emmc.h>
+#include <circle/gpiopin.h>
 #include "shared_state.h"
 #include "osd.h"
 #include "snes_orchestrator.h"
@@ -93,6 +94,13 @@ private:
     COSDMenu           *m_pOSDMenu;
     CSNESOrchestrator  *m_pSNESOrchestrator;
     CMDOrchestrator    *m_pMDOrchestrator;
+
+    TShutdownMode       m_ShutdownMode;
+
+    CGPIOPin            m_PowerPin;
+    CGPIOPin            m_ResetPin;
+    CGPIOPin            m_LedPin;
+    CGPIOPin            m_PowerEnPin;
 };
 
 #endif

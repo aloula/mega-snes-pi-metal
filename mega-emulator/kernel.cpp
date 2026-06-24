@@ -208,7 +208,8 @@ CKernel::CKernel(void)
       m_MultiCore(CMemorySystem::Get(), this),
       m_pKeyboard(nullptr),
       m_pOSDMenu(nullptr),
-      m_pEmuOrchestrator(nullptr)
+      m_pEmuOrchestrator(nullptr),
+      m_ShutdownMode(ShutdownHalt)
 {
     s_pThis = this;
     m_pGamePad[0] = nullptr;
@@ -217,6 +218,10 @@ CKernel::CKernel(void)
 }
 
 CKernel::~CKernel(void) {
+    if (m_ShutdownMode == ShutdownHalt) {
+        m_PowerEnPin.Write(LOW);
+        m_LedPin.Write(LOW);
+    }
     s_pThis = nullptr;
 }
 
@@ -234,6 +239,21 @@ boolean CKernel::Initialize(void) {
     if (bOK) {
         m_Logger.Write("kernel", LogNotice, "MEGA-PI Kernel Initializing...");
     }
+
+    // Initialize safe shutdown GPIO pins for Retroflag PiCase as early as possible
+    m_PowerEnPin.AssignPin(4);
+    m_PowerEnPin.SetMode(GPIOModeOutput);
+    m_PowerEnPin.Write(HIGH);
+
+    m_LedPin.AssignPin(14);
+    m_LedPin.SetMode(GPIOModeOutput);
+    m_LedPin.Write(HIGH);
+
+    m_PowerPin.AssignPin(3);
+    m_PowerPin.SetMode(GPIOModeInputPullUp);
+
+    m_ResetPin.AssignPin(2);
+    m_ResetPin.SetMode(GPIOModeInputPullUp);
 
     // 3. Initialize Screen (non-fatal if it fails)
     boolean bScreenOK = FALSE;
@@ -277,7 +297,7 @@ TShutdownMode CKernel::Run(void) {
     // Start secondary cores
     m_MultiCore.Run(0);
 
-    return ShutdownHalt;
+    return m_ShutdownMode;
 }
 
 void CKernel::RunOrchestrator() {
@@ -312,6 +332,18 @@ void CKernel::RunOrchestrator() {
     static boolean just_entered_menu = TRUE;
 
     while (1) {
+        // Check safe shutdown / reset GPIO pins for Retroflag PiCase
+        if (m_PowerPin.Read() == LOW) {
+            m_Logger.Write("orchestrator", LogNotice, "Safe shutdown signal detected (Power Button LOW). Shutting down...");
+            m_ShutdownMode = ShutdownHalt;
+            break;
+        }
+        if (m_ResetPin.Read() == LOW) {
+            m_Logger.Write("orchestrator", LogNotice, "Reboot signal detected (Reset Button LOW). Rebooting...");
+            m_ShutdownMode = ShutdownReboot;
+            break;
+        }
+
         // Periodically check SoC temperature and throttle CPU speed if necessary (every 4 seconds)
         static u64 last_temp_check = 0;
         u64 now = CTimer::GetClockTicks64();
@@ -468,6 +500,10 @@ void CKernel::RunOrchestrator() {
             last_time = CTimer::GetClockTicks64();
         }
     }
+
+    // Cleanly unmount the SD card filesystem
+    m_Logger.Write("orchestrator", LogNotice, "Unmounting SD card filesystem...");
+    f_mount(nullptr, "SD:", 0);
 }
 
 void CKernel::RunVideoDomain() {

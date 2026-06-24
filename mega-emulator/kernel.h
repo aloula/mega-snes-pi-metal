@@ -27,6 +27,7 @@
 #include <circle/usb/usbgamepad.h>
 #include <circle/usb/usbkeyboard.h>
 #include <SDCard/emmc.h>
+#include <circle/gpiopin.h>
 #include "shared_state.h"
 #include "osd.h"
 #include "emu_orchestrator.h"
@@ -91,6 +92,13 @@ private:
 
     COSDMenu           *m_pOSDMenu;
     CEmuOrchestrator   *m_pEmuOrchestrator;
+
+    TShutdownMode       m_ShutdownMode;
+
+    CGPIOPin            m_PowerPin;
+    CGPIOPin            m_ResetPin;
+    CGPIOPin            m_LedPin;
+    CGPIOPin            m_PowerEnPin;
 };
 
 #endif
