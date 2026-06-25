@@ -165,11 +165,11 @@ void COSDMenu::FilterSystemRoms() {
 }
 
 void COSDMenu::CalculateTabLabels() {
-    // Tab 0: "ALL"
-    strcpy(m_TabLabels[0], "ALL");
+    // Tab 0: "FAV"
+    strcpy(m_TabLabels[0], "FAV");
 
-    // Tab 1: "FAV"
-    strcpy(m_TabLabels[1], "FAV");
+    // Tab 1: "ALL"
+    strcpy(m_TabLabels[1], "ALL");
 
     // Tab 5: "MCD"
     if (g_SharedState.active_emu_mode != EmuMode_SNES) {
@@ -299,18 +299,18 @@ void COSDMenu::BuildFilteredList() {
     m_FilteredCount = 0;
 
     if (m_ActiveTab == 0) {
-        // ALL tab: include all scanned roms of the current system
-        for (int i = 0; i < m_SystemCount; i++) {
-            m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-        }
-    }
-    else if (m_ActiveTab == 1) {
         // FAV tab: include only favorited roms of the current system
         for (int i = 0; i < m_SystemCount; i++) {
             int orig_idx = m_SystemIndices[i];
             if (m_RomFavorites[orig_idx]) {
                 m_FilteredIndices[m_FilteredCount++] = orig_idx;
             }
+        }
+    }
+    else if (m_ActiveTab == 1) {
+        // ALL tab: include all scanned roms of the current system
+        for (int i = 0; i < m_SystemCount; i++) {
+            m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
         }
     }
     else if (m_ActiveTab >= 2 && m_ActiveTab <= 4) {

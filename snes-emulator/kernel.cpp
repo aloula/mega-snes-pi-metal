@@ -13,6 +13,7 @@
 // Global shared state
 SharedState g_SharedState;
 FATFS *g_pFileSystem = nullptr;
+static u16 s_SplashBuf[640 * 426] __attribute__((aligned(64)));
 
 static CKernel *s_pThis = nullptr;
 static boolean s_Is3ButtonGame = TRUE;
@@ -306,7 +307,7 @@ void CKernel::RunOrchestrator() {
 
     g_pFileSystem = &m_FileSystem;
 
-    g_SharedState.active_emu_mode = EmuMode_SNES;
+    g_SharedState.active_emu_mode = EmuMode_MD;
 
     m_pOSDMenu = new COSDMenu(&m_FileSystem);
     m_pOSDMenu->Initialize();
@@ -582,6 +583,68 @@ void CKernel::RunVideoDomain() {
     DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
     memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
 
+    // Wait until filesystem is mounted by Core 0
+    while (g_pFileSystem == nullptr) {
+        CTimer::SimpleMsDelay(10);
+    }
+
+    // Load and display splash screen
+    FIL splashFile;
+    if (f_open(&splashFile, "SD:/Splash_Screen.raw16", FA_READ) == FR_OK) {
+        UINT bytesRead = 0;
+        FRESULT read_res = f_read(&splashFile, s_SplashBuf, 640 * 426 * sizeof(u16), &bytesRead);
+        f_close(&splashFile);
+
+        if (read_res == FR_OK && bytesRead == 640 * 426 * sizeof(u16)) {
+            // Synchronize data cache for Core 1 to see the raw DMA bytes cleanly
+            CleanAndInvalidateDataCacheRange((u32)s_SplashBuf, 640 * 426 * sizeof(u16));
+
+            // 1. Fade-in (1 second, 50 steps of 20ms)
+            for (int step = 0; step <= 50; step++) {
+                for (int y = 0; y < 426; y++) {
+                    for (int x = 0; x < 640; x++) {
+                        u16 color = s_SplashBuf[y * 640 + x];
+                        u32 r = (color >> 11) & 0x1F;
+                        u32 g = (color >> 5) & 0x3F;
+                        u32 b = color & 0x1F;
+                        r = (r * step) / 50;
+                        g = (g * step) / 50;
+                        b = (b * step) / 50;
+                        pBackBuffer[(27 + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                    }
+                }
+                memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                CTimer::SimpleMsDelay(20);
+            }
+
+            // 2. Solid Display (2 seconds)
+            // Copy the original splash image at full brightness to pBackBuffer
+            for (int y = 0; y < 426; y++) {
+                memcpy(pBackBuffer + (27 + y) * SCREEN_WIDTH, s_SplashBuf + y * 640, 640 * sizeof(u16));
+            }
+            memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+            CTimer::SimpleMsDelay(2000);
+
+            // 3. Fade-out (1 second, 50 steps of 20ms)
+            for (int step = 50; step >= 0; step--) {
+                for (int y = 0; y < 426; y++) {
+                    for (int x = 0; x < 640; x++) {
+                        u16 color = s_SplashBuf[y * 640 + x];
+                        u32 r = (color >> 11) & 0x1F;
+                        u32 g = (color >> 5) & 0x3F;
+                        u32 b = color & 0x1F;
+                        r = (r * step) / 50;
+                        g = (g * step) / 50;
+                        b = (b * step) / 50;
+                        pBackBuffer[(27 + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                    }
+                }
+                memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                CTimer::SimpleMsDelay(20);
+            }
+        }
+    }
+
     while (1) {
         if (m_ShutdownMode != ShutdownNone) {
             DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
@@ -685,7 +748,7 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, COLOR15(6, 6, 6));
 
                 if (num_lines == 0) {
-                    if (active_tab == 1) {
+                    if (active_tab == 0) {
                         DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press Y on a game to favorite it.", 116, 180, COLOR15(31, 31, 31), 0);
                     } else {
                         DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(31, 10, 10), 0);
