@@ -220,6 +220,8 @@ CKernel::CKernel(void)
 CKernel::~CKernel(void) {
     if (m_ShutdownMode == ShutdownHalt) {
         m_PowerEnPin.Write(LOW);
+        m_LedPin.AssignPin(14);
+        m_LedPin.SetMode(GPIOModeOutput);
         m_LedPin.Write(LOW);
     }
     s_pThis = nullptr;
@@ -228,12 +230,20 @@ CKernel::~CKernel(void) {
 boolean CKernel::Initialize(void) {
     boolean bOK = TRUE;
 
-    // 1. Initialize Serial first so we can always output logs to serial
-    bOK = m_Serial.Initialize(115200);
+    // Check if serial logging is enabled in cmdline.txt (e.g. logdev=ttyS1)
+    boolean bEnableSerial = FALSE;
+    const char *pLogDevice = m_Options.GetLogDevice();
+    if (pLogDevice != nullptr && strncmp(pLogDevice, "ttyS", 4) == 0) {
+        bEnableSerial = TRUE;
+    }
 
-    // 2. Initialize Logger next, always targeting Serial (matching mega-pi-metal)
-    if (bOK) {
-        bOK = m_Logger.Initialize(&m_Serial);
+    if (bEnableSerial) {
+        bOK = m_Serial.Initialize(115200);
+        if (bOK) {
+            bOK = m_Logger.Initialize(&m_Serial);
+        }
+    } else {
+        bOK = m_Logger.Initialize(nullptr);
     }
 
     if (bOK) {
@@ -245,15 +255,18 @@ boolean CKernel::Initialize(void) {
     m_PowerEnPin.SetMode(GPIOModeOutput);
     m_PowerEnPin.Write(HIGH);
 
-    m_LedPin.AssignPin(14);
-    m_LedPin.SetMode(GPIOModeOutput);
-    m_LedPin.Write(HIGH);
+    if (!bEnableSerial) {
+        // If serial logging is disabled, BCM 14 is configured as general output to drive the LED
+        m_LedPin.AssignPin(14);
+        m_LedPin.SetMode(GPIOModeOutput);
+        m_LedPin.Write(HIGH);
+    }
 
     m_PowerPin.AssignPin(3);
-    m_PowerPin.SetMode(GPIOModeInputPullUp);
+    m_PowerPin.SetMode(GPIOModeInput);
 
     m_ResetPin.AssignPin(2);
-    m_ResetPin.SetMode(GPIOModeInputPullUp);
+    m_ResetPin.SetMode(GPIOModeInput);
 
     // 3. Initialize Screen (non-fatal if it fails)
     boolean bScreenOK = FALSE;
@@ -332,18 +345,25 @@ void CKernel::RunOrchestrator() {
     static boolean just_entered_menu = TRUE;
 
     while (1) {
-        // Check safe shutdown / reset GPIO pins for Retroflag PiCase
-        if (m_PowerPin.Read() == LOW) {
-            m_Logger.Write("orchestrator", LogNotice, "Safe shutdown signal detected (Power Button LOW). Shutting down...");
-            m_ShutdownMode = ShutdownHalt;
-            CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
-            break;
-        }
-        if (m_ResetPin.Read() == LOW) {
-            m_Logger.Write("orchestrator", LogNotice, "Reboot signal detected (Reset Button LOW). Rebooting...");
-            m_ShutdownMode = ShutdownReboot;
-            CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
-            break;
+        // Check safe shutdown / reset GPIO pins for Retroflag PiCase (every 100ms to reduce overhead/bus lag)
+        {
+            static u64 last_button_check = 0;
+            u64 now = CTimer::GetClockTicks64();
+            if (now - last_button_check >= 100000) { // 100ms (100,000 microseconds)
+                last_button_check = now;
+                if (m_PowerPin.Read() == LOW) {
+                    m_Logger.Write("orchestrator", LogNotice, "Safe shutdown signal detected (Power Button LOW). Shutting down...");
+                    m_ShutdownMode = ShutdownHalt;
+                    CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
+                    break;
+                }
+                if (m_ResetPin.Read() == LOW) {
+                    m_Logger.Write("orchestrator", LogNotice, "Reboot signal detected (Reset Button LOW). Rebooting...");
+                    m_ShutdownMode = ShutdownReboot;
+                    CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
+                    break;
+                }
+            }
         }
 
         // Periodically check SoC temperature and throttle CPU speed if necessary (every 4 seconds)
@@ -539,21 +559,21 @@ void CKernel::RunVideoDomain() {
         if (m_ShutdownMode != ShutdownNone) {
             DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
             
-            // Draw a nice centered dark container
+            // Draw a nice centered dark container (matching OSD colors)
             int bx1 = SCREEN_WIDTH / 2 - 180;
             int by1 = SCREEN_HEIGHT / 2 - 50;
             int bx2 = SCREEN_WIDTH / 2 + 180;
             int by2 = SCREEN_HEIGHT / 2 + 50;
             
-            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(3, 3, 3));
-            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(28, 28, 28), 2);
+            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 6, 2));
+            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(16, 16, 16), 2);
             
             const char* msg = (m_ShutdownMode == ShutdownHalt) ? "SHUTTING DOWN..." : "REBOOTING SYSTEM...";
             int msg_w = strlen(msg) * 8;
             int msg_x = bx1 + ((bx2 - bx1) - msg_w) / 2;
             int msg_y = by1 + 42;
             
-            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(31, 31, 31), 0);
+            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(31, 31, 31), COLOR15(2, 6, 2));
             
             memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
             CTimer::SimpleMsDelay(50);
@@ -877,7 +897,8 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         }
     }
 
-    // 3. Check analog axes as fallback
+    // 3. Check analog axes as fallback (Disabled: not needed for 16-bit games and reduces processing/noise overhead)
+    /*
     if (pState->naxes >= 2 && !(pad & 0xF)) {
         int x = pState->axes[0].value;
         int y = pState->axes[1].value;
@@ -886,6 +907,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         if (y < 64)  pad |= (1 << 0); // Up
         if (y > 192) pad |= (1 << 1); // Down
     }
+    */
 
     // 4. Map Action buttons: A, B, C, Start, X, Y, Z, Mode
     // Sega Mega Drive virtual pads map:
