@@ -22,6 +22,8 @@ private:
     u8 *m_pRomBuffer;
     boolean m_bRomLoaded;
     char m_CurrentRomName[128];
+    u16 m_LastPad1;
+    u16 m_LastPad2;
 };
 
 #endif
