@@ -5,6 +5,17 @@ initial_turbo=60
 disable_splash=1
 hdmi_drive=2
 
+# Force Full HD (1080p 60Hz) output
+hdmi_group=2
+hdmi_mode=82
+
+# Center the 4:3 framebuffer with black pillars on a 16:9 screen
+disable_overscan=0
+overscan_left=240
+overscan_right=240
+overscan_top=0
+overscan_bottom=0
+
 [pi3]
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
