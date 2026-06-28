@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include <circle/usb/usbdevice.h>
 #include <circle/sound/pwmsoundbasedevice.h>
 #include <circle/sound/hdmisoundbasedevice.h>
 #include <circle/timer.h>
@@ -1135,16 +1136,32 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     static u16 last_pad1 = 0xFFFF;
     static u16 last_pad2 = 0xFFFF;
 
-    if (nDeviceIndex == 0) {
-        if (pad != last_pad2) {
-            last_pad2 = pad;
-            g_SharedState.pad2 = pad;
-            DataMemBarrier();
+    boolean use_dev0_as_pad1 = TRUE;
+
+    if (s_pThis != nullptr) {
+        if (s_pThis->m_pGamePad[0] != nullptr && s_pThis->m_pGamePad[1] != nullptr) {
+            unsigned port0 = s_pThis->m_pGamePad[0]->GetDevice()->GetHubPortNumber();
+            unsigned port1 = s_pThis->m_pGamePad[1]->GetDevice()->GetHubPortNumber();
+            if (port0 > port1) {
+                use_dev0_as_pad1 = FALSE;
+            }
+        } else if (s_pThis->m_pGamePad[0] == nullptr && s_pThis->m_pGamePad[1] != nullptr) {
+            use_dev0_as_pad1 = FALSE;
         }
-    } else {
+    }
+
+    boolean is_pad1 = (nDeviceIndex == 0) ? use_dev0_as_pad1 : !use_dev0_as_pad1;
+
+    if (is_pad1) {
         if (pad != last_pad1) {
             last_pad1 = pad;
             g_SharedState.pad1 = pad;
+            DataMemBarrier();
+        }
+    } else {
+        if (pad != last_pad2) {
+            last_pad2 = pad;
+            g_SharedState.pad2 = pad;
             DataMemBarrier();
         }
     }
