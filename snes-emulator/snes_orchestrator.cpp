@@ -53,8 +53,12 @@ bool8 S9xDeinitUpdate(int width, int height) {
     u16 *dest = g_SharedState.emu_frame_buffer[idx];
     int src_stride = GFX.Pitch / sizeof(u16);
     
-    for (int y = 0; y < height; y++) {
-        memcpy(dest + y * width, src + y * src_stride, width * sizeof(u16));
+    if (src_stride == width) {
+        memcpy(dest, src, width * height * sizeof(u16));
+    } else {
+        for (int y = 0; y < height; y++) {
+            memcpy(dest + y * width, src + y * src_stride, width * sizeof(u16));
+        }
     }
 
     g_SharedState.emu_read_idx = idx;
@@ -143,7 +147,9 @@ void S9xSyncSpeed(void) {
 CSNESOrchestrator::CSNESOrchestrator(FATFS *pFileSystem)
     : m_pFileSystem(pFileSystem),
       m_pRomBuffer(nullptr),
-      m_bRomLoaded(FALSE)
+      m_bRomLoaded(FALSE),
+      m_LastPad1(0xFFFF),
+      m_LastPad2(0xFFFF)
 {
 }
 
@@ -264,6 +270,8 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "LoadROM successfully completed!");
 
     m_bRomLoaded = TRUE;
+    m_LastPad1 = 0xFFFF;
+    m_LastPad2 = 0xFFFF;
     return TRUE;
 }
 
@@ -276,36 +284,42 @@ void CSNESOrchestrator::RunFrame() {
         pad1 = 0; // Mask inputs when START + SELECT is held
     }
 
-    S9xReportButton(0, (pad1 & (1 << 0)) != 0); // Up
-    S9xReportButton(1, (pad1 & (1 << 1)) != 0); // Down
-    S9xReportButton(2, (pad1 & (1 << 2)) != 0); // Left
-    S9xReportButton(3, (pad1 & (1 << 3)) != 0); // Right
-    S9xReportButton(4, (pad1 & (1 << 4)) != 0); // A
-    S9xReportButton(5, (pad1 & (1 << 5)) != 0); // B
-    S9xReportButton(6, (pad1 & (1 << 6)) != 0); // X
-    S9xReportButton(7, (pad1 & (1 << 7)) != 0); // Y
-    S9xReportButton(8, (pad1 & (1 << 8)) != 0); // L
-    S9xReportButton(9, (pad1 & (1 << 9)) != 0); // R
-    S9xReportButton(10, (pad1 & (1 << 10)) != 0); // Start
-    S9xReportButton(11, (pad1 & (1 << 11)) != 0); // Select
+    if (pad1 != m_LastPad1) {
+        S9xReportButton(0, (pad1 & (1 << 0)) != 0); // Up
+        S9xReportButton(1, (pad1 & (1 << 1)) != 0); // Down
+        S9xReportButton(2, (pad1 & (1 << 2)) != 0); // Left
+        S9xReportButton(3, (pad1 & (1 << 3)) != 0); // Right
+        S9xReportButton(4, (pad1 & (1 << 4)) != 0); // A
+        S9xReportButton(5, (pad1 & (1 << 5)) != 0); // B
+        S9xReportButton(6, (pad1 & (1 << 6)) != 0); // X
+        S9xReportButton(7, (pad1 & (1 << 7)) != 0); // Y
+        S9xReportButton(8, (pad1 & (1 << 8)) != 0); // L
+        S9xReportButton(9, (pad1 & (1 << 9)) != 0); // R
+        S9xReportButton(10, (pad1 & (1 << 10)) != 0); // Start
+        S9xReportButton(11, (pad1 & (1 << 11)) != 0); // Select
+        m_LastPad1 = pad1;
+    }
 
     u16 pad2 = g_SharedState.pad2;
     if ((pad2 & (1 << 10)) && (pad2 & (1 << 11))) {
         pad2 = 0;
     }
 
-    S9xReportButton(12, (pad2 & (1 << 0)) != 0); // Up
-    S9xReportButton(13, (pad2 & (1 << 1)) != 0); // Down
-    S9xReportButton(14, (pad2 & (1 << 2)) != 0); // Left
-    S9xReportButton(15, (pad2 & (1 << 3)) != 0); // Right
-    S9xReportButton(16, (pad2 & (1 << 4)) != 0); // A
-    S9xReportButton(17, (pad2 & (1 << 5)) != 0); // B
-    S9xReportButton(18, (pad2 & (1 << 6)) != 0); // X
-    S9xReportButton(19, (pad2 & (1 << 7)) != 0); // Y
-    S9xReportButton(20, (pad2 & (1 << 8)) != 0); // L
-    S9xReportButton(21, (pad2 & (1 << 9)) != 0); // R
-    S9xReportButton(22, (pad2 & (1 << 10)) != 0); // Start
-    S9xReportButton(23, (pad2 & (1 << 11)) != 0); // Select
+    if (pad2 != m_LastPad2) {
+        S9xReportButton(12, (pad2 & (1 << 0)) != 0); // Up
+        S9xReportButton(13, (pad2 & (1 << 1)) != 0); // Down
+        S9xReportButton(14, (pad2 & (1 << 2)) != 0); // Left
+        S9xReportButton(15, (pad2 & (1 << 3)) != 0); // Right
+        S9xReportButton(16, (pad2 & (1 << 4)) != 0); // A
+        S9xReportButton(17, (pad2 & (1 << 5)) != 0); // B
+        S9xReportButton(18, (pad2 & (1 << 6)) != 0); // X
+        S9xReportButton(19, (pad2 & (1 << 7)) != 0); // Y
+        S9xReportButton(20, (pad2 & (1 << 8)) != 0); // L
+        S9xReportButton(21, (pad2 & (1 << 9)) != 0); // R
+        S9xReportButton(22, (pad2 & (1 << 10)) != 0); // Start
+        S9xReportButton(23, (pad2 & (1 << 11)) != 0); // Select
+        m_LastPad2 = pad2;
+    }
 
     // 2. Wait until video frame buffer is consumed by Core 1 (Video domain)
     while (g_SharedState.video_frame_ready) {

@@ -98,24 +98,36 @@ static boolean is6ButtonGame(const char *pRomName) {
 
 // Helper drawing utilities
 static void DrawRect(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u16 color) {
+    int width = x2 - x1 + 1;
+    if (width <= 0) return;
+    u16 *row = pBuffer + y1 * nPitch + x1;
     for (int y = y1; y <= y2; y++) {
-        for (int x = x1; x <= x2; x++) {
-            pBuffer[y * nPitch + x] = color;
+        for (int x = 0; x < width; x++) {
+            row[x] = color;
         }
+        row += nPitch;
     }
 }
 
 static void DrawBox(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u16 color, int border_width = 1) {
     for (int b = 0; b < border_width; b++) {
+        int ty = y1 + b;
+        int by = y2 - b;
+        u16 *top_row = pBuffer + ty * nPitch;
+        u16 *bottom_row = pBuffer + by * nPitch;
         // Top and bottom lines
         for (int x = x1 + b; x <= x2 - b; x++) {
-            pBuffer[(y1 + b) * nPitch + x] = color;
-            pBuffer[(y2 - b) * nPitch + x] = color;
+            top_row[x] = color;
+            bottom_row[x] = color;
         }
         // Left and right lines
-        for (int y = y1 + b; y <= y2 - b; y++) {
-            pBuffer[y * nPitch + (x1 + b)] = color;
-            pBuffer[y * nPitch + (x2 - b)] = color;
+        int lx = x1 + b;
+        int rx = x2 - b;
+        u16 *row = pBuffer + ty * nPitch;
+        for (int y = ty; y <= by; y++) {
+            row[lx] = color;
+            row[rx] = color;
+            row += nPitch;
         }
     }
 }
@@ -124,15 +136,17 @@ static void DrawChar(u16 *pBuffer, u32 nPitch, char c, int x, int y, u16 fg, u16
     unsigned char uc = (unsigned char)c;
     if (uc < Font8x16.first_char || uc > Font8x16.last_char) return;
     const u8 *char_data = (const u8 *)Font8x16.data + (uc - Font8x16.first_char) * Font8x16.height;
+    u16 *dest_row = pBuffer + y * nPitch + x;
     for (unsigned row = 0; row < Font8x16.height; row++) {
         u8 pixels = char_data[row];
         for (unsigned col = 0; col < Font8x16.width; col++) {
             if (pixels & (0x80 >> col)) {
-                pBuffer[(y + row) * nPitch + (x + col)] = fg;
+                dest_row[col] = fg;
             } else if (bg != 0) {
-                pBuffer[(y + row) * nPitch + (x + col)] = bg;
+                dest_row[col] = bg;
             }
         }
+        dest_row += nPitch;
     }
 }
 
@@ -407,6 +421,7 @@ void CKernel::RunOrchestrator() {
 
             static int activeRepeatKey = 0;
             static u64 lastRepeatTime = 0;
+            static u64 repeatKeyStartTime = 0;
             static boolean repeatPhase = FALSE;
 
             boolean doUp = (pressed & (1 << 0)) != 0;
@@ -416,10 +431,17 @@ void CKernel::RunOrchestrator() {
                 if (activeRepeatKey != repeatKey) {
                     activeRepeatKey = repeatKey;
                     lastRepeatTime = CTimer::GetClockTicks64();
+                    repeatKeyStartTime = lastRepeatTime;
                     repeatPhase = FALSE;
                 } else {
-                    u64 elapsedMs = (CTimer::GetClockTicks64() - lastRepeatTime) / 1000;
-                    u64 threshold = repeatPhase ? 80 : 400;
+                    u64 now = CTimer::GetClockTicks64();
+                    u64 elapsedMs = (now - lastRepeatTime) / 1000;
+                    u64 heldTotalMs = (now - repeatKeyStartTime) / 1000;
+                    
+                    boolean isLongList = g_SharedState.menu_num_lines > 17;
+                    boolean isFastScroll = isLongList && (heldTotalMs >= 4000);
+                    
+                    u64 threshold = repeatPhase ? (isFastScroll ? 40 : 80) : 400;
                     if (elapsedMs >= threshold) {
                         if (repeatKey == 1) doUp = TRUE;
                         if (repeatKey == 2) doDown = TRUE;
