@@ -622,7 +622,7 @@ void CKernel::RunVideoDomain() {
 
                 // Draw Title (pure white)
                 char title_str[64];
-                snprintf(title_str, sizeof(title_str), "--- MEGA-PI BAREMETAL EMULATOR ---");
+                snprintf(title_str, sizeof(title_str), "--- Sega Mega Drive - Jojoca ---");
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(31, 31, 31), 0);

@@ -733,9 +733,9 @@ void CKernel::RunVideoDomain() {
                 // Draw Title (pure white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    snprintf(title_str, sizeof(title_str), "--- MEGA-SNES PI METAL (SNES) ---");
+                    snprintf(title_str, sizeof(title_str), "--- Nintendo SNES - Jojoca ---");
                 } else {
-                    snprintf(title_str, sizeof(title_str), "--- MEGA-SNES PI METAL (Mega Drive) ---");
+                    snprintf(title_str, sizeof(title_str), "--- Sega Mega Drive - Jojoca ---");
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
