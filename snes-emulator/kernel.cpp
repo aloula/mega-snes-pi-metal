@@ -394,7 +394,7 @@ void CKernel::RunOrchestrator() {
             // OSD Menu navigation using gamepad/keyboard pad state with auto scrolling
             static u16 prev_pad1 = 0;
             static boolean start_released = TRUE;
-            u16 pad1 = g_SharedState.pad1;
+            u16 pad1 = g_SharedState.pad1 | g_SharedState.pad2;
             
             if (just_entered_menu) {
                 prev_pad1 = pad1;
@@ -1199,15 +1199,15 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     static u16 last_pad2 = 0xFFFF;
 
     if (nDeviceIndex == 0) {
-        if (pad != last_pad1) {
-            last_pad1 = pad;
-            g_SharedState.pad1 = pad;
-            DataMemBarrier();
-        }
-    } else {
         if (pad != last_pad2) {
             last_pad2 = pad;
             g_SharedState.pad2 = pad;
+            DataMemBarrier();
+        }
+    } else {
+        if (pad != last_pad1) {
+            last_pad1 = pad;
+            g_SharedState.pad1 = pad;
             DataMemBarrier();
         }
     }
