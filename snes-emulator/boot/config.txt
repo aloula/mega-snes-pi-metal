@@ -19,7 +19,7 @@ overscan_bottom=0
 [pi3]
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
-arm_freq=1200
+# arm_freq=1200  # Commented out to run Pi 3B+ at native 1.4 GHz
 force_turbo=1
 
 [pi4]

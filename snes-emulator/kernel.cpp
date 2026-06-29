@@ -688,6 +688,7 @@ void CKernel::RunVideoDomain() {
         }
     }
 
+    boolean was_in_menu = TRUE;
     while (1) {
         if (m_ShutdownMode != ShutdownNone) {
             DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
@@ -714,6 +715,7 @@ void CKernel::RunVideoDomain() {
         }
 
         if (g_SharedState.in_menu) {
+            was_in_menu = TRUE;
             if (g_SharedState.menu_needs_redraw) {
                 g_SharedState.menu_needs_redraw = FALSE;
 
@@ -862,6 +864,22 @@ void CKernel::RunVideoDomain() {
             if (g_SharedState.video_frame_ready) {
                 g_SharedState.video_frame_ready = FALSE;
  
+                // Wait for vertical sync before drawing directly to the hardware framebuffer to prevent tearing
+                pFB->WaitForVerticalSync();
+
+                if (was_in_menu) {
+                    was_in_menu = FALSE;
+                    // Clear both pBackBuffer and the hardware framebuffer to black once when entering the game
+                    memset(pBackBuffer, 0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                    if (nPitch == SCREEN_WIDTH) {
+                        memset(pBuf, 0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                    } else {
+                        for (u32 y = 0; y < SCREEN_HEIGHT; y++) {
+                            memset(pBuf + y * nPitch, 0, SCREEN_WIDTH * sizeof(u16));
+                        }
+                    }
+                }
+
                 static u32 draw_count = 0;
                 draw_count++;
  
@@ -884,25 +902,13 @@ void CKernel::RunVideoDomain() {
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
  
-                    // Draw to cached pBackBuffer first
-                    // Top and bottom borders (clear unused areas)
-                    if (start_y > 0) {
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, start_y - 1, 0);
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, 0, start_y + out_h, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, 0);
-                    }
-                    // Left and right black margins for the centered game view
-                    for (int y = start_y; y < start_y + out_h; y++) {
-                        memset(pBackBuffer + y * SCREEN_WIDTH, 0, start_x * sizeof(u16));
-                        memset(pBackBuffer + y * SCREEN_WIDTH + (start_x + out_w), 0, (SCREEN_WIDTH - (start_x + out_w)) * sizeof(u16));
-                    }
- 
                     if (game_w == 256) {
                         if (game_h <= 240) {
                             // Case 1: 256x224/239 -> scale 2x horizontally and 2x vertically to 512x448/478 (using optimized 64-bit nearest-neighbor)
                             for (int y = 0; y < game_h; y++) {
                                 u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256);
-                                u64 *dest64_1 = (u64 *)(pBackBuffer + (start_y + 2 * y) * SCREEN_WIDTH + start_x);
-                                u64 *dest64_2 = dest64_1 + (SCREEN_WIDTH / 4);
+                                u64 *dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch + start_x);
+                                u64 *dest64_2 = dest64_1 + (nPitch / 4);
                                 for (int x = 0; x < 128; x++) {
                                     u32 pixels = src32[x];
                                     u32 p1 = pixels & 0xFFFF;
@@ -920,7 +926,7 @@ void CKernel::RunVideoDomain() {
                             // Case 3: 256x448/478 (interlaced width 256) -> scale 2x horizontally and 1x vertically to 512x448/478
                             for (int y = 0; y < game_h; y++) {
                                 u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256);
-                                u64 *dest64 = (u64 *)(pBackBuffer + (start_y + y) * SCREEN_WIDTH + start_x);
+                                u64 *dest64 = (u64 *)(pBuf + (start_y + y) * nPitch + start_x);
                                 for (int x = 0; x < 128; x++) {
                                     u32 pixels = src32[x];
                                     u32 p1 = pixels & 0xFFFF;
@@ -939,8 +945,8 @@ void CKernel::RunVideoDomain() {
                             // Case 2: 512x224/239 (hires width) -> scale 1x horizontally and 2x vertically to 512x448/478
                             for (int y = 0; y < game_h; y++) {
                                 u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
-                                u16 *dest1 = pBackBuffer + (start_y + 2 * y) * SCREEN_WIDTH + start_x;
-                                u16 *dest2 = dest1 + SCREEN_WIDTH;
+                                u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
+                                u16 *dest2 = dest1 + nPitch;
                                 memcpy(dest1, src, 512 * sizeof(u16));
                                 memcpy(dest2, src, 512 * sizeof(u16));
                             }
@@ -948,7 +954,7 @@ void CKernel::RunVideoDomain() {
                             // Case 4: 512x448/478 (hires + interlaced) -> scale 1x horizontally and 1x vertically to 512x448/478
                             for (int y = 0; y < game_h; y++) {
                                 u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
-                                u16 *dest = pBackBuffer + (start_y + y) * SCREEN_WIDTH + start_x;
+                                u16 *dest = pBuf + (start_y + y) * nPitch + start_x;
                                 memcpy(dest, src, 512 * sizeof(u16));
                             }
                         }
@@ -969,18 +975,11 @@ void CKernel::RunVideoDomain() {
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
  
-                    // Draw to cached pBackBuffer first
-                    // Top and bottom borders (clear unused areas)
-                    if (start_y > 0) {
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, start_y - 1, 0);
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, 0, start_y + out_h, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, 0);
-                    }
- 
                     // Upscale using optimized 64-bit integer 2x nearest neighbor (reading from stride 320)
                     for (int y = 0; y < game_h; y++) {
                         u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320);
-                        u64 *dest64_1 = (u64 *)(pBackBuffer + (start_y + 2 * y) * SCREEN_WIDTH);
-                        u64 *dest64_2 = dest64_1 + (SCREEN_WIDTH / 4);
+                        u64 *dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch);
+                        u64 *dest64_2 = dest64_1 + (nPitch / 4);
  
                         for (int x = 0; x < 160; x++) {
                             u32 pixels = src32[x];
@@ -994,16 +993,6 @@ void CKernel::RunVideoDomain() {
                             dest64_1[x] = color64;
                             dest64_2[x] = color64;
                         }
-                    }
-                }
- 
-                // Wait for vertical sync and do a single fast copy to the hardware framebuffer
-                pFB->WaitForVerticalSync();
-                if (nPitch == SCREEN_WIDTH) {
-                    memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-                } else {
-                    for (int y = 0; y < SCREEN_HEIGHT; y++) {
-                        memcpy(pBuf + y * nPitch, pBackBuffer + y * SCREEN_WIDTH, SCREEN_WIDTH * sizeof(u16));
                     }
                 }
             } else {
