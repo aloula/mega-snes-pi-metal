@@ -18,6 +18,7 @@ struct SharedState {
     volatile boolean escape_pressed __attribute__((aligned(64)));
     volatile boolean save_state_requested __attribute__((aligned(64)));
     volatile boolean load_state_requested __attribute__((aligned(64)));
+    volatile boolean rewind_requested __attribute__((aligned(64)));
 
     volatile boolean in_menu __attribute__((aligned(64)));
     volatile boolean menu_needs_redraw __attribute__((aligned(64)));

@@ -570,6 +570,16 @@ void CKernel::RunOrchestrator() {
                 // Blink the activity LED 3 times quickly to confirm load
                 m_ActLED.Blink(3, 50, 50);
             }
+            if (g_SharedState.rewind_requested) {
+                g_SharedState.rewind_requested = FALSE;
+                if (g_SharedState.active_emu_mode == EmuMode_SNES) {
+                    m_pSNESOrchestrator->RewindState();
+                } else {
+                    m_pMDOrchestrator->RewindState();
+                }
+                // Blink the activity LED 1 time quickly to confirm rewind
+                m_ActLED.Blink(1, 50, 50);
+            }
 
             // Lock to 60/50 FPS (using microsecond precision ticks depending on active ROM region)
             s64 frame_time = 16666; // default 60 FPS (16.666 ms)
@@ -1110,8 +1120,12 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         g_SharedState.escape_pressed = TRUE;
     }
 
-    // SELECT + D-pad combos for state save/load
+    // SELECT + D-pad combos for state save/load/rewind
     if (pState->buttons & GamePadButtonSelect) {
+        if (pad & (1 << 0)) { // D-pad Up -> Rewind state
+            g_SharedState.rewind_requested = TRUE;
+            pad = 0; // Mask inputs when combo is held
+        }
         if (pad & (1 << 2)) { // D-pad Left -> Save state
             g_SharedState.save_state_requested = TRUE;
             pad = 0; // Mask inputs when combo is held
@@ -1202,6 +1216,7 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
 
         if (key == 0x29) escape = TRUE; // Escape -> return to menu
         if (key == 0x3E) g_SharedState.save_state_requested = TRUE; // F5 -> save state
+        if (key == 0x3F) g_SharedState.rewind_requested = TRUE;     // F6 -> rewind state
         if (key == 0x41) g_SharedState.load_state_requested = TRUE; // F8 -> load state
     }
 

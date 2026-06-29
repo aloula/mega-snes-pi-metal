@@ -12,9 +12,84 @@ extern "C" {
 #endif
 #define UTYPES_DEFINED 1
 #include <pico/pico_int.h>
+#include <pico/state.h>
 #ifdef __cplusplus
 }
 #endif
+
+// In-memory save state structure and callbacks for PicoDrive
+struct savestate_state {
+   const char *load_buf;
+   char *save_buf;
+   size_t size;
+   size_t pos;
+};
+
+static size_t state_read(void *p, size_t size, size_t nmemb, void *file)
+{
+   struct savestate_state *state = (struct savestate_state *)file;
+   size_t bsize = size * nmemb;
+
+   if (state->pos + bsize > state->size) {
+      bsize = state->size - state->pos;
+      if ((int)bsize <= 0)
+         return 0;
+   }
+
+   memcpy(p, state->load_buf + state->pos, bsize);
+   state->pos += bsize;
+   return bsize;
+}
+
+static size_t state_write(void *p, size_t size, size_t nmemb, void *file)
+{
+   struct savestate_state *state = (struct savestate_state *)file;
+   size_t bsize = size * nmemb;
+
+   if (state->pos + bsize > state->size) {
+      bsize = state->size - state->pos;
+      if ((int)bsize <= 0)
+         return 0;
+   }
+
+   memcpy(state->save_buf + state->pos, p, bsize);
+   state->pos += bsize;
+   return bsize;
+}
+
+static size_t state_skip(void *p, size_t size, size_t nmemb, void *file)
+{
+   struct savestate_state *state = (struct savestate_state *)file;
+   size_t bsize = size * nmemb;
+
+   state->pos += bsize;
+   return bsize;
+}
+
+static size_t state_eof(void *file)
+{
+   struct savestate_state *state = (struct savestate_state *)file;
+
+   return state->pos >= state->size;
+}
+
+static int state_fseek(void *file, long offset, int whence)
+{
+   struct savestate_state *state = (struct savestate_state *)file;
+
+   switch (whence) {
+   case SEEK_SET:
+      state->pos = offset;
+      break;
+   case SEEK_CUR:
+      state->pos += offset;
+      break;
+   case SEEK_END:
+      state->pos = state->size + offset;
+      break;
+   }
+   return (int)state->pos;
+}
 
 #define ROM_BUFFER_SIZE (8 * 1024 * 1024)
 
@@ -72,11 +147,24 @@ CEmuOrchestrator::CEmuOrchestrator(FATFS *pFileSystem)
       m_pRomBuffer(nullptr),
       m_bRomLoaded(FALSE)
 {
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_nStateSize = 0;
+    for (int i = 0; i < 6; i++) {
+        m_pRewindBuffers[i] = nullptr;
+    }
 }
 
 CEmuOrchestrator::~CEmuOrchestrator() {
     if (m_pRomBuffer) {
         delete[] m_pRomBuffer;
+    }
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
     }
 }
 
@@ -252,6 +340,38 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Emulator power-on and reset completed!");
 
+    // Free existing rewind buffers if any
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
+    }
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_nStateSize = 0;
+
+    // Detect state size using dry run
+    struct savestate_state temp_state = { 0 };
+    temp_state.load_buf = nullptr;
+    temp_state.save_buf = nullptr;
+    temp_state.size = 0;
+    temp_state.pos = 0;
+    int size_ret = PicoStateFP(&temp_state, 1, nullptr, state_skip, nullptr, state_fseek);
+    if (size_ret == 0 && temp_state.pos > 0) {
+        m_nStateSize = temp_state.pos;
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "PicoDrive state size detected: %u bytes", m_nStateSize);
+    } else {
+        m_nStateSize = 512 * 1024; // Fallback to 512KB
+        CLogger::Get()->Write(FromOrchestrator, LogWarning, "PicoDrive state size detection failed, using fallback: %u bytes", m_nStateSize);
+    }
+
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
+    for (int i = 0; i < 6; i++) {
+        m_pRewindBuffers[i] = new u8[m_nStateSize];
+    }
+
     m_bRomLoaded = TRUE;
     return TRUE;
 }
@@ -289,6 +409,9 @@ void CEmuOrchestrator::RunFrame() {
 
     // Run emulator frame
     PicoFrame();
+
+    // Capture rewind state if 1 second elapsed
+    CaptureRewindState();
 
     if (frame_count < 10) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "RunFrame finished frame %d.", frame_count);
@@ -350,4 +473,61 @@ void CEmuOrchestrator::LoadState(int slot) {
 
 boolean CEmuOrchestrator::IsPAL() const {
     return Pico.m.pal ? TRUE : FALSE;
+}
+
+void CEmuOrchestrator::CaptureRewindState() {
+    if (!m_bRomLoaded || m_nStateSize == 0) return;
+
+    m_nRewindFrameCounter++;
+    u32 framesPerSec = IsPAL() ? 50 : 60;
+    if (m_nRewindFrameCounter >= framesPerSec) {
+        m_nRewindFrameCounter = 0;
+
+        if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
+            struct savestate_state state = { 0 };
+            state.save_buf = (char *)m_pRewindBuffers[m_nRewindWriteIdx];
+            state.load_buf = nullptr;
+            state.size = m_nStateSize;
+            state.pos = 0;
+
+            int ret = PicoStateFP(&state, 1, nullptr, state_write, nullptr, state_fseek);
+            if (ret == 0) {
+                m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 6;
+                if (m_nRewindCount < 6) {
+                    m_nRewindCount++;
+                }
+            } else {
+                CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to capture rewind state! error=%d", ret);
+            }
+        }
+    }
+}
+
+void CEmuOrchestrator::RewindState() {
+    if (!m_bRomLoaded || m_nRewindCount == 0) return;
+
+    // The oldest state is index 0 if not full, or m_nRewindWriteIdx if full (exactly 5s ago)
+    int loadIdx = (m_nRewindCount == 6) ? m_nRewindWriteIdx : 0;
+
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD state... loading index %d", loadIdx);
+    if (m_pRewindBuffers[loadIdx] != nullptr) {
+        struct savestate_state state = { 0 };
+        state.load_buf = (const char *)m_pRewindBuffers[loadIdx];
+        state.save_buf = nullptr;
+        state.size = m_nStateSize;
+        state.pos = 0;
+
+        int ret = PicoStateFP(&state, 0, state_read, nullptr, state_eof, state_fseek);
+        if (ret == 0) {
+            CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
+            // Reset rewind buffers to clean slate with current loaded state
+            m_nRewindWriteIdx = 0;
+            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], m_nStateSize);
+            m_nRewindWriteIdx = 1;
+            m_nRewindCount = 1;
+            m_nRewindFrameCounter = 0;
+        } else {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);
+        }
+    }
 }
