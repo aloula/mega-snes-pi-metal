@@ -8,7 +8,8 @@
 
 enum EmuMode {
     EmuMode_SNES,
-    EmuMode_MD
+    EmuMode_MD,
+    EmuMode_NES
 };
 
 struct SharedState {

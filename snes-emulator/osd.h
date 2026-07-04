@@ -39,7 +39,8 @@ private:
     enum RomSystem : int {
         RomSystem_SNES,
         RomSystem_MD,
-        RomSystem_MCD
+        RomSystem_MCD,
+        RomSystem_NES
     };
 
     FATFS *m_pFileSystem;

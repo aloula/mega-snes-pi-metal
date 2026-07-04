@@ -320,7 +320,7 @@ boolean CKernel::Initialize(void) {
 }
 
 TShutdownMode CKernel::Run(void) {
-    m_Logger.Write("kernel", LogNotice, "MEGA-PI Baremetal Sega Mega Drive Emulator Booting...");
+    m_Logger.Write("kernel", LogNotice, "MD-NES-SNES Baremetal Emulator Booting...");
     
     // Start secondary cores
     m_MultiCore.Run(0);
@@ -631,7 +631,7 @@ void CKernel::RunVideoDomain() {
 
                 // Draw Title (pure white)
                 char title_str[64];
-                snprintf(title_str, sizeof(title_str), "--- MEGA-PI BAREMETAL EMULATOR ---");
+                snprintf(title_str, sizeof(title_str), "--- MD-NES-SNES BAREMETAL EMULATOR ---");
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(31, 31, 31), 0);

@@ -1,5 +1,5 @@
 #
-# Makefile for Combined SNES-PI and MEGA-PI baremetal emulator
+# Makefile for Combined MD-NES-SNES baremetal emulator
 #
 
 CIRCLEHOME = ../circle
@@ -146,6 +146,21 @@ OBJS	= main.o kernel.o osd.o snes_orchestrator.o md_orchestrator.o clib_stubs.o 
 	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/decompress/zstd_decompress_block.o \
 	  ../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib/decompress/zstd_decompress.o
 
+# Nestopia files
+NESTOPIA_DIR = ../nestopia/source
+NESTOPIA_SRCS = $(wildcard $(NESTOPIA_DIR)/core/*.cpp) \
+                $(wildcard $(NESTOPIA_DIR)/core/api/*.cpp) \
+                $(wildcard $(NESTOPIA_DIR)/core/board/*.cpp) \
+                $(wildcard $(NESTOPIA_DIR)/core/input/*.cpp) \
+                $(wildcard $(NESTOPIA_DIR)/core/vssystem/*.cpp)
+
+NESTOPIA_C_SRCS = $(NESTOPIA_DIR)/core/NstVideoFilterNtscCfg.c
+
+NESTOPIA_OBJS = $(NESTOPIA_SRCS:.cpp=.o)
+NESTOPIA_C_OBJS = $(NESTOPIA_C_SRCS:.c=.o)
+
+OBJS += $(NESTOPIA_OBJS) $(NESTOPIA_C_OBJS) nes_orchestrator.o
+
 SNESPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 MEGAPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 
@@ -160,6 +175,7 @@ INCS     = -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu \
            -I../picodrive/pico/cd/libchdr/include \
            -I../picodrive/pico/cd/libchdr/deps/lzma-24.05/include \
            -I../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib \
+           -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api \
            -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon \
            -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
@@ -201,6 +217,15 @@ snes_orchestrator.o: CPPFLAGS += -I../snes9x -I../snes9x/apu -I../snes9x/apu/bap
 md_orchestrator.o: INCS = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -I../picodrive/pico/cd/libchdr/include -I../picodrive/pico/cd/libchdr/deps/lzma-24.05/include -I../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon
 md_orchestrator.o: CFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib
 md_orchestrator.o: CPPFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib
+
+../nestopia/%.o: INCS = -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
+../nestopia/%.o: CFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI
+../nestopia/%.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive
+
+nes_orchestrator.o: INCS = -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
+nes_orchestrator.o: CFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI
+nes_orchestrator.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive
+
 
 # Custom assembler rule for lowercase .s files (Cyclone, etc.)
 %.o: %.s
