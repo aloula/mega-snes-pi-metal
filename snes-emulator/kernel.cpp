@@ -218,6 +218,7 @@ CKernel::CKernel(void)
       m_pOSDMenu(nullptr),
       m_pSNESOrchestrator(nullptr),
       m_pMDOrchestrator(nullptr),
+      m_pNESOrchestrator(nullptr),
       m_ShutdownMode(ShutdownNone)
 {
     s_pThis = this;
@@ -314,7 +315,7 @@ boolean CKernel::Initialize(void) {
 }
 
 TShutdownMode CKernel::Run(void) {
-    m_Logger.Write("kernel", LogNotice, "MEGA-SNES Pi Metal Baremetal Emulator Booting...");
+    m_Logger.Write("kernel", LogNotice, "MD-NES-SNES Baremetal Emulator Booting...");
     
     // Start secondary cores
     m_MultiCore.Run(0);
@@ -344,6 +345,9 @@ void CKernel::RunOrchestrator() {
 
     m_pMDOrchestrator = new CMDOrchestrator(&m_FileSystem);
     m_pMDOrchestrator->Initialize();
+
+    m_pNESOrchestrator = new CNESOrchestrator(&m_FileSystem);
+    m_pNESOrchestrator->Initialize();
 
     // Turn activity LED OFF once the emulator has fully booted (HDD LED style)
     m_ActLED.Off();
@@ -480,10 +484,22 @@ void CKernel::RunOrchestrator() {
                 m_pOSDMenu->UnfavoriteCurrent();
             }
             if (doL || doR) {
-                if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    g_SharedState.active_emu_mode = EmuMode_MD;
+                if (doL) {
+                    if (g_SharedState.active_emu_mode == EmuMode_SNES) {
+                        g_SharedState.active_emu_mode = EmuMode_NES;
+                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
+                        g_SharedState.active_emu_mode = EmuMode_SNES;
+                    } else {
+                        g_SharedState.active_emu_mode = EmuMode_MD;
+                    }
                 } else {
-                    g_SharedState.active_emu_mode = EmuMode_SNES;
+                    if (g_SharedState.active_emu_mode == EmuMode_SNES) {
+                        g_SharedState.active_emu_mode = EmuMode_MD;
+                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
+                        g_SharedState.active_emu_mode = EmuMode_NES;
+                    } else {
+                        g_SharedState.active_emu_mode = EmuMode_SNES;
+                    }
                 }
                 m_pOSDMenu->OnEmuModeChanged();
             }
@@ -505,13 +521,20 @@ void CKernel::RunOrchestrator() {
                         g_SharedState.start_line[1] = 0;
                         g_SharedState.game_w[1] = 256;
                         g_SharedState.game_h[1] = 224;
-                    } else {
+                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                         g_SharedState.start_line[0] = 8;
                         g_SharedState.game_w[0] = 320;
                         g_SharedState.game_h[0] = 224;
                         g_SharedState.start_line[1] = 8;
                         g_SharedState.game_w[1] = 320;
                         g_SharedState.game_h[1] = 224;
+                    } else { // EmuMode_NES
+                        g_SharedState.start_line[0] = 0;
+                        g_SharedState.game_w[0] = 256;
+                        g_SharedState.game_h[0] = 240;
+                        g_SharedState.start_line[1] = 0;
+                        g_SharedState.game_w[1] = 256;
+                        g_SharedState.game_h[1] = 240;
                     }
                     g_SharedState.video_frame_ready = FALSE;
                     DataMemBarrier();
@@ -519,9 +542,11 @@ void CKernel::RunOrchestrator() {
                     boolean loaded = FALSE;
                     if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                         loaded = m_pSNESOrchestrator->LoadROM(fullPath, nRomSize);
-                    } else {
+                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                         s_Is3ButtonGame = !is6ButtonGame(pRomName);
                         loaded = m_pMDOrchestrator->LoadROM(fullPath, nRomSize);
+                    } else { // EmuMode_NES
+                        loaded = m_pNESOrchestrator->LoadROM(fullPath, nRomSize);
                     }
 
                     if (loaded) {
@@ -537,8 +562,10 @@ void CKernel::RunOrchestrator() {
             // Run emulator frame based on active system
             if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                 m_pSNESOrchestrator->RunFrame();
-            } else {
+            } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                 m_pMDOrchestrator->RunFrame();
+            } else {
+                m_pNESOrchestrator->RunFrame();
             }
 
             // Check if user requested return to OSD menu
@@ -554,8 +581,10 @@ void CKernel::RunOrchestrator() {
                 g_SharedState.save_state_requested = FALSE;
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                     m_pSNESOrchestrator->SaveState(0);
-                } else {
+                } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                     m_pMDOrchestrator->SaveState(0);
+                } else {
+                    m_pNESOrchestrator->SaveState(0);
                 }
                 // Blink the activity LED 3 times quickly to confirm save
                 m_ActLED.Blink(3, 50, 50);
@@ -564,8 +593,10 @@ void CKernel::RunOrchestrator() {
                 g_SharedState.load_state_requested = FALSE;
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                     m_pSNESOrchestrator->LoadState(0);
-                } else {
+                } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                     m_pMDOrchestrator->LoadState(0);
+                } else {
+                    m_pNESOrchestrator->LoadState(0);
                 }
                 // Blink the activity LED 3 times quickly to confirm load
                 m_ActLED.Blink(3, 50, 50);
@@ -574,8 +605,10 @@ void CKernel::RunOrchestrator() {
                 g_SharedState.rewind_requested = FALSE;
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                     m_pSNESOrchestrator->RewindState();
-                } else {
+                } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                     m_pMDOrchestrator->RewindState();
+                } else {
+                    m_pNESOrchestrator->RewindState();
                 }
                 // Blink the activity LED 1 time quickly to confirm rewind
                 m_ActLED.Blink(1, 50, 50);
@@ -587,8 +620,12 @@ void CKernel::RunOrchestrator() {
                 if (m_pSNESOrchestrator->IsPAL()) {
                     frame_time = 20000; // 50 FPS for PAL (20 ms)
                 }
-            } else {
+            } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                 if (m_pMDOrchestrator->IsPAL()) {
+                    frame_time = 20000; // 50 FPS for PAL (20 ms)
+                }
+            } else {
+                if (m_pNESOrchestrator->IsPAL()) {
                     frame_time = 20000; // 50 FPS for PAL (20 ms)
                 }
             }
@@ -683,9 +720,11 @@ void CKernel::RunVideoDomain() {
                 // Draw Title (pure white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    snprintf(title_str, sizeof(title_str), "--- MEGA-SNES PI METAL (SNES) ---");
+                    snprintf(title_str, sizeof(title_str), "### SNES Baremetal Emulator ###");
+                } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
+                    snprintf(title_str, sizeof(title_str), "### NES Baremetal Emulator ###");
                 } else {
-                    snprintf(title_str, sizeof(title_str), "--- MEGA-SNES PI METAL (Mega Drive) ---");
+                    snprintf(title_str, sizeof(title_str), "### Mega Drive Baremetal Emulator ###");
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
@@ -701,7 +740,7 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(6, 6, 6));
 
                 // Draw tabs
-                int num_tabs = (g_SharedState.active_emu_mode == EmuMode_SNES) ? 5 : 6;
+                int num_tabs = 6;
                 int active_tab = g_SharedState.menu_active_tab;
                 int tab_width = 80;
                 int tab_spacing = 8;
@@ -906,6 +945,32 @@ void CKernel::RunVideoDomain() {
                             }
                         }
                     }
+                } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
+                    // NES video rendering (256x240 from stride 512 -> scale 2x to 512x480)
+                    int out_w = 512;
+                    int out_h = game_h * 2; // 240 * 2 = 480
+                    int start_x = (SCREEN_WIDTH - out_w) / 2; // 64
+                    int start_y = (SCREEN_HEIGHT - out_h) / 2;
+                    if (start_y < 0) start_y = 0;
+
+                    for (int y = 0; y < game_h; y++) {
+                        u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512);
+                        u64 *dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch + start_x);
+                        u64 *dest64_2 = dest64_1 + (nPitch / 4);
+
+                        for (int x = 0; x < 128; x++) {
+                            u32 pixels = src32[x];
+                            u32 p1 = pixels & 0xFFFF;
+                            u32 p2 = pixels >> 16;
+                            
+                            u32 p1_32 = (p1 << 16) | p1;
+                            u32 p2_32 = (p2 << 16) | p2;
+                            u64 color64 = ((u64)p2_32 << 32) | p1_32;
+
+                            dest64_1[x] = color64;
+                            dest64_2[x] = color64;
+                        }
+                    }
                 } else {
                     // Mega Drive video rendering
                     if (game_h > 320) game_h = 320;
@@ -916,18 +981,18 @@ void CKernel::RunVideoDomain() {
                         start_line = 0;
                         game_h = 224;
                     }
- 
+
                     int out_w = 640;
                     int out_h = game_h * 2;
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
- 
+
                     // Upscale using optimized 64-bit integer 2x nearest neighbor (reading from stride 320)
                     for (int y = 0; y < game_h; y++) {
                         u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320);
                         u64 *dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch);
                         u64 *dest64_2 = dest64_1 + (nPitch / 4);
- 
+
                         for (int x = 0; x < 160; x++) {
                             u32 pixels = src32[x];
                             u32 p1 = pixels & 0xFFFF;
@@ -936,7 +1001,7 @@ void CKernel::RunVideoDomain() {
                             u32 p1_32 = (p1 << 16) | p1;
                             u32 p2_32 = (p2 << 16) | p2;
                             u64 color64 = ((u64)p2_32 << 32) | p1_32;
- 
+
                             dest64_1[x] = color64;
                             dest64_2[x] = color64;
                         }
@@ -1084,7 +1149,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     // pad bit 9: SNES R (RT/RB -> R)
     // pad bit 10: SNES Start
     // pad bit 11: SNES Select
-    if (g_SharedState.in_menu || g_SharedState.active_emu_mode == EmuMode_SNES) {
+    if (g_SharedState.in_menu || g_SharedState.active_emu_mode == EmuMode_SNES || g_SharedState.active_emu_mode == EmuMode_NES) {
         if (pState->buttons & GamePadButtonA)     pad |= (1 << 5);  // SNES B (bottom button)
         if (pState->buttons & GamePadButtonB)     pad |= (1 << 4);  // SNES A (right button)
         if (pState->buttons & GamePadButtonX)     pad |= (1 << 7);  // SNES Y (left button)
@@ -1194,7 +1259,7 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
         if (key == 0x50) pad |= (1 << 2); // Left arrow
         if (key == 0x4F) pad |= (1 << 3); // Right arrow
 
-        if (g_SharedState.in_menu || g_SharedState.active_emu_mode == EmuMode_SNES) {
+        if (g_SharedState.in_menu || g_SharedState.active_emu_mode == EmuMode_SNES || g_SharedState.active_emu_mode == EmuMode_NES) {
             if (key == 0x1B) pad |= (1 << 4); // X key -> SNES A (bit 4)
             if (key == 0x1D) pad |= (1 << 5); // Z key -> SNES B (bit 5)
             if (key == 0x19) pad |= (1 << 6); // V key -> SNES X (bit 6)

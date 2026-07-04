@@ -93,6 +93,10 @@ void COSDMenu::ScanRoms() {
                             my_strcasecmp(pDot, "chd") == 0) {
                             matches = TRUE;
                         }
+                    } else if (system == RomSystem_NES) {
+                        if (my_strcasecmp(pDot, "nes") == 0) {
+                            matches = TRUE;
+                        }
                     }
 
                     if (matches) {
@@ -114,6 +118,7 @@ void COSDMenu::ScanRoms() {
     scan_dir("SD:/roms/snes", "snes/", RomSystem_SNES);
     scan_dir("SD:/roms/megadrive", "megadrive/", RomSystem_MD);
     scan_dir("SD:/roms/megacd", "megacd/", RomSystem_MCD);
+    scan_dir("SD:/roms/nes", "nes/", RomSystem_NES);
 
     // Sort ROMs alphabetically on the base filename (excluding prefix)
     for (int i = 0; i < m_RomCount - 1; i++) {
@@ -155,9 +160,15 @@ void COSDMenu::FilterSystemRoms() {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }
-    } else {
+    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
         for (int i = 0; i < m_RomCount; i++) {
             if (m_RomSystems[i] == RomSystem_MD || m_RomSystems[i] == RomSystem_MCD) {
+                m_SystemIndices[m_SystemCount++] = i;
+            }
+        }
+    } else {
+        for (int i = 0; i < m_RomCount; i++) {
+            if (m_RomSystems[i] == RomSystem_NES) {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }
@@ -171,63 +182,170 @@ void COSDMenu::CalculateTabLabels() {
     // Tab 1: "FAV"
     strcpy(m_TabLabels[1], "FAV");
 
-    // Tab 5: "MCD"
-    if (g_SharedState.active_emu_mode != EmuMode_SNES) {
-        strcpy(m_TabLabels[5], "MCD");
-    } else {
-        m_TabLabels[5][0] = '\0';
-    }
-
     // Count non-MCD games per letter
     int letter_counts[27] = {0};
-    int non_mcd_count = 0;
+    int total_non_mcd = 0;
     for (int i = 0; i < m_SystemCount; i++) {
         if (!IsMCD(i)) {
             char c = GetChar(i);
             int idx = GetLetterIdx(c);
             if (idx >= 0 && idx < 27) {
                 letter_counts[idx]++;
-                non_mcd_count++;
+                total_non_mcd++;
             }
         }
     }
 
-    // Optimize k1 and k2 to divide non-MCD games as equally as possible across 3 tabs (Tabs 2 to 4)
-    m_TabSplitK1 = 8;   // Default: #-H
-    m_TabSplitK2 = 16;  // Default: I-P
-    int min_diff = 1000000;
-    
-    if (non_mcd_count > 0) {
-        for (int k1 = 0; k1 < 25; k1++) {
-            for (int k2 = k1 + 1; k2 < 26; k2++) {
-                int size0 = 0;
-                for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
-                
-                int size1 = 0;
-                for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
-                
-                int size2 = 0;
-                for (int i = k2 + 1; i < 27; i++) size2 += letter_counts[i];
-                
-                int ideal = non_mcd_count / 3;
-                int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
-                int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
-                int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
-                int diff = d0 + d1 + d2;
-                
-                if (diff < min_diff) {
-                    min_diff = diff;
-                    m_TabSplitK1 = k1;
-                    m_TabSplitK2 = k2;
+    if (g_SharedState.active_emu_mode == EmuMode_MD) {
+        // Tab 5: "MCD"
+        strcpy(m_TabLabels[5], "MCD");
+
+        // Optimize k1 and k2 to divide non-MCD games as equally as possible across 3 tabs (Tabs 2 to 4)
+        m_TabSplitK1 = 8;   // Default: #-H
+        m_TabSplitK2 = 16;  // Default: I-P
+        int min_diff = 1000000;
+        
+        if (total_non_mcd > 0) {
+            for (int k1 = 0; k1 < 25; k1++) {
+                for (int k2 = k1 + 1; k2 < 26; k2++) {
+                    int size0 = 0;
+                    for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
+                    
+                    int size1 = 0;
+                    for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
+                    
+                    int size2 = 0;
+                    for (int i = k2 + 1; i < 27; i++) size2 += letter_counts[i];
+                    
+                    int ideal = total_non_mcd / 3;
+                    int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
+                    int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
+                    int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
+                    int diff = d0 + d1 + d2;
+                    
+                    if (diff < min_diff) {
+                        min_diff = diff;
+                        m_TabSplitK1 = k1;
+                        m_TabSplitK2 = k2;
+                    }
                 }
             }
         }
-    }
 
-    // Now generate labels based on the actual games present in each split
-    int start0 = -1, end0 = -1;
-    for (int i = 0; i < m_SystemCount; i++) {
-        if (!IsMCD(i)) {
+        // Generate labels for MD (3 splits)
+        int start0 = -1, end0 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
+            if (!IsMCD(i)) {
+                char c = GetChar(i);
+                int idx = GetLetterIdx(c);
+                if (idx <= m_TabSplitK1) {
+                    if (start0 == -1) start0 = i;
+                    end0 = i;
+                }
+            }
+        }
+        if (start0 != -1 && end0 != -1) {
+            char c_start = GetChar(start0);
+            char c_end = GetChar(end0);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
+            }
+        } else {
+            strcpy(m_TabLabels[2], "A-H");
+        }
+
+        int start1 = -1, end1 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
+            if (!IsMCD(i)) {
+                char c = GetChar(i);
+                int idx = GetLetterIdx(c);
+                if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
+                    if (start1 == -1) start1 = i;
+                    end1 = i;
+                }
+            }
+        }
+        if (start1 != -1 && end1 != -1) {
+            char c_start = GetChar(start1);
+            char c_end = GetChar(end1);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
+            }
+        } else {
+            strcpy(m_TabLabels[3], "I-P");
+        }
+
+        int start2 = -1, end2 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
+            if (!IsMCD(i)) {
+                char c = GetChar(i);
+                int idx = GetLetterIdx(c);
+                if (idx > m_TabSplitK2) {
+                    if (start2 == -1) start2 = i;
+                    end2 = i;
+                }
+            }
+        }
+        if (start2 != -1 && end2 != -1) {
+            char c_start = GetChar(start2);
+            char c_end = GetChar(end2);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c-%c", c_start, c_end);
+            }
+        } else {
+            strcpy(m_TabLabels[4], "Q-Z");
+        }
+
+    } else {
+        // SNES or NES: Optimize k1, k2, k3 to divide all games into 4 tabs (Tabs 2 to 5)
+        m_TabSplitK1 = 6;   // Default splits: A-F
+        m_TabSplitK2 = 12;  // G-L
+        m_TabSplitK3 = 18;  // M-R
+        int min_diff = 1000000;
+
+        if (total_non_mcd > 0) {
+            for (int k1 = 0; k1 < 24; k1++) {
+                for (int k2 = k1 + 1; k2 < 25; k2++) {
+                    for (int k3 = k2 + 1; k3 < 26; k3++) {
+                        int size0 = 0;
+                        for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
+                        
+                        int size1 = 0;
+                        for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
+                        
+                        int size2 = 0;
+                        for (int i = k2 + 1; i <= k3; i++) size2 += letter_counts[i];
+
+                        int size3 = 0;
+                        for (int i = k3 + 1; i < 27; i++) size3 += letter_counts[i];
+                        
+                        int ideal = total_non_mcd / 4;
+                        int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
+                        int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
+                        int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
+                        int d3 = size3 - ideal; if (d3 < 0) d3 = -d3;
+                        int diff = d0 + d1 + d2 + d3;
+                        
+                        if (diff < min_diff) {
+                            min_diff = diff;
+                            m_TabSplitK1 = k1;
+                            m_TabSplitK2 = k2;
+                            m_TabSplitK3 = k3;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Generate labels for SNES/NES (4 splits)
+        int start0 = -1, end0 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
             char c = GetChar(i);
             int idx = GetLetterIdx(c);
             if (idx <= m_TabSplitK1) {
@@ -235,22 +353,20 @@ void COSDMenu::CalculateTabLabels() {
                 end0 = i;
             }
         }
-    }
-    if (start0 != -1 && end0 != -1) {
-        char c_start = GetChar(start0);
-        char c_end = GetChar(end0);
-        if (c_start == c_end) {
-            snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
+        if (start0 != -1 && end0 != -1) {
+            char c_start = GetChar(start0);
+            char c_end = GetChar(end0);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
+            }
         } else {
-            snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
+            strcpy(m_TabLabels[2], "A-F");
         }
-    } else {
-        strcpy(m_TabLabels[2], "A-H");
-    }
 
-    int start1 = -1, end1 = -1;
-    for (int i = 0; i < m_SystemCount; i++) {
-        if (!IsMCD(i)) {
+        int start1 = -1, end1 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
             char c = GetChar(i);
             int idx = GetLetterIdx(c);
             if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
@@ -258,40 +374,59 @@ void COSDMenu::CalculateTabLabels() {
                 end1 = i;
             }
         }
-    }
-    if (start1 != -1 && end1 != -1) {
-        char c_start = GetChar(start1);
-        char c_end = GetChar(end1);
-        if (c_start == c_end) {
-            snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
+        if (start1 != -1 && end1 != -1) {
+            char c_start = GetChar(start1);
+            char c_end = GetChar(end1);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
+            }
         } else {
-            snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
+            strcpy(m_TabLabels[3], "G-L");
         }
-    } else {
-        strcpy(m_TabLabels[3], "I-P");
-    }
 
-    int start2 = -1, end2 = -1;
-    for (int i = 0; i < m_SystemCount; i++) {
-        if (!IsMCD(i)) {
+        int start2 = -1, end2 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
             char c = GetChar(i);
             int idx = GetLetterIdx(c);
-            if (idx > m_TabSplitK2) {
+            if (idx > m_TabSplitK2 && idx <= m_TabSplitK3) {
                 if (start2 == -1) start2 = i;
                 end2 = i;
             }
         }
-    }
-    if (start2 != -1 && end2 != -1) {
-        char c_start = GetChar(start2);
-        char c_end = GetChar(end2);
-        if (c_start == c_end) {
-            snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
+        if (start2 != -1 && end2 != -1) {
+            char c_start = GetChar(start2);
+            char c_end = GetChar(end2);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c-%c", c_start, c_end);
+            }
         } else {
-            snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c-%c", c_start, c_end);
+            strcpy(m_TabLabels[4], "M-R");
         }
-    } else {
-        strcpy(m_TabLabels[4], "Q-Z");
+
+        int start3 = -1, end3 = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
+            char c = GetChar(i);
+            int idx = GetLetterIdx(c);
+            if (idx > m_TabSplitK3) {
+                if (start3 == -1) start3 = i;
+                end3 = i;
+            }
+        }
+        if (start3 != -1 && end3 != -1) {
+            char c_start = GetChar(start3);
+            char c_end = GetChar(end3);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[5], sizeof(m_TabLabels[5]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[5], sizeof(m_TabLabels[5]), "%c-%c", c_start, c_end);
+            }
+        } else {
+            strcpy(m_TabLabels[5], "S-Z");
+        }
     }
 }
 
@@ -313,9 +448,9 @@ void COSDMenu::BuildFilteredList() {
             }
         }
     }
-    else if (m_ActiveTab >= 2 && m_ActiveTab <= 4) {
-        // Alphabetical splits (Tabs 2 to 4)
-        if (m_SystemCount > 0) {
+    else if (g_SharedState.active_emu_mode == EmuMode_MD) {
+        if (m_ActiveTab >= 2 && m_ActiveTab <= 4) {
+            // Alphabetical splits (Tabs 2 to 4)
             int part = m_ActiveTab - 2;
             for (int i = 0; i < m_SystemCount; i++) {
                 if (!IsMCD(i)) {
@@ -338,12 +473,40 @@ void COSDMenu::BuildFilteredList() {
                 }
             }
         }
+        else if (m_ActiveTab == 5) {
+            // MCD tab: include only Mega CD games of the current system
+            for (int i = 0; i < m_SystemCount; i++) {
+                if (IsMCD(i)) {
+                    m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                }
+            }
+        }
     }
-    else if (m_ActiveTab == 5) {
-        // MCD tab: include only Mega CD games of the current system
-        for (int i = 0; i < m_SystemCount; i++) {
-            if (IsMCD(i)) {
-                m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+    else {
+        // SNES or NES: 4 alphabetical splits (Tabs 2 to 5)
+        if (m_ActiveTab >= 2 && m_ActiveTab <= 5) {
+            int part = m_ActiveTab - 2;
+            for (int i = 0; i < m_SystemCount; i++) {
+                char c = GetChar(i);
+                int idx = GetLetterIdx(c);
+                
+                if (part == 0) {
+                    if (idx <= m_TabSplitK1) {
+                        m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                    }
+                } else if (part == 1) {
+                    if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
+                        m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                    }
+                } else if (part == 2) {
+                    if (idx > m_TabSplitK2 && idx <= m_TabSplitK3) {
+                        m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                    }
+                } else if (part == 3) {
+                    if (idx > m_TabSplitK3) {
+                        m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                    }
+                }
             }
         }
     }
@@ -420,7 +583,7 @@ void COSDMenu::MoveDown() {
 }
 
 void COSDMenu::MoveLeft() {
-    int num_tabs = (g_SharedState.active_emu_mode == EmuMode_SNES) ? 5 : 6;
+    int num_tabs = 6;
     if (m_ActiveTab > 0) {
         m_ActiveTab--;
     } else {
@@ -432,7 +595,7 @@ void COSDMenu::MoveLeft() {
 }
 
 void COSDMenu::MoveRight() {
-    int num_tabs = (g_SharedState.active_emu_mode == EmuMode_SNES) ? 5 : 6;
+    int num_tabs = 6;
     if (m_ActiveTab < num_tabs - 1) {
         m_ActiveTab++;
     } else {

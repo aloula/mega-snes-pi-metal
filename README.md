@@ -2,9 +2,9 @@
 
 ![MEGA-SNES_Pi_Metal](res/MEGA-SNES_Pi_Metal.png)
 
-A unified, low-latency, bare-metal dual console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel, allowing real-time switching between **Super Nintendo Entertainment System (SNES)** and **Sega Mega Drive / Sega CD (Genesis)** consoles directly from the On-Screen Display (OSD) menu.
+A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel, and now includes **NES** support based on **Nestopia**, allowing real-time switching between **Super Nintendo Entertainment System (SNES)**, **Nintendo Entertainment System (NES)**, and **Sega Mega Drive / Sega CD (Genesis)** directly from the On-Screen Display (OSD) menu.
 
-Built on the **Circle C++ bare-metal environment**, **Snes9x**, and **Picodrive**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
+Built on the **Circle C++ bare-metal environment**, **Snes9x**, **Picodrive**, and **Nestopia**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
 
 🎥 **Video Demonstration**: [Watch MEGA-SNES Pi Metal running on a Raspberry Pi 3B+](https://youtu.be/jyMUjcQem-0)
 
@@ -12,7 +12,7 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, and **Picodrive*
 
 ### 🚀 Key Features
 
-* **Dual-Console Emulation**: Run both SNES and Sega Mega Drive/Mega CD games from a single boot image.
+* **Multi-Console Emulation**: Run SNES, NES, and Sega Mega Drive/Mega CD games from a single boot image.
 * **Low Latency**: Direct hardware access bypassing OS overhead, providing sub-millisecond input and audio response.
 * **Unified OSD Menu**: Dynamic graphical user interface featuring:
   * Dynamic header banners changing based on the selected system.
@@ -37,6 +37,7 @@ SD:/
  │    └── bios_CD_J.bin      (Mega CD - JP Region BIOS)
  └── roms/
       ├── snes/              (SNES ROM files: .sfc, .smc)
+      ├── nes/               (NES ROM files: .nes)
       ├── megadrive/         (Mega Drive ROM files: .bin, .md, .gen)
       ├── megacd/            (Sega CD ROM files: .iso, .cue, .chd)
       └── favorites.txt      (Auto-generated file tracking favorite games)
@@ -56,7 +57,7 @@ The emulator supports standard XInput gamepads out-of-the-box (like the **Gamesi
 * **A / B Buttons**: Start / select highlighted game.
 * **Y Button**: Add to Favorites (`*` prefix).
 * **X Button**: Remove from Favorites (Unfavorite).
-* **L / R Shoulder Buttons**: Switch emulator console mode (**SNES** $\leftrightarrow$ **Mega Drive**).
+* **L / R Shoulder Buttons**: Cycle emulator mode (**SNES** $\leftrightarrow$ **NES** $\leftrightarrow$ **Mega Drive**).
 * **START + SELECT**: Resets or exits the current game to return to the OSD menu.
 
 ---
@@ -208,4 +209,5 @@ This project is built upon the incredible work of the following open-source proj
   * Repository: [notaz/picodrive](https://github.com/notaz/picodrive)
 * **Snes9x**: A portable, high-compatibility Super Nintendo Entertainment System (SNES) emulator.
   * Repository: [snes9xgit/snes9x](https://github.com/snes9xgit/snes9x)
-
+* **Nestopia**: A highly accurate Nintendo Entertainment System (NES/Famicom) emulator used as the base for this project's NES implementation.
+  * Project page: [nestopia.sourceforge.net](http://nestopia.sourceforge.net/)
