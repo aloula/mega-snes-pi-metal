@@ -17,7 +17,9 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **Picodrive**, a
 * **Unified OSD Menu**: Dynamic graphical user interface featuring:
   * Dynamic header banners changing based on the selected system.
   * Real-time console switching via **L** and **R** shoulder buttons.
-  * Auto-balanced alphabetical ROM folders (splits games across custom tabs based on active systems).
+  * 8-tab browsing per system:
+    * **SNES/NES**: `ALL`, `FAV`, and 6 auto-balanced alphabetical tabs.
+    * **Mega Drive**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `MCD`.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** to save, and **SELECT + D-pad Right** to load.
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES).

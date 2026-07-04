@@ -26,7 +26,9 @@ COSDMenu::COSDMenu(FATFS *pFileSystem)
       m_ActiveTab(0),
       m_TabSplitK1(6),
       m_TabSplitK2(12),
-      m_TabSplitK3(18)
+      m_TabSplitK3(18),
+      m_TabSplitK4(21),
+      m_TabSplitK5(24)
 {
     for (int i = 0; i < MAX_ROMS; i++) {
         m_RomFiles[i][0] = '\0';
@@ -36,7 +38,7 @@ COSDMenu::COSDMenu(FATFS *pFileSystem)
         m_SystemIndices[i] = -1;
         m_FilteredIndices[i] = -1;
     }
-    for (int t = 0; t < 6; t++) {
+    for (int t = 0; t < 8; t++) {
         m_TabLabels[t][0] = '\0';
     }
 }
@@ -196,237 +198,144 @@ void COSDMenu::CalculateTabLabels() {
         }
     }
 
+    auto setRangeLabel = [this](int tab_idx, int lower_bound_exclusive, int upper_bound_inclusive,
+                                 bool skip_mcd, const char *fallback) {
+        int start = -1;
+        int end = -1;
+        for (int i = 0; i < m_SystemCount; i++) {
+            if (skip_mcd && IsMCD(i)) {
+                continue;
+            }
+            int idx = GetLetterIdx(GetChar(i));
+            if (idx > lower_bound_exclusive && idx <= upper_bound_inclusive) {
+                if (start == -1) start = i;
+                end = i;
+            }
+        }
+
+        if (start != -1 && end != -1) {
+            char c_start = GetChar(start);
+            char c_end = GetChar(end);
+            if (c_start == c_end) {
+                snprintf(m_TabLabels[tab_idx], sizeof(m_TabLabels[tab_idx]), "%c", c_start);
+            } else {
+                snprintf(m_TabLabels[tab_idx], sizeof(m_TabLabels[tab_idx]), "%c-%c", c_start, c_end);
+            }
+        } else {
+            strcpy(m_TabLabels[tab_idx], fallback);
+        }
+    };
+
     if (g_SharedState.active_emu_mode == EmuMode_MD) {
-        // Tab 5: "MCD"
-        strcpy(m_TabLabels[5], "MCD");
+        // MD: 5 sorted tabs (2..6) + MCD (7)
+        strcpy(m_TabLabels[7], "MCD");
 
-        // Optimize k1 and k2 to divide non-MCD games as equally as possible across 3 tabs (Tabs 2 to 4)
-        m_TabSplitK1 = 8;   // Default: #-H
-        m_TabSplitK2 = 16;  // Default: I-P
-        int min_diff = 1000000;
-        
-        if (total_non_mcd > 0) {
-            for (int k1 = 0; k1 < 25; k1++) {
-                for (int k2 = k1 + 1; k2 < 26; k2++) {
-                    int size0 = 0;
-                    for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
-                    
-                    int size1 = 0;
-                    for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
-                    
-                    int size2 = 0;
-                    for (int i = k2 + 1; i < 27; i++) size2 += letter_counts[i];
-                    
-                    int ideal = total_non_mcd / 3;
-                    int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
-                    int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
-                    int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
-                    int diff = d0 + d1 + d2;
-                    
-                    if (diff < min_diff) {
-                        min_diff = diff;
-                        m_TabSplitK1 = k1;
-                        m_TabSplitK2 = k2;
-                    }
-                }
-            }
-        }
-
-        // Generate labels for MD (3 splits)
-        int start0 = -1, end0 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            if (!IsMCD(i)) {
-                char c = GetChar(i);
-                int idx = GetLetterIdx(c);
-                if (idx <= m_TabSplitK1) {
-                    if (start0 == -1) start0 = i;
-                    end0 = i;
-                }
-            }
-        }
-        if (start0 != -1 && end0 != -1) {
-            char c_start = GetChar(start0);
-            char c_end = GetChar(end0);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[2], "A-H");
-        }
-
-        int start1 = -1, end1 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            if (!IsMCD(i)) {
-                char c = GetChar(i);
-                int idx = GetLetterIdx(c);
-                if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
-                    if (start1 == -1) start1 = i;
-                    end1 = i;
-                }
-            }
-        }
-        if (start1 != -1 && end1 != -1) {
-            char c_start = GetChar(start1);
-            char c_end = GetChar(end1);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[3], "I-P");
-        }
-
-        int start2 = -1, end2 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            if (!IsMCD(i)) {
-                char c = GetChar(i);
-                int idx = GetLetterIdx(c);
-                if (idx > m_TabSplitK2) {
-                    if (start2 == -1) start2 = i;
-                    end2 = i;
-                }
-            }
-        }
-        if (start2 != -1 && end2 != -1) {
-            char c_start = GetChar(start2);
-            char c_end = GetChar(end2);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[4], "Q-Z");
-        }
-
-    } else {
-        // SNES or NES: Optimize k1, k2, k3 to divide all games into 4 tabs (Tabs 2 to 5)
-        m_TabSplitK1 = 6;   // Default splits: A-F
-        m_TabSplitK2 = 12;  // G-L
-        m_TabSplitK3 = 18;  // M-R
+        m_TabSplitK1 = 5;
+        m_TabSplitK2 = 10;
+        m_TabSplitK3 = 15;
+        m_TabSplitK4 = 20;
         int min_diff = 1000000;
 
         if (total_non_mcd > 0) {
-            for (int k1 = 0; k1 < 24; k1++) {
-                for (int k2 = k1 + 1; k2 < 25; k2++) {
-                    for (int k3 = k2 + 1; k3 < 26; k3++) {
-                        int size0 = 0;
-                        for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
-                        
-                        int size1 = 0;
-                        for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
-                        
-                        int size2 = 0;
-                        for (int i = k2 + 1; i <= k3; i++) size2 += letter_counts[i];
+            for (int k1 = 0; k1 < 23; k1++) {
+                for (int k2 = k1 + 1; k2 < 24; k2++) {
+                    for (int k3 = k2 + 1; k3 < 25; k3++) {
+                        for (int k4 = k3 + 1; k4 < 26; k4++) {
+                            int size0 = 0;
+                            for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
+                            int size1 = 0;
+                            for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
+                            int size2 = 0;
+                            for (int i = k2 + 1; i <= k3; i++) size2 += letter_counts[i];
+                            int size3 = 0;
+                            for (int i = k3 + 1; i <= k4; i++) size3 += letter_counts[i];
+                            int size4 = 0;
+                            for (int i = k4 + 1; i < 27; i++) size4 += letter_counts[i];
 
-                        int size3 = 0;
-                        for (int i = k3 + 1; i < 27; i++) size3 += letter_counts[i];
-                        
-                        int ideal = total_non_mcd / 4;
-                        int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
-                        int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
-                        int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
-                        int d3 = size3 - ideal; if (d3 < 0) d3 = -d3;
-                        int diff = d0 + d1 + d2 + d3;
-                        
-                        if (diff < min_diff) {
-                            min_diff = diff;
-                            m_TabSplitK1 = k1;
-                            m_TabSplitK2 = k2;
-                            m_TabSplitK3 = k3;
+                            int ideal = total_non_mcd / 5;
+                            int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
+                            int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
+                            int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
+                            int d3 = size3 - ideal; if (d3 < 0) d3 = -d3;
+                            int d4 = size4 - ideal; if (d4 < 0) d4 = -d4;
+                            int diff = d0 + d1 + d2 + d3 + d4;
+
+                            if (diff < min_diff) {
+                                min_diff = diff;
+                                m_TabSplitK1 = k1;
+                                m_TabSplitK2 = k2;
+                                m_TabSplitK3 = k3;
+                                m_TabSplitK4 = k4;
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Generate labels for SNES/NES (4 splits)
-        int start0 = -1, end0 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            char c = GetChar(i);
-            int idx = GetLetterIdx(c);
-            if (idx <= m_TabSplitK1) {
-                if (start0 == -1) start0 = i;
-                end0 = i;
+        setRangeLabel(2, -1, m_TabSplitK1, TRUE, "A-E");
+        setRangeLabel(3, m_TabSplitK1, m_TabSplitK2, TRUE, "F-J");
+        setRangeLabel(4, m_TabSplitK2, m_TabSplitK3, TRUE, "K-O");
+        setRangeLabel(5, m_TabSplitK3, m_TabSplitK4, TRUE, "P-T");
+        setRangeLabel(6, m_TabSplitK4, 26, TRUE, "U-Z");
+    } else {
+        // SNES/NES: 6 sorted tabs (2..7)
+        m_TabSplitK1 = 4;
+        m_TabSplitK2 = 8;
+        m_TabSplitK3 = 12;
+        m_TabSplitK4 = 16;
+        m_TabSplitK5 = 20;
+        int min_diff = 1000000;
+
+        if (total_non_mcd > 0) {
+            for (int k1 = 0; k1 < 22; k1++) {
+                for (int k2 = k1 + 1; k2 < 23; k2++) {
+                    for (int k3 = k2 + 1; k3 < 24; k3++) {
+                        for (int k4 = k3 + 1; k4 < 25; k4++) {
+                            for (int k5 = k4 + 1; k5 < 26; k5++) {
+                                int size0 = 0;
+                                for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
+                                int size1 = 0;
+                                for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
+                                int size2 = 0;
+                                for (int i = k2 + 1; i <= k3; i++) size2 += letter_counts[i];
+                                int size3 = 0;
+                                for (int i = k3 + 1; i <= k4; i++) size3 += letter_counts[i];
+                                int size4 = 0;
+                                for (int i = k4 + 1; i <= k5; i++) size4 += letter_counts[i];
+                                int size5 = 0;
+                                for (int i = k5 + 1; i < 27; i++) size5 += letter_counts[i];
+
+                                int ideal = total_non_mcd / 6;
+                                int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
+                                int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
+                                int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
+                                int d3 = size3 - ideal; if (d3 < 0) d3 = -d3;
+                                int d4 = size4 - ideal; if (d4 < 0) d4 = -d4;
+                                int d5 = size5 - ideal; if (d5 < 0) d5 = -d5;
+                                int diff = d0 + d1 + d2 + d3 + d4 + d5;
+
+                                if (diff < min_diff) {
+                                    min_diff = diff;
+                                    m_TabSplitK1 = k1;
+                                    m_TabSplitK2 = k2;
+                                    m_TabSplitK3 = k3;
+                                    m_TabSplitK4 = k4;
+                                    m_TabSplitK5 = k5;
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        }
-        if (start0 != -1 && end0 != -1) {
-            char c_start = GetChar(start0);
-            char c_end = GetChar(end0);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[2], sizeof(m_TabLabels[2]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[2], "A-F");
         }
 
-        int start1 = -1, end1 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            char c = GetChar(i);
-            int idx = GetLetterIdx(c);
-            if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) {
-                if (start1 == -1) start1 = i;
-                end1 = i;
-            }
-        }
-        if (start1 != -1 && end1 != -1) {
-            char c_start = GetChar(start1);
-            char c_end = GetChar(end1);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[3], sizeof(m_TabLabels[3]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[3], "G-L");
-        }
-
-        int start2 = -1, end2 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            char c = GetChar(i);
-            int idx = GetLetterIdx(c);
-            if (idx > m_TabSplitK2 && idx <= m_TabSplitK3) {
-                if (start2 == -1) start2 = i;
-                end2 = i;
-            }
-        }
-        if (start2 != -1 && end2 != -1) {
-            char c_start = GetChar(start2);
-            char c_end = GetChar(end2);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[4], sizeof(m_TabLabels[4]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[4], "M-R");
-        }
-
-        int start3 = -1, end3 = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            char c = GetChar(i);
-            int idx = GetLetterIdx(c);
-            if (idx > m_TabSplitK3) {
-                if (start3 == -1) start3 = i;
-                end3 = i;
-            }
-        }
-        if (start3 != -1 && end3 != -1) {
-            char c_start = GetChar(start3);
-            char c_end = GetChar(end3);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[5], sizeof(m_TabLabels[5]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[5], sizeof(m_TabLabels[5]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[5], "S-Z");
-        }
+        setRangeLabel(2, -1, m_TabSplitK1, FALSE, "A-D");
+        setRangeLabel(3, m_TabSplitK1, m_TabSplitK2, FALSE, "E-H");
+        setRangeLabel(4, m_TabSplitK2, m_TabSplitK3, FALSE, "I-L");
+        setRangeLabel(5, m_TabSplitK3, m_TabSplitK4, FALSE, "M-P");
+        setRangeLabel(6, m_TabSplitK4, m_TabSplitK5, FALSE, "Q-T");
+        setRangeLabel(7, m_TabSplitK5, 26, FALSE, "U-Z");
     }
 }
 
@@ -449,8 +358,8 @@ void COSDMenu::BuildFilteredList() {
         }
     }
     else if (g_SharedState.active_emu_mode == EmuMode_MD) {
-        if (m_ActiveTab >= 2 && m_ActiveTab <= 4) {
-            // Alphabetical splits (Tabs 2 to 4)
+        if (m_ActiveTab >= 2 && m_ActiveTab <= 6) {
+            // Alphabetical splits (Tabs 2 to 6)
             int part = m_ActiveTab - 2;
             for (int i = 0; i < m_SystemCount; i++) {
                 if (!IsMCD(i)) {
@@ -466,14 +375,22 @@ void COSDMenu::BuildFilteredList() {
                             m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
                         }
                     } else if (part == 2) {
-                        if (idx > m_TabSplitK2) {
+                        if (idx > m_TabSplitK2 && idx <= m_TabSplitK3) {
+                            m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                        }
+                    } else if (part == 3) {
+                        if (idx > m_TabSplitK3 && idx <= m_TabSplitK4) {
+                            m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                        }
+                    } else if (part == 4) {
+                        if (idx > m_TabSplitK4) {
                             m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
                         }
                     }
                 }
             }
         }
-        else if (m_ActiveTab == 5) {
+        else if (m_ActiveTab == 7) {
             // MCD tab: include only Mega CD games of the current system
             for (int i = 0; i < m_SystemCount; i++) {
                 if (IsMCD(i)) {
@@ -483,8 +400,8 @@ void COSDMenu::BuildFilteredList() {
         }
     }
     else {
-        // SNES or NES: 4 alphabetical splits (Tabs 2 to 5)
-        if (m_ActiveTab >= 2 && m_ActiveTab <= 5) {
+        // SNES or NES: 6 alphabetical splits (Tabs 2 to 7)
+        if (m_ActiveTab >= 2 && m_ActiveTab <= 7) {
             int part = m_ActiveTab - 2;
             for (int i = 0; i < m_SystemCount; i++) {
                 char c = GetChar(i);
@@ -503,7 +420,15 @@ void COSDMenu::BuildFilteredList() {
                         m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
                     }
                 } else if (part == 3) {
-                    if (idx > m_TabSplitK3) {
+                    if (idx > m_TabSplitK3 && idx <= m_TabSplitK4) {
+                        m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                    }
+                } else if (part == 4) {
+                    if (idx > m_TabSplitK4 && idx <= m_TabSplitK5) {
+                        m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                    }
+                } else if (part == 5) {
+                    if (idx > m_TabSplitK5) {
                         m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
                     }
                 }
@@ -518,7 +443,7 @@ void COSDMenu::Update() {
     g_SharedState.menu_active_tab = m_ActiveTab;
 
     // Copy tab titles to shared state
-    for (int t = 0; t < 6; t++) {
+    for (int t = 0; t < 8; t++) {
         strncpy(g_SharedState.menu_tab_names[t], m_TabLabels[t], sizeof(g_SharedState.menu_tab_names[t]) - 1);
         g_SharedState.menu_tab_names[t][sizeof(g_SharedState.menu_tab_names[t]) - 1] = '\0';
     }
@@ -583,7 +508,7 @@ void COSDMenu::MoveDown() {
 }
 
 void COSDMenu::MoveLeft() {
-    int num_tabs = 6;
+    int num_tabs = 8;
     if (m_ActiveTab > 0) {
         m_ActiveTab--;
     } else {
@@ -595,7 +520,7 @@ void COSDMenu::MoveLeft() {
 }
 
 void COSDMenu::MoveRight() {
-    int num_tabs = 6;
+    int num_tabs = 8;
     if (m_ActiveTab < num_tabs - 1) {
         m_ActiveTab++;
     } else {

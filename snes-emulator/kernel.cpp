@@ -740,10 +740,15 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(6, 6, 6));
 
                 // Draw tabs
-                int num_tabs = 6;
+                int num_tabs = 8;
                 int active_tab = g_SharedState.menu_active_tab;
-                int tab_width = 80;
-                int tab_spacing = 8;
+                int tab_spacing = 6;
+                int available_tab_width = (x2 - x1) - 20;
+                int tab_width = (available_tab_width - (num_tabs - 1) * tab_spacing) / num_tabs;
+                if (tab_width < 56) {
+                    tab_spacing = 4;
+                    tab_width = (available_tab_width - (num_tabs - 1) * tab_spacing) / num_tabs;
+                }
                 int tab_area_width = num_tabs * tab_width + (num_tabs - 1) * tab_spacing;
                 int tab_start_x = x1 + ((x2 - x1) - tab_area_width) / 2;
                 int tab_y1 = y1 + 46;

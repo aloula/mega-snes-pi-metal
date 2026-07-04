@@ -58,11 +58,13 @@ private:
     int m_FilteredIndices[MAX_ROMS];
     int m_FilteredCount;
 
-    int m_ActiveTab; // 0 = ALL, 1 = FAV, 2 = Split 1, 3 = Split 2, 4 = Split 3, 5 = Split 4
-    char m_TabLabels[6][16];
+    int m_ActiveTab; // 0 = ALL, 1 = FAV, 2..7 = custom splits (or 7 = MCD in MD mode)
+    char m_TabLabels[8][16];
     int m_TabSplitK1;
     int m_TabSplitK2;
     int m_TabSplitK3;
+    int m_TabSplitK4;
+    int m_TabSplitK5;
 };
 
 #endif

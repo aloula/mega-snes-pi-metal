@@ -26,7 +26,7 @@ struct SharedState {
     char menu_lines[MAX_ROMS][80] __attribute__((aligned(64)));
     int menu_num_lines;
     int menu_selected_idx;
-    char menu_tab_names[6][16] __attribute__((aligned(64)));
+    char menu_tab_names[8][16] __attribute__((aligned(64)));
     int menu_active_tab;
 
     // Double-buffered emulator frame buffer (512x480, RGB555) to support SNES resolutions up to high-res interlace
