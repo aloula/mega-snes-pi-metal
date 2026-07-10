@@ -309,14 +309,6 @@ void CPCEOrchestrator::RunFrame() {
 
     retro_run();
     CaptureRewindState();
-
-    // Auto-save SRAM every 10 seconds (600 frames)
-    static u32 frame_count = 0;
-    frame_count++;
-    if (frame_count >= 600) {
-        frame_count = 0;
-        SaveSRAM();
-    }
 }
 
 void CPCEOrchestrator::SaveState(int slot) {
