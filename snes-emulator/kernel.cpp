@@ -1133,9 +1133,16 @@ void CKernel::RunVideoDomain() {
                     // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio using a high-quality software Sharp Bilinear filter)
                     int game_w = g_SharedState.game_w[read_idx];
                     if (game_w < 1) game_w = 256;
-                    if (game_h > 242) game_h = 242; // Safety cap
+                    
+                    int draw_h = game_h;
+                    int src_y_offset = 0;
+                    if (draw_h > 240) {
+                        src_y_offset = (draw_h - 240) / 2;
+                        draw_h = 240;
+                    }
+                    
                     int out_w = 640;
-                    int out_h = game_h * 2;
+                    int out_h = draw_h * 2;
                     int start_x = 0;
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
@@ -1144,8 +1151,8 @@ void CKernel::RunVideoDomain() {
                     u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
                     u32 transition_start = 65536 - step;
 
-                    for (int y = 0; y < game_h; y++) {
-                        const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w;
+                    for (int y = 0; y < draw_h; y++) {
+                        const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y_offset + y) * game_w;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
                         u16 *dest2 = dest1 + nPitch;
 
