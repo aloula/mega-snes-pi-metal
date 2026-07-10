@@ -99,6 +99,13 @@ static boolean is6ButtonGame(const char *pRomName) {
     return FALSE;
 }
 
+static bool IsRowBlack(const u16 *line, int width) {
+    if (line[width / 4] != 0) return false;
+    if (line[width / 2] != 0) return false;
+    if (line[3 * width / 4] != 0) return false;
+    return true;
+}
+
 // Helper drawing utilities
 static void DrawRect(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u16 color) {
     int width = x2 - x1 + 1;
@@ -1136,10 +1143,26 @@ void CKernel::RunVideoDomain() {
                     
                     int draw_h = game_h;
                     int src_y_offset = 0;
-                    if (draw_h > 240) {
-                        src_y_offset = 3; // Crop the top 3 overscan lines
-                        draw_h = game_h - 3;
-                        if (draw_h > 240) draw_h = 240;
+                    if (draw_h >= 240) {
+                        // Check if row 235 is black to determine if this is a 224-line game (with black padding at the bottom)
+                        const u16 *bottom_row = g_SharedState.emu_frame_buffer[read_idx] + (start_line + 235) * game_w;
+                        if (IsRowBlack(bottom_row, game_w)) {
+                            // The game is 224 lines. Check if it is centered (row 4 is black) or top-aligned (row 4 is active)
+                            const u16 *top_row = g_SharedState.emu_frame_buffer[read_idx] + (start_line + 4) * game_w;
+                            if (IsRowBlack(top_row, game_w)) {
+                                // Centered 224-line layout: crop 8 top, 8 bottom
+                                src_y_offset = 8;
+                                draw_h = 224;
+                            } else {
+                                // Top-aligned 224-line layout: crop 0 top, 16 bottom
+                                src_y_offset = 0;
+                                draw_h = 224;
+                            }
+                        } else {
+                            // Full 240-line game: crop 0 top, 0 bottom (draw full 240)
+                            src_y_offset = 0;
+                            draw_h = 240;
+                        }
                     }
                     
                     int out_w = 640;

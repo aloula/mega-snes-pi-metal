@@ -16,5 +16,6 @@
 
 # Other files to ignore
 /roms/
+/res/Jojoca.png
 /snes-emulator/pico
 /snes-emulator/pico_int_offs.h
