@@ -20,7 +20,34 @@ if ! command -v zip &> /dev/null; then
     echo -e "${RED}Error: 'zip' utility is not installed! Please install it (e.g. sudo apt install zip).${NC}"
     exit 1
 fi
+# Generate Splash_Screen.raw16 if res/MD_PCE_NES_SNES_Baremetal_Emulator.png or res/Splash_Screen.png exists
+SPLASH_PNG="res/MD_PCE_NES_SNES_Baremetal_Emulator.png"
+if [ ! -f "$SPLASH_PNG" ] && [ -f "res/Splash_Screen.png" ]; then
+    SPLASH_PNG="res/Splash_Screen.png"
+fi
 
+if [ -f "$SPLASH_PNG" ]; then
+    echo -e "${BLUE}Generating Splash_Screen.raw16 from $SPLASH_PNG...${NC}"
+    if command -v convert &> /dev/null; then
+        convert "$SPLASH_PNG" rgb:res/Splash_Screen.rgb
+        python3 -c '
+import struct
+with open("res/Splash_Screen.rgb", "rb") as f:
+    rgb = f.read()
+out = bytearray()
+for i in range(0, len(rgb), 3):
+    r, g, b = rgb[i], rgb[i+1], rgb[i+2]
+    val = (((r >> 3) & 0x1F) << 11) | (((g >> 2) & 0x3F) << 5) | ((b >> 3) & 0x1F)
+    out.extend(struct.pack("<H", val))
+with open("snes-emulator/boot/Splash_Screen.raw16", "wb") as f:
+    f.write(out)
+'
+        rm -f res/Splash_Screen.rgb
+        echo -e "${GREEN}Splash screen converted successfully!${NC}"
+    else
+        echo -e "${RED}Warning: 'convert' (ImageMagick) not found. Skipping splash screen generation.${NC}"
+    fi
+fi
 # 3. Clean snes-emulator build files
 echo -e "${BLUE}Cleaning previous build in snes-emulator...${NC}"
 make -C snes-emulator clean
