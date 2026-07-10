@@ -4,6 +4,7 @@ enable_uart=1
 initial_turbo=60
 disable_splash=1
 hdmi_drive=2
+hdmi_force_hotplug=1
 
 # Force Full HD (1080p 60Hz) output
 hdmi_group=2

@@ -21,7 +21,8 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **Picodrive**, a
     * **SNES/NES**: `ALL`, `FAV`, and 6 auto-balanced alphabetical tabs.
     * **Mega Drive**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `MCD`.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
-* **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** to save, and **SELECT + D-pad Right** to load.
+* **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
+* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**).
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 
@@ -112,9 +113,10 @@ Maps the standard six-button Sega controller layout:
 
 ---
 
-### 💾 Save and Load State Combos
-* **SELECT + D-pad Left**: Save state to Slot 0.
-* **SELECT + D-pad Right**: Load state from Slot 0.
+### 💾 Save, Load, and Rewind State Combos
+* **SELECT + D-pad Left** OR **SELECT + L Shoulder/Trigger**: Save state to Slot 0.
+* **SELECT + D-pad Right** OR **SELECT + R Shoulder/Trigger**: Load state from Slot 0.
+* **SELECT + D-pad Up** (or keyboard **F6**): Rewind state (5-second buffer).
 
 ---
 

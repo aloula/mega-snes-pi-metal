@@ -101,11 +101,21 @@ static const char FromOrchestrator[] = "orchestrator";
 
 // Audio temp buffer for Picodrive output
 static s16 g_AudioTempBuf[44100 / 50 * 2];
+static u32 s_nAudioMuteFrames = 0;
+
+static void ResetMDAudioAfterStateChange() {
+    g_SharedState.audio_ring_buffer.Init();
+    s_nAudioMuteFrames = 60; // 1 second (60 frames at 60 FPS)
+}
 
 // Sound callback
 static void EmuSoundCallback(int len) {
     // len is in bytes. Interleaved stereo 16-bit PCM (4 bytes per sample)
     unsigned num_stereo_samples = len / 4;
+    if (s_nAudioMuteFrames > 0) {
+        s_nAudioMuteFrames--;
+        memset(g_AudioTempBuf, 0, len);
+    }
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
 }
 
@@ -135,6 +145,7 @@ CMDOrchestrator::CMDOrchestrator(FATFS *pFileSystem)
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
+    s_nAudioMuteFrames = 0;
     for (int i = 0; i < 6; i++) {
         m_pRewindBuffers[i] = nullptr;
     }
@@ -335,6 +346,7 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
+    s_nAudioMuteFrames = 0;
 
     // Detect state size using dry run
     struct savestate_state temp_state = { 0 };
@@ -429,6 +441,7 @@ void CMDOrchestrator::SaveState(int slot) {
     int ret = PicoState(stateName, 1);
     if (ret == 0) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "State saved successfully!");
+        ResetMDAudioAfterStateChange();
     } else {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to save state! error=%d", ret);
     }
@@ -450,6 +463,7 @@ void CMDOrchestrator::LoadState(int slot) {
     int ret = PicoState(stateName, 0);
     if (ret == 0) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "State loaded successfully!");
+        ResetMDAudioAfterStateChange();
     } else {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load state! error=%d", ret);
     }
@@ -510,6 +524,7 @@ void CMDOrchestrator::RewindState() {
             m_nRewindWriteIdx = 1;
             m_nRewindCount = 1;
             m_nRewindFrameCounter = 0;
+            ResetMDAudioAfterStateChange();
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);
         }

@@ -233,6 +233,15 @@ CKernel::CKernel(void)
 }
 
 CKernel::~CKernel(void) {
+    if (m_pEmuOrchestrator != nullptr) {
+        delete m_pEmuOrchestrator;
+        m_pEmuOrchestrator = nullptr;
+    }
+    if (m_pOSDMenu != nullptr) {
+        delete m_pOSDMenu;
+        m_pOSDMenu = nullptr;
+    }
+
     if (m_ShutdownMode == ShutdownHalt) {
         m_PowerEnPin.Write(LOW);
         m_LedPin.AssignPin(14);
@@ -792,9 +801,9 @@ void CKernel::RunVideoDomain() {
  
                 // Upscale using optimized 64-bit integer 2x nearest neighbor
                 for (int y = 0; y < game_h; y++) {
-                    u32 *src32 = (u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320);
-                    u64 *dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch);
-                    u64 *dest64_2 = dest64_1 + (nPitch / 4);
+                    const u32 * __restrict src32 = (const u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320);
+                    u64 * __restrict dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch);
+                    u64 * __restrict dest64_2 = dest64_1 + (nPitch / 4);
  
                     for (int x = 0; x < 160; x++) {
                         u32 pixels = src32[x];
@@ -826,7 +835,8 @@ void CKernel::RunAudioDomain() {
     }
 
     CSoundBaseDevice *pSoundDevice = nullptr;
-    if (pSoundDeviceName != nullptr && strcmp(pSoundDeviceName, "sndhdmi") == 0) {
+    boolean bUsingHDMI = (pSoundDeviceName != nullptr && strcmp(pSoundDeviceName, "sndhdmi") == 0);
+    if (bUsingHDMI) {
         m_Logger.Write("audio", LogNotice, "Using HDMI audio device");
         pSoundDevice = new CHDMISoundBaseDevice(&m_Interrupt, 44100, 384 * 10);
     } else {
@@ -847,9 +857,30 @@ void CKernel::RunAudioDomain() {
 
     pSoundDevice->SetWriteFormat(SoundFormatSigned16, 2);
     if (!pSoundDevice->Start()) {
-        m_Logger.Write("audio", LogPanic, "Cannot start sound device");
-        delete pSoundDevice;
-        return;
+        if (bUsingHDMI) {
+            m_Logger.Write("audio", LogWarning, "Cannot start HDMI sound device (is the monitor off?). Falling back to PWM.");
+            delete pSoundDevice;
+            pSoundDevice = new CPWMSoundBaseDevice(&m_Interrupt, 44100, 2048);
+            if (pSoundDevice == nullptr) {
+                m_Logger.Write("audio", LogPanic, "Failed to instantiate fallback PWM sound device");
+                return;
+            }
+            if (!pSoundDevice->AllocateQueue(100)) {
+                m_Logger.Write("audio", LogPanic, "Cannot allocate fallback sound queue");
+                delete pSoundDevice;
+                return;
+            }
+            pSoundDevice->SetWriteFormat(SoundFormatSigned16, 2);
+            if (!pSoundDevice->Start()) {
+                m_Logger.Write("audio", LogPanic, "Cannot start fallback sound device");
+                delete pSoundDevice;
+                return;
+            }
+        } else {
+            m_Logger.Write("audio", LogPanic, "Cannot start sound device");
+            delete pSoundDevice;
+            return;
+        }
     }
 
     s16 local_buf[512 * 2];
@@ -989,17 +1020,17 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         g_SharedState.escape_pressed = TRUE;
     }
 
-    // SELECT + D-pad combos for state save/load/rewind
+    // SELECT + D-pad / Shoulder combos for state save/load/rewind
     if (pState->buttons & GamePadButtonSelect) {
         if (pad & (1 << 0)) { // D-pad Up -> Rewind state
             g_SharedState.rewind_requested = TRUE;
             pad = 0; // Mask inputs when combo is held
         }
-        if (pad & (1 << 2)) { // D-pad Left -> Save state
+        if ((pad & (1 << 2)) || (pState->buttons & (GamePadButtonLB | GamePadButtonLT))) { // D-pad Left or L Shoulder -> Save state
             g_SharedState.save_state_requested = TRUE;
             pad = 0; // Mask inputs when combo is held
         }
-        if (pad & (1 << 3)) { // D-pad Right -> Load state
+        if ((pad & (1 << 3)) || (pState->buttons & (GamePadButtonRB | GamePadButtonRT))) { // D-pad Right or R Shoulder -> Load state
             g_SharedState.load_state_requested = TRUE;
             pad = 0; // Mask inputs when combo is held
         }

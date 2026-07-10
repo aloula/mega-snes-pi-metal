@@ -20,6 +20,8 @@
 #include <api/NstApiInput.hpp>
 #include <api/NstApiUser.hpp>
 
+static const size_t NES_REWIND_SLOT_CAPACITY = 256 * 1024;
+
 // Custom stream buffer to read from a memory block with seeking support
 struct membuf : std::streambuf {
     membuf(char* begin, char* end) {
@@ -48,16 +50,6 @@ protected:
     }
 };
 
-// Custom stream buffer to write directly to a memory block
-struct omembuf : std::streambuf {
-    omembuf(char* begin, char* end) {
-        this->setp(begin, end);
-    }
-    size_t size() const {
-        return pptr() - pbase();
-    }
-};
-
 CNESOrchestrator::CNESOrchestrator(FATFS *pFileSystem)
     : m_pFileSystem(pFileSystem),
       m_pRomBuffer(nullptr),
@@ -70,8 +62,10 @@ CNESOrchestrator::CNESOrchestrator(FATFS *pFileSystem)
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
+    m_nAudioMuteFrames = 0;
     for (int i = 0; i < 6; i++) {
         m_pRewindBuffers[i] = nullptr;
+        m_nRewindStateSizes[i] = 0;
     }
 }
 
@@ -88,6 +82,7 @@ CNESOrchestrator::~CNESOrchestrator()
             delete[] m_pRewindBuffers[i];
             m_pRewindBuffers[i] = nullptr;
         }
+        m_nRewindStateSizes[i] = 0;
     }
 }
 
@@ -134,6 +129,8 @@ boolean CNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize)
     size_t read = fread(m_pRomBuffer, 1, nRomSize, f);
     fclose(f);
     if (read < nRomSize) {
+        delete[] m_pRomBuffer;
+        m_pRomBuffer = nullptr;
         CLogger::Get()->Write("orchestrator", LogError, "Failed to read NES ROM file completely");
         return FALSE;
     }
@@ -177,6 +174,59 @@ boolean CNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize)
     Nes::Api::Video video(*m_pEmulator);
     video.SetRenderState(renderState);
 
+    // Check for custom palette file (.pal) on the SD card
+    boolean loadedCustomPalette = FALSE;
+    unsigned char customPalette[64][3];
+    FILE* palFile = nullptr;
+
+    // 1. Try ROM-specific palette: <romname>.pal
+    char palPath[160];
+    strncpy(palPath, pRomName, sizeof(palPath) - 8);
+    palPath[sizeof(palPath) - 8] = '\0';
+    char *dot = strrchr(palPath, '.');
+    if (dot) {
+        *dot = '\0';
+    }
+    strcat(palPath, ".pal");
+    palFile = fopen(palPath, "rb");
+
+    // 2. Try global/system overrides
+    if (!palFile) {
+        palFile = fopen("/roms/nes/custom.pal", "rb");
+    }
+    if (!palFile) {
+        palFile = fopen("/roms/nes/nes.pal", "rb");
+    }
+    if (!palFile) {
+        palFile = fopen("/bios/custom.pal", "rb");
+    }
+    if (!palFile) {
+        palFile = fopen("/bios/nes.pal", "rb");
+    }
+    if (!palFile) {
+        palFile = fopen("/roms/custom.pal", "rb");
+    }
+
+    if (palFile) {
+        size_t bytesRead = fread(customPalette, 1, 192, palFile);
+        fclose(palFile);
+        if (bytesRead == 192) {
+            video.GetPalette().SetCustom(customPalette, Nes::Api::Video::Palette::STD_PALETTE);
+            video.GetPalette().SetMode(Nes::Api::Video::Palette::MODE_CUSTOM);
+            loadedCustomPalette = TRUE;
+            CLogger::Get()->Write("orchestrator", LogNotice, "Loaded custom NES palette from file");
+        } else {
+            CLogger::Get()->Write("orchestrator", LogError, "Custom palette file found but had invalid size (%u bytes, expected 192)", (unsigned)bytesRead);
+        }
+    }
+
+    if (!loadedCustomPalette) {
+        // Use Consumer YUV decoder preset (Sony CXA2095S/U based), which fixes red colors appearing as pink.
+        Nes::Api::Video::Decoder decoder(Nes::Api::Video::DECODER_CONSUMER);
+        video.SetDecoder(decoder);
+        CLogger::Get()->Write("orchestrator", LogNotice, "Using DECODER_CONSUMER preset for accurate NES colors");
+    }
+
     // Set sound state
     Nes::Api::Sound sound(*m_pEmulator);
     sound.SetSampleRate(44100);
@@ -197,12 +247,14 @@ boolean CNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize)
     }
     // Preallocate rewind buffers to a safe maximum size (256KB) to avoid runtime fragmentation
     for (int i = 0; i < 6; i++) {
-        m_pRewindBuffers[i] = new u8[256 * 1024];
+        m_pRewindBuffers[i] = new u8[NES_REWIND_SLOT_CAPACITY];
+        m_nRewindStateSizes[i] = 0;
     }
     m_nRewindWriteIdx = 0;
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
+    m_nAudioMuteFrames = 0;
 
     m_bRomLoaded = TRUE;
     m_LastPad1 = 0xFFFF;
@@ -253,6 +305,7 @@ void CNESOrchestrator::SaveState(int slot)
             fwrite(s.data(), 1, s.size(), f);
             fclose(f);
             CLogger::Get()->Write("orchestrator", LogNotice, "NES State saved successfully! Size=%u bytes", (unsigned)s.size());
+            ResetAudioAfterStateChange();
         } else {
             CLogger::Get()->Write("orchestrator", LogError, "Failed to open state file for writing: %s", stateName);
         }
@@ -311,6 +364,7 @@ void CNESOrchestrator::LoadState(int slot)
 
     if (ret == Nes::RESULT_OK || ret == Nes::RESULT_NOP) {
         CLogger::Get()->Write("orchestrator", LogNotice, "NES State loaded successfully!");
+        ResetAudioAfterStateChange();
     } else {
         CLogger::Get()->Write("orchestrator", LogError, "Failed to load state! error=%d", (int)ret);
     }
@@ -333,19 +387,27 @@ void CNESOrchestrator::CaptureRewindState()
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
-            // Write directly to the preallocated 256KB buffer block
-            omembuf sbuf((char*)m_pRewindBuffers[m_nRewindWriteIdx], (char*)m_pRewindBuffers[m_nRewindWriteIdx] + 256 * 1024);
-            std::ostream ss(&sbuf);
-
+            std::stringstream ss;
             Nes::Api::Machine machine(*m_pEmulator);
             Nes::Result ret = machine.SaveState(ss, Nes::Api::Machine::NO_COMPRESSION);
             if (ret == Nes::RESULT_OK || ret == Nes::RESULT_NOP) {
-                m_nStateSize = sbuf.size(); // Keep track of the serialized state size
+                std::string state = ss.str();
+                size_t state_size = state.size();
+                if (state_size == 0 || state_size > NES_REWIND_SLOT_CAPACITY) {
+                    CLogger::Get()->Write("orchestrator", LogError, "NES rewind capture size out of bounds: %u bytes", (unsigned)state_size);
+                    return;
+                }
+
+                memcpy(m_pRewindBuffers[m_nRewindWriteIdx], state.data(), state_size);
+                m_nRewindStateSizes[m_nRewindWriteIdx] = state_size;
+                m_nStateSize = state_size;
 
                 m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 6;
                 if (m_nRewindCount < 6) {
                     m_nRewindCount++;
                 }
+            } else {
+                CLogger::Get()->Write("orchestrator", LogError, "Failed to capture NES rewind state! error=%d", (int)ret);
             }
         }
     }
@@ -353,13 +415,18 @@ void CNESOrchestrator::CaptureRewindState()
 
 void CNESOrchestrator::RewindState()
 {
-    if (!m_bRomLoaded || m_nRewindCount == 0 || m_nStateSize == 0) return;
+    if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
     int loadIdx = (m_nRewindCount == 6) ? m_nRewindWriteIdx : 0;
+    size_t loadSize = m_nRewindStateSizes[loadIdx];
+    if (loadSize == 0 || loadSize > NES_REWIND_SLOT_CAPACITY) {
+        CLogger::Get()->Write("orchestrator", LogError, "Invalid NES rewind slot size at index %d: %u", loadIdx, (unsigned)loadSize);
+        return;
+    }
 
     CLogger::Get()->Write("orchestrator", LogNotice, "Rewinding NES state... loading index %d", loadIdx);
     if (m_pRewindBuffers[loadIdx] != nullptr) {
-        membuf sbuf((char*)m_pRewindBuffers[loadIdx], (char*)m_pRewindBuffers[loadIdx] + m_nStateSize);
+        membuf sbuf((char*)m_pRewindBuffers[loadIdx], (char*)m_pRewindBuffers[loadIdx] + loadSize);
         std::istream ss(&sbuf);
 
         Nes::Api::Machine machine(*m_pEmulator);
@@ -369,14 +436,32 @@ void CNESOrchestrator::RewindState()
             // Reset rewind buffers to clean slate with current loaded state
             m_nRewindWriteIdx = 0;
             // Copy loaded state to slot 0 (which is already preallocated)
-            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], m_nStateSize);
+            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], loadSize);
+            m_nRewindStateSizes[0] = loadSize;
+            m_nStateSize = loadSize;
+            for (int i = 1; i < 6; i++) {
+                m_nRewindStateSizes[i] = 0;
+            }
             m_nRewindWriteIdx = 1;
             m_nRewindCount = 1;
             m_nRewindFrameCounter = 0;
+            ResetAudioAfterStateChange();
         } else {
             CLogger::Get()->Write("orchestrator", LogError, "Failed to load rewind NES state! error=%d", (int)ret);
         }
     }
+}
+
+void CNESOrchestrator::ResetAudioAfterStateChange()
+{
+    if (!m_bRomLoaded || !m_pEmulator) return;
+
+    Nes::Api::Sound sound(*m_pEmulator);
+    sound.EmptyBuffer();
+
+    g_SharedState.audio_ring_buffer.Init();
+
+    m_nAudioMuteFrames = 60; // Mute for 60 frames (1.0 second at 60 FPS)
 }
 
 bool CNESOrchestrator::VideoLockCallback(void* userData, Nes::Core::Video::Output& output)
@@ -419,6 +504,10 @@ void CNESOrchestrator::SoundUnlockCallback(void* userData, Nes::Core::Sound::Out
     CNESOrchestrator* pSelf = (CNESOrchestrator*)userData;
     unsigned num_samples = output.length[0];
     if (num_samples > 0) {
+        if (pSelf->m_nAudioMuteFrames > 0) {
+            pSelf->m_nAudioMuteFrames--;
+            memset(pSelf->m_SoundBuffer, 0, num_samples * 2 * sizeof(s16));
+        }
         g_SharedState.audio_ring_buffer.Write(pSelf->m_SoundBuffer, num_samples);
     }
 }

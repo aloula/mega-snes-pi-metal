@@ -28,6 +28,7 @@ public:
     void RewindState();
 
 private:
+    void ResetAudioAfterStateChange();
     static bool VideoLockCallback(void* userData, Nes::Core::Video::Output& output);
     static void VideoUnlockCallback(void* userData, Nes::Core::Video::Output& output);
     static bool SoundLockCallback(void* userData, Nes::Core::Sound::Output& output);
@@ -46,6 +47,7 @@ private:
 
     // 5 seconds state buffer (6 slots, captured once per second)
     u8 *m_pRewindBuffers[6];
+    size_t m_nRewindStateSizes[6];
     int m_nRewindWriteIdx;
     int m_nRewindCount;
     u32 m_nRewindFrameCounter;
@@ -53,6 +55,7 @@ private:
 
     // Sound buffer for the current frame
     s16 m_SoundBuffer[2048 * 2];
+    u32 m_nAudioMuteFrames;
 };
 
 #endif

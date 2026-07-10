@@ -155,6 +155,7 @@ CSNESOrchestrator::CSNESOrchestrator(FATFS *pFileSystem)
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
+    m_nAudioMuteFrames = 0;
     for (int i = 0; i < 6; i++) {
         m_pRewindBuffers[i] = nullptr;
     }
@@ -293,6 +294,7 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = S9xFreezeSize();
+    m_nAudioMuteFrames = 0;
     
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
     for (int i = 0; i < 6; i++) {
@@ -365,11 +367,18 @@ void CSNESOrchestrator::RunFrame() {
     // 4. Mix and retrieve audio samples from Snes9x to our audio ring buffer
     int avail = S9xGetSampleCount();
     avail &= ~1; // Ensure even number of samples (stereo pairs) to prevent channel misalignment
+    bool mute_active = (m_nAudioMuteFrames > 0);
+    if (mute_active) {
+        m_nAudioMuteFrames--;
+    }
     while (avail > 0) {
         int chunk = avail;
         if (chunk > 2048) chunk = 2048;
         static s16 local_audio_buf[2048];
         S9xMixSamples((uint8 *)local_audio_buf, chunk);
+        if (mute_active) {
+            memset(local_audio_buf, 0, chunk * sizeof(s16));
+        }
         g_SharedState.audio_ring_buffer.Write(local_audio_buf, chunk >> 1);
         avail -= chunk;
     }
@@ -391,6 +400,7 @@ void CSNESOrchestrator::SaveState(int slot) {
     bool8 ret = S9xFreezeGame(stateName);
     if (ret) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "State saved successfully!");
+        ResetAudioAfterStateChange();
     } else {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to save state!");
     }
@@ -412,6 +422,7 @@ void CSNESOrchestrator::LoadState(int slot) {
     bool8 ret = S9xUnfreezeGame(stateName);
     if (ret) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "State loaded successfully!");
+        ResetAudioAfterStateChange();
     } else {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load state!");
     }
@@ -456,8 +467,15 @@ void CSNESOrchestrator::RewindState() {
             m_nRewindWriteIdx = 1;
             m_nRewindCount = 1;
             m_nRewindFrameCounter = 0;
+            ResetAudioAfterStateChange();
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);
         }
     }
+}
+
+void CSNESOrchestrator::ResetAudioAfterStateChange() {
+    S9xClearSamples();
+    g_SharedState.audio_ring_buffer.Init();
+    m_nAudioMuteFrames = 60; // 1 second (60 frames at 60 FPS)
 }
