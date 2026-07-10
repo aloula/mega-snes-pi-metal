@@ -102,15 +102,20 @@ static bool CDAccess_CHD_Load(CDAccess_CHD *self, const char *path, bool image_m
       return false;
    }
 
-   if (image_memcache)
-   {
-      err = chd_precache(self->chd);
-      if (err != CHDERR_NONE)
-      {
-         log_cb(RETRO_LOG_ERROR, "Failed to pre-cache CHD image: %s", path);
-         return false;
-      }
-   }
+    // Bypassed for bare-metal stability: allocating a single contiguous block
+    // on the heap for the entire CHD file size (150MB - 450MB) exceeds safe
+    // bare-metal allocator limits and freezes the system.
+    /*
+    if (image_memcache)
+    {
+       err = chd_precache(self->chd);
+       if (err != CHDERR_NONE)
+       {
+          log_cb(RETRO_LOG_ERROR, "Failed to pre-cache CHD image: %s", path);
+          return false;
+       }
+    }
+    */
 
    head = chd_get_header(self->chd);
    self->hunkmem = (uint8_t *)malloc(head->hunkbytes);
