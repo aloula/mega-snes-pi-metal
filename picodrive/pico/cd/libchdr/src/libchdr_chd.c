@@ -1964,12 +1964,20 @@ CHD_EXPORT chd_error chd_precache(chd_file *chd)
 		if (chd->file_cache == NULL)
 			return CHDERR_OUT_OF_MEMORY;
 		core_fseek(chd->file, 0, SEEK_SET);
-		count = core_fread(chd->file, chd->file_cache, size);
-		if (count != size)
+		UINT64 bytes_left = size;
+		UINT8 *dest = (UINT8 *)chd->file_cache;
+		while (bytes_left > 0)
 		{
-			free(chd->file_cache);
-			chd->file_cache = NULL;
-			return CHDERR_READ_ERROR;
+			UINT32 chunk = (bytes_left > 65536) ? 65536 : bytes_left;
+			count = core_fread(chd->file, dest, chunk);
+			if ((UINT64)count != chunk)
+			{
+				free(chd->file_cache);
+				chd->file_cache = NULL;
+				return CHDERR_READ_ERROR;
+			}
+			dest += chunk;
+			bytes_left -= chunk;
 		}
 	}
 

@@ -102,10 +102,6 @@ static bool CDAccess_CHD_Load(CDAccess_CHD *self, const char *path, bool image_m
       return false;
    }
 
-    // Bypassed for bare-metal stability: allocating a single contiguous block
-    // on the heap for the entire CHD file size (150MB - 450MB) exceeds safe
-    // bare-metal allocator limits and freezes the system.
-    /*
     if (image_memcache)
     {
        err = chd_precache(self->chd);
@@ -115,7 +111,6 @@ static bool CDAccess_CHD_Load(CDAccess_CHD *self, const char *path, bool image_m
           return false;
        }
     }
-    */
 
    head = chd_get_header(self->chd);
    self->hunkmem = (uint8_t *)malloc(head->hunkbytes);
