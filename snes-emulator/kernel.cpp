@@ -1104,27 +1104,29 @@ void CKernel::RunVideoDomain() {
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
 
+                    u32 step = (game_w << 16) / 640;
+                    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
+                    u32 transition_start = 65536 - step;
+
                     for (int y = 0; y < game_h; y++) {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
                         u16 *dest2 = dest1 + nPitch;
 
-                        u32 step = (game_w << 16) / 640;
                         u32 accum = 0;
                         for (int x = 0; x < 640; x++) {
                             u32 idx = accum >> 16;
                             u32 frac_part = accum & 0xFFFF;
                             
                             u16 blended;
-                            u32 transition_start = 65536 - step;
                             if (frac_part >= transition_start && step > 0) {
                                 // Boundary transition: blend between idx and idx + 1 over exactly 1 destination pixel
                                 u32 idx2 = (idx + 1 < (u32)game_w) ? idx + 1 : idx;
                                 u16 c1 = src[idx];
                                 u16 c2 = src[idx2];
                                 
-                                // Map the transition region [transition_start, 65536] to [0, 32] for 5-bit blend weight
-                                u32 frac = ((frac_part - transition_start) * 32) / step;
+                                // Map the transition region [transition_start, 65536] to [0, 32] for 5-bit blend weight using precalculated scale
+                                u32 frac = ((frac_part - transition_start) * scale) >> 16;
                                 if (frac > 32) frac = 32;
 
                                 u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
