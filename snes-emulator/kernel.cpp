@@ -1029,7 +1029,7 @@ void CKernel::RunVideoDomain() {
                         }
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio)
+                    // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio with linear horizontal filtering to avoid shimmering)
                     int game_w = g_SharedState.game_w[read_idx];
                     if (game_w < 1) game_w = 256;
                     if (game_h > 242) game_h = 242; // Safety cap
@@ -1047,9 +1047,19 @@ void CKernel::RunVideoDomain() {
                         u32 step = (game_w << 16) / 640;
                         u32 accum = 0;
                         for (int x = 0; x < 640; x++) {
-                            u16 pixel = src[accum >> 16];
-                            dest1[x] = pixel;
-                            dest2[x] = pixel;
+                            u32 idx = accum >> 16;
+                            u32 frac = (accum & 0xFFFF) >> 11; // 5-bit fraction (0..31)
+                            
+                            u16 c1 = src[idx];
+                            u16 c2 = (idx + 1 < (u32)game_w) ? src[idx + 1] : c1;
+
+                            // Fast RGB565 horizontal linear blending
+                            u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
+                            u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
+                            u16 blended = rb | g;
+
+                            dest1[x] = blended;
+                            dest2[x] = blended;
                             accum += step;
                         }
                     }
