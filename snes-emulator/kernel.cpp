@@ -812,6 +812,9 @@ void CKernel::RunVideoDomain() {
     }
 
     boolean was_in_menu = TRUE;
+    static int s_PceLayoutMode = -1; // -1: Undetected, 0: 240-line, 1: Centered 224, 2: Top-aligned 224
+    static int s_PceSrcYOffset = 0;
+    static int s_PceDrawH = 240;
     while (1) {
         if (m_ShutdownMode != ShutdownNone) {
             DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
@@ -1020,6 +1023,7 @@ void CKernel::RunVideoDomain() {
 
                 if (was_in_menu) {
                     was_in_menu = FALSE;
+                    s_PceLayoutMode = -1; // Reset PCE layout detection on game start
                     // Clear both pBackBuffer and the hardware framebuffer to black once when entering the game
                     memset(pBackBuffer, 0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
                     if (nPitch == SCREEN_WIDTH) {
@@ -1141,29 +1145,41 @@ void CKernel::RunVideoDomain() {
                     int game_w = g_SharedState.game_w[read_idx];
                     if (game_w < 1) game_w = 256;
                     
-                    int draw_h = game_h;
-                    int src_y_offset = 0;
-                    if (draw_h >= 240) {
-                        // Check if row 235 is black to determine if this is a 224-line game (with black padding at the bottom)
-                        const u16 *bottom_row = g_SharedState.emu_frame_buffer[read_idx] + (start_line + 235) * game_w;
-                        if (IsRowBlack(bottom_row, game_w)) {
-                            // The game is 224 lines. Check if it is centered (row 4 is black) or top-aligned (row 4 is active)
+                    if (s_PceLayoutMode == -1 && game_h >= 240) {
+                        // We check if the screen is currently active (middle line is not black) before locking in a mode
+                        const u16 *mid_row = g_SharedState.emu_frame_buffer[read_idx] + (start_line + 120) * game_w;
+                        if (!IsRowBlack(mid_row, game_w)) {
+                            // Check if row 235 is black to determine if this is a 224-line game (with black padding at the bottom)
+                            const u16 *bottom_row = g_SharedState.emu_frame_buffer[read_idx] + (start_line + 235) * game_w;
                             const u16 *top_row = g_SharedState.emu_frame_buffer[read_idx] + (start_line + 4) * game_w;
-                            if (IsRowBlack(top_row, game_w)) {
-                                // Centered 224-line layout: crop 8 top, 8 bottom
-                                src_y_offset = 8;
-                                draw_h = 224;
+                            
+                            bool bottom_black = IsRowBlack(bottom_row, game_w);
+                            bool top_black = IsRowBlack(top_row, game_w);
+                            
+                            if (bottom_black) {
+                                if (top_black) {
+                                    // Centered 224-line layout: crop 8 top, 8 bottom
+                                    s_PceLayoutMode = 1;
+                                    s_PceSrcYOffset = 8;
+                                    s_PceDrawH = 224;
+                                } else {
+                                    // Top-aligned 224-line layout: crop 0 top, 16 bottom
+                                    s_PceLayoutMode = 2;
+                                    s_PceSrcYOffset = 0;
+                                    s_PceDrawH = 224;
+                                }
                             } else {
-                                // Top-aligned 224-line layout: crop 0 top, 16 bottom
-                                src_y_offset = 0;
-                                draw_h = 224;
+                                // Full 240-line game: crop 0 top, 0 bottom (draw full 240)
+                                s_PceLayoutMode = 0;
+                                s_PceSrcYOffset = 0;
+                                s_PceDrawH = 240;
                             }
-                        } else {
-                            // Full 240-line game: crop 0 top, 0 bottom (draw full 240)
-                            src_y_offset = 0;
-                            draw_h = 240;
                         }
                     }
+                    
+                    int draw_h = (s_PceLayoutMode != -1) ? s_PceDrawH : game_h;
+                    int src_y_offset = (s_PceLayoutMode != -1) ? s_PceSrcYOffset : 0;
+                    if (s_PceLayoutMode == -1 && draw_h > 240) draw_h = 240;
                     
                     int out_w = 640;
                     int out_h = draw_h * 2;
