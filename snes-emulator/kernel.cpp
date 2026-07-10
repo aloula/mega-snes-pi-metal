@@ -1029,7 +1029,7 @@ void CKernel::RunVideoDomain() {
                         }
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio with linear horizontal filtering to avoid shimmering)
+                    // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio using a high-quality software Sharp Bilinear filter)
                     int game_w = g_SharedState.game_w[read_idx];
                     if (game_w < 1) game_w = 256;
                     if (game_h > 242) game_h = 242; // Safety cap
@@ -1048,15 +1048,27 @@ void CKernel::RunVideoDomain() {
                         u32 accum = 0;
                         for (int x = 0; x < 640; x++) {
                             u32 idx = accum >> 16;
-                            u32 frac = (accum & 0xFFFF) >> 11; // 5-bit fraction (0..31)
+                            u32 frac_part = accum & 0xFFFF;
                             
-                            u16 c1 = src[idx];
-                            u16 c2 = (idx + 1 < (u32)game_w) ? src[idx + 1] : c1;
+                            u16 blended;
+                            u32 transition_start = 65536 - step;
+                            if (frac_part >= transition_start && step > 0) {
+                                // Boundary transition: blend between idx and idx + 1 over exactly 1 destination pixel
+                                u32 idx2 = (idx + 1 < (u32)game_w) ? idx + 1 : idx;
+                                u16 c1 = src[idx];
+                                u16 c2 = src[idx2];
+                                
+                                // Map the transition region [transition_start, 65536] to [0, 32] for 5-bit blend weight
+                                u32 frac = ((frac_part - transition_start) * 32) / step;
+                                if (frac > 32) frac = 32;
 
-                            // Fast RGB565 horizontal linear blending
-                            u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                            u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                            u16 blended = rb | g;
+                                u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
+                                u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
+                                blended = rb | g;
+                            } else {
+                                // Flat area of the pixel: draw 100% sharp color
+                                blended = src[idx];
+                            }
 
                             dest1[x] = blended;
                             dest2[x] = blended;
