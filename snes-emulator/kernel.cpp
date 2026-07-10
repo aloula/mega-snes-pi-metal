@@ -1171,6 +1171,15 @@ void CKernel::RunVideoDomain() {
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
 
+                    // Clear top border to black on every frame
+                    if (start_y > 0) {
+                        memset(pBuf, 0, start_y * nPitch * sizeof(u16));
+                    }
+                    // Clear bottom border to black on every frame
+                    if (start_y + out_h < SCREEN_HEIGHT) {
+                        memset(pBuf + (start_y + out_h) * nPitch, 0, (SCREEN_HEIGHT - (start_y + out_h)) * nPitch * sizeof(u16));
+                    }
+
                     u32 step = (game_w << 16) / 640;
                     u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
                     u32 transition_start = 65536 - step;
