@@ -16,7 +16,7 @@
 SharedState g_SharedState;
 FATFS *g_pFileSystem = nullptr;
 
-static u16 s_SplashBuf[640 * 477] __attribute__((aligned(64)));
+static u16 s_SplashBuf[640 * 480] __attribute__((aligned(64)));
 
 static CKernel *s_pThis = nullptr;
 static boolean s_Is3ButtonGame = TRUE;
@@ -733,57 +733,68 @@ void CKernel::RunVideoDomain() {
     // Load and display splash screen
     FIL splashFile;
     if (f_open(&splashFile, "SD:/Splash_Screen.raw16", FA_READ) == FR_OK) {
-        UINT bytesRead = 0;
-        FRESULT read_res = f_read(&splashFile, s_SplashBuf, 640 * 477 * sizeof(u16), &bytesRead);
-        f_close(&splashFile);
+        u64 fileSize = f_size(&splashFile);
+        int img_h = fileSize / (640 * sizeof(u16));
+        if (img_h > 480) img_h = 480;
 
-        if (read_res == FR_OK && bytesRead == 640 * 477 * sizeof(u16)) {
-            // Synchronize data cache for Core 1 to see the raw DMA bytes cleanly
-            CleanAndInvalidateDataCacheRange((u32)s_SplashBuf, 640 * 477 * sizeof(u16));
+        if (img_h >= 1) {
+            UINT bytesRead = 0;
+            UINT bytesToRead = 640 * img_h * sizeof(u16);
+            FRESULT read_res = f_read(&splashFile, s_SplashBuf, bytesToRead, &bytesRead);
+            f_close(&splashFile);
 
-            // 1. Fade-in (1 second, 50 steps of 20ms)
-            for (int step = 0; step <= 50; step++) {
-                for (int y = 0; y < 477; y++) {
-                    for (int x = 0; x < 640; x++) {
-                        u16 color = s_SplashBuf[y * 640 + x];
-                        u32 r = (color >> 11) & 0x1F;
-                        u32 g = (color >> 5) & 0x3F;
-                        u32 b = color & 0x1F;
-                        r = (r * step) / 50;
-                        g = (g * step) / 50;
-                        b = (b * step) / 50;
-                        pBackBuffer[(1 + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+            if (read_res == FR_OK && bytesRead == bytesToRead) {
+                // Synchronize data cache for Core 1 to see the raw DMA bytes cleanly
+                CleanAndInvalidateDataCacheRange((u32)s_SplashBuf, bytesToRead);
+
+                int start_y = (480 - img_h) / 2;
+
+                // 1. Fade-in (1 second, 50 steps of 20ms)
+                for (int step = 0; step <= 50; step++) {
+                    for (int y = 0; y < img_h; y++) {
+                        for (int x = 0; x < 640; x++) {
+                            u16 color = s_SplashBuf[y * 640 + x];
+                            u32 r = (color >> 11) & 0x1F;
+                            u32 g = (color >> 5) & 0x3F;
+                            u32 b = color & 0x1F;
+                            r = (r * step) / 50;
+                            g = (g * step) / 50;
+                            b = (b * step) / 50;
+                            pBackBuffer[(start_y + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                        }
                     }
+                    memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                    CTimer::SimpleMsDelay(20);
+                }
+
+                // 2. Solid Display (2 seconds)
+                // Copy the original splash image at full brightness to pBackBuffer
+                for (int y = 0; y < img_h; y++) {
+                    memcpy(pBackBuffer + (start_y + y) * SCREEN_WIDTH, s_SplashBuf + y * 640, 640 * sizeof(u16));
                 }
                 memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-                CTimer::SimpleMsDelay(20);
-            }
+                CTimer::SimpleMsDelay(2000);
 
-            // 2. Solid Display (2 seconds)
-            // Copy the original splash image at full brightness to pBackBuffer
-            for (int y = 0; y < 477; y++) {
-                memcpy(pBackBuffer + (1 + y) * SCREEN_WIDTH, s_SplashBuf + y * 640, 640 * sizeof(u16));
-            }
-            memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-            CTimer::SimpleMsDelay(2000);
-
-            // 3. Fade-out (1 second, 50 steps of 20ms)
-            for (int step = 50; step >= 0; step--) {
-                for (int y = 0; y < 477; y++) {
-                    for (int x = 0; x < 640; x++) {
-                        u16 color = s_SplashBuf[y * 640 + x];
-                        u32 r = (color >> 11) & 0x1F;
-                        u32 g = (color >> 5) & 0x3F;
-                        u32 b = color & 0x1F;
-                        r = (r * step) / 50;
-                        g = (g * step) / 50;
-                        b = (b * step) / 50;
-                        pBackBuffer[(1 + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                // 3. Fade-out (1 second, 50 steps of 20ms)
+                for (int step = 50; step >= 0; step--) {
+                    for (int y = 0; y < img_h; y++) {
+                        for (int x = 0; x < 640; x++) {
+                            u16 color = s_SplashBuf[y * 640 + x];
+                            u32 r = (color >> 11) & 0x1F;
+                            u32 g = (color >> 5) & 0x3F;
+                            u32 b = color & 0x1F;
+                            r = (r * step) / 50;
+                            g = (g * step) / 50;
+                            b = (b * step) / 50;
+                            pBackBuffer[(start_y + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                        }
                     }
+                    memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                    CTimer::SimpleMsDelay(20);
                 }
-                memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-                CTimer::SimpleMsDelay(20);
             }
+        } else {
+            f_close(&splashFile);
         }
     }
 
