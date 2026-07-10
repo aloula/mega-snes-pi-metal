@@ -4,17 +4,44 @@ import sys
 import zipfile
 import re
 import shutil
+import argparse
 
-def clean_name(name):
+def clean_name(name, keep_regions=False):
     # Split name and extension
     base, ext = os.path.splitext(name)
-    # Remove anything inside parenthesis and any leading space before it
-    new_base = re.sub(r'\s*\([^)]*\)', '', base)
+    
+    if keep_regions:
+        # Helper to check if the parentheses contents match standard region names/codes
+        def is_region(text):
+            # Split by common separators (spaces, commas, slashes, dashes)
+            parts = re.split(r'[\s,/\-\+]+', text.strip())
+            region_words = {
+                'u', 'usa', 'j', 'japan', 'e', 'europe', 'w', 'world', 'a', 'australia', 
+                'f', 'france', 'g', 'germany', 'i', 'italy', 's', 'spain', 'k', 'korea', 
+                'ch', 'china', 'asia', 'brazil', 'canada', 'nl', 'netherlands', 'sweden', 
+                'sw', 'pd', 'public domain', 'ju', 'ue', 'eu', 'world'
+            }
+            # If all sub-parts are recognized region tokens, we treat the tag as a region
+            return all(p.lower() in region_words for p in parts if p)
+
+        # Regex replacement callback
+        def repl(match):
+            content = match.group(1)
+            if is_region(content):
+                return match.group(0) # Keep region tag and its preceding spaces/parentheses
+            return "" # Strip non-region tag
+
+        # Match any pattern like " (contents)" or "(contents)"
+        new_base = re.sub(r'\s*\(([^)]*)\)', repl, base)
+    else:
+        # Standard: remove anything inside parenthesis and any leading space before it
+        new_base = re.sub(r'\s*\([^)]*\)', '', base)
+        
     # Replace multiple spaces with a single space and strip
     new_base = re.sub(r'\s+', ' ', new_base).strip()
     return new_base + ext
 
-def process_zip(zip_path, delete_zip=True):
+def process_zip(zip_path, delete_zip=True, keep_regions=False):
     target_dir = os.path.dirname(zip_path)
     print(f"Processing: {os.path.basename(zip_path)}")
     
@@ -34,7 +61,7 @@ def process_zip(zip_path, delete_zip=True):
                 
                 # Determine clean filename
                 orig_filename = os.path.basename(extracted_path)
-                cleaned_filename = clean_name(orig_filename)
+                cleaned_filename = clean_name(orig_filename, keep_regions)
                 new_path = os.path.join(target_dir, cleaned_filename)
                 
                 # Handle directory structure if extracted path is nested
@@ -75,10 +102,13 @@ def process_zip(zip_path, delete_zip=True):
         print(f"  Error processing {os.path.basename(zip_path)}: {e}")
 
 def main():
-    if len(sys.argv) > 1:
-        target_dir = sys.argv[1]
-    else:
-        target_dir = '.'
+    parser = argparse.ArgumentParser(description="Clean ROM filenames by extracting ZIPs and cleaning parenthesis contents.")
+    parser.add_argument("directory", nargs="?", default=".", help="Directory to scan (default: current directory)")
+    parser.add_argument("--keep-regions", "-k", action="store_true", help="Do not remove region tags like (U), (USA), (J), (Europe), etc.")
+    parser.add_argument("--keep-zip", action="store_true", help="Do not delete ZIP archives after extraction")
+    args = parser.parse_args()
+
+    target_dir = args.directory
         
     if not os.path.exists(target_dir):
         print(f"Error: Directory '{target_dir}' does not exist.")
@@ -97,7 +127,7 @@ def main():
         
     print(f"Found {len(zip_files)} zip file(s).")
     for zip_file in zip_files:
-        process_zip(zip_file, delete_zip=True)
+        process_zip(zip_file, delete_zip=not args.keep_zip, keep_regions=args.keep_regions)
         
     print("Done!")
 
