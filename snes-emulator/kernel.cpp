@@ -381,6 +381,7 @@ void CKernel::RunOrchestrator() {
     m_ActLED.Off();
 
     g_SharedState.in_menu = TRUE;
+    g_SharedState.rom_loading = FALSE;
     g_SharedState.emu_write_idx = 0;
     g_SharedState.emu_read_idx = 0;
     g_SharedState.start_line[0] = 0;
@@ -576,7 +577,9 @@ void CKernel::RunOrchestrator() {
                         g_SharedState.game_h[1] = 240;
                     }
                     g_SharedState.video_frame_ready = FALSE;
+                    g_SharedState.rom_loading = TRUE;
                     DataMemBarrier();
+                    CTimer::SimpleMsDelay(50); // Delay to let Video Core render the LOADING box
 
                     boolean loaded = FALSE;
                     if (g_SharedState.active_emu_mode == EmuMode_SNES) {
@@ -589,6 +592,9 @@ void CKernel::RunOrchestrator() {
                     } else { // EmuMode_PCE
                         loaded = m_pPCEOrchestrator->LoadROM(fullPath, nRomSize);
                     }
+
+                    g_SharedState.rom_loading = FALSE;
+                    DataMemBarrier();
 
                     if (loaded) {
                         g_SharedState.audio_ring_buffer.Init();
@@ -972,6 +978,25 @@ void CKernel::RunVideoDomain() {
                 int footer_w = strlen(footer_text) * 8;
                 int footer_x = (SCREEN_WIDTH - footer_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 12, 12), 0);
+
+                if (g_SharedState.rom_loading) {
+                    // Draw a beautiful centered loading box overlay on top of the menu
+                    int bx1 = (SCREEN_WIDTH - 280) / 2;
+                    int by1 = (SCREEN_HEIGHT - 70) / 2;
+                    int bx2 = bx1 + 280;
+                    int by2 = by1 + 70;
+                    
+                    // Box background (very dark gray)
+                    DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 2, 2));
+                    // Accent border (medium gray)
+                    DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(16, 16, 16), 2);
+                    
+                    const char *loading_msg = "LOADING GAME, PLEASE WAIT...";
+                    int msg_w = strlen(loading_msg) * 8;
+                    int msg_x = bx1 + (280 - msg_w) / 2;
+                    int msg_y = by1 + (70 - 16) / 2;
+                    DrawString(pBackBuffer, SCREEN_WIDTH, loading_msg, msg_x, msg_y, COLOR15(31, 31, 31), COLOR15(2, 2, 2));
+                }
 
                 // Copy fully rendered backbuffer to the active framebuffer in a single fast operation
                 memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
