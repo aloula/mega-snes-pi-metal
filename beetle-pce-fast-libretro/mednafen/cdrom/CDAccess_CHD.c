@@ -107,8 +107,7 @@ static bool CDAccess_CHD_Load(CDAccess_CHD *self, const char *path, bool image_m
        err = chd_precache(self->chd);
        if (err != CHDERR_NONE)
        {
-          log_cb(RETRO_LOG_ERROR, "Failed to pre-cache CHD image: %s", path);
-          return false;
+          log_cb(RETRO_LOG_WARN, "Failed to pre-cache CHD image: %s (error %d). Falling back to SD card streaming.", path, (int)err);
        }
     }
 
