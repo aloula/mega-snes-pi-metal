@@ -32,6 +32,7 @@ private:
     void LoadFavorites();
     void SaveFavorites();
     boolean IsMCD(int sys_idx) const;
+    boolean IsPCECD(int sys_idx) const;
     char GetChar(int sys_idx) const;
     static int GetLetterIdx(char c);
 

@@ -196,26 +196,26 @@ void COSDMenu::CalculateTabLabels() {
     // Tab 1: "FAV"
     strcpy(m_TabLabels[1], "FAV");
 
-    // Count non-MCD games per letter
+    // Count non-CD games per letter
     int letter_counts[27] = {0};
-    int total_non_mcd = 0;
+    int total_non_cd = 0;
     for (int i = 0; i < m_SystemCount; i++) {
-        if (!IsMCD(i)) {
+        if (!IsMCD(i) && !IsPCECD(i)) {
             char c = GetChar(i);
             int idx = GetLetterIdx(c);
             if (idx >= 0 && idx < 27) {
                 letter_counts[idx]++;
-                total_non_mcd++;
+                total_non_cd++;
             }
         }
     }
 
     auto setRangeLabel = [this](int tab_idx, int lower_bound_exclusive, int upper_bound_inclusive,
-                                 bool skip_mcd, const char *fallback) {
+                                 bool skip_cd, const char *fallback) {
         int start = -1;
         int end = -1;
         for (int i = 0; i < m_SystemCount; i++) {
-            if (skip_mcd && IsMCD(i)) {
+            if (skip_cd && (IsMCD(i) || IsPCECD(i))) {
                 continue;
             }
             int idx = GetLetterIdx(GetChar(i));
@@ -238,9 +238,13 @@ void COSDMenu::CalculateTabLabels() {
         }
     };
 
-    if (g_SharedState.active_emu_mode == EmuMode_MD) {
-        // MD: 5 sorted tabs (2..6) + MCD (7)
-        strcpy(m_TabLabels[7], "MCD");
+    if (g_SharedState.active_emu_mode == EmuMode_MD || g_SharedState.active_emu_mode == EmuMode_PCE) {
+        // MD or PCE: 5 sorted tabs (2..6) + CD (7)
+        if (g_SharedState.active_emu_mode == EmuMode_MD) {
+            strcpy(m_TabLabels[7], "MCD");
+        } else {
+            strcpy(m_TabLabels[7], "PCD");
+        }
 
         m_TabSplitK1 = 5;
         m_TabSplitK2 = 10;
@@ -248,7 +252,7 @@ void COSDMenu::CalculateTabLabels() {
         m_TabSplitK4 = 20;
         int min_diff = 1000000;
 
-        if (total_non_mcd > 0) {
+        if (total_non_cd > 0) {
             for (int k1 = 0; k1 < 23; k1++) {
                 for (int k2 = k1 + 1; k2 < 24; k2++) {
                     for (int k3 = k2 + 1; k3 < 25; k3++) {
@@ -264,7 +268,7 @@ void COSDMenu::CalculateTabLabels() {
                             int size4 = 0;
                             for (int i = k4 + 1; i < 27; i++) size4 += letter_counts[i];
 
-                            int ideal = total_non_mcd / 5;
+                            int ideal = total_non_cd / 5;
                             int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
                             int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
                             int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
@@ -299,7 +303,7 @@ void COSDMenu::CalculateTabLabels() {
         m_TabSplitK5 = 20;
         int min_diff = 1000000;
 
-        if (total_non_mcd > 0) {
+        if (total_non_cd > 0) {
             for (int k1 = 0; k1 < 22; k1++) {
                 for (int k2 = k1 + 1; k2 < 23; k2++) {
                     for (int k3 = k2 + 1; k3 < 24; k3++) {
@@ -318,7 +322,7 @@ void COSDMenu::CalculateTabLabels() {
                                 int size5 = 0;
                                 for (int i = k5 + 1; i < 27; i++) size5 += letter_counts[i];
 
-                                int ideal = total_non_mcd / 6;
+                                int ideal = total_non_cd / 6;
                                 int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
                                 int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
                                 int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
@@ -369,12 +373,14 @@ void COSDMenu::BuildFilteredList() {
             }
         }
     }
-    else if (g_SharedState.active_emu_mode == EmuMode_MD) {
+    else if (g_SharedState.active_emu_mode == EmuMode_MD || g_SharedState.active_emu_mode == EmuMode_PCE) {
+        bool is_md = (g_SharedState.active_emu_mode == EmuMode_MD);
         if (m_ActiveTab >= 2 && m_ActiveTab <= 6) {
             // Alphabetical splits (Tabs 2 to 6)
             int part = m_ActiveTab - 2;
             for (int i = 0; i < m_SystemCount; i++) {
-                if (!IsMCD(i)) {
+                bool skip = is_md ? IsMCD(i) : IsPCECD(i);
+                if (!skip) {
                     char c = GetChar(i);
                     int idx = GetLetterIdx(c);
                     
@@ -403,9 +409,10 @@ void COSDMenu::BuildFilteredList() {
             }
         }
         else if (m_ActiveTab == 7) {
-            // MCD tab: include only Mega CD games of the current system
+            // CD tab: include only CD games of the current system
             for (int i = 0; i < m_SystemCount; i++) {
-                if (IsMCD(i)) {
+                bool is_cd = is_md ? IsMCD(i) : IsPCECD(i);
+                if (is_cd) {
                     m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
                 }
             }
@@ -633,6 +640,19 @@ boolean COSDMenu::IsMCD(int sys_idx) const {
         return TRUE;
     }
     return m_RomSystems[orig_idx] == RomSystem_MCD;
+}
+
+boolean COSDMenu::IsPCECD(int sys_idx) const {
+    if (sys_idx < 0 || sys_idx >= m_SystemCount) return FALSE;
+    int orig_idx = m_SystemIndices[sys_idx];
+    if (m_RomSystems[orig_idx] != RomSystem_PCE) return FALSE;
+    const char *name = m_RomFiles[orig_idx];
+    if (name == nullptr) return FALSE;
+    size_t len = strlen(name);
+    if (len > 4 && strcasecmp(name + len - 4, ".cue") == 0) {
+        return TRUE;
+    }
+    return FALSE;
 }
 
 char COSDMenu::GetChar(int sys_idx) const {
