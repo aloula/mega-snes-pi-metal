@@ -41,71 +41,114 @@ def clean_name(name, keep_regions=False):
     new_base = re.sub(r'\s+', ' ', new_base).strip()
     return new_base + ext
 
-def process_zip(zip_path, delete_zip=True, keep_regions=False):
-    target_dir = os.path.dirname(zip_path)
-    print(f"Processing: {os.path.basename(zip_path)}")
+def get_all_files(directory):
+    files_set = set()
+    for root, _, files in os.walk(directory):
+        for file in files:
+            files_set.add(os.path.abspath(os.path.join(root, file)))
+    return files_set
+
+def extract_7z(archive_path, target_dir):
+    # Try importing py7zr first (pip install py7zr)
+    try:
+        import py7zr
+        with py7zr.SevenZipFile(archive_path, mode='r') as archive:
+            namelist = archive.getnames()
+            archive.extractall(path=target_dir)
+            # Return absolute paths of extracted files/directories
+            return [os.path.abspath(os.path.join(target_dir, name)) for name in namelist]
+    except ImportError:
+        pass
+
+    # Fallback to system command line utilities: 7z, 7za, 7zr
+    import subprocess
+    files_before = get_all_files(target_dir)
+    
+    for cmd in ['7z', '7za', '7zr']:
+        try:
+            # 7z syntax: 7z x archive.7z -o/target/dir -y
+            result = subprocess.run([cmd, 'x', archive_path, f'-o{target_dir}', '-y'],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.returncode == 0:
+                files_after = get_all_files(target_dir)
+                # Return the absolute paths of all new files created
+                return list(files_after - files_before)
+        except FileNotFoundError:
+            continue
+
+    raise RuntimeError(
+        "Could not extract .7z file. Please install either the 'py7zr' python library "
+        "(pip install py7zr) or the system utility 'p7zip' (e.g. sudo apt install p7zip-full)."
+    )
+
+def process_archive(archive_path, delete_archive=True, keep_regions=False):
+    target_dir = os.path.dirname(archive_path)
+    print(f"Processing: {os.path.basename(archive_path)}")
+    
+    is_zip = archive_path.lower().endswith('.zip')
+    extracted_paths = []
     
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            # Get list of files in zip
-            namelist = zip_ref.namelist()
+        if is_zip:
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                namelist = zip_ref.namelist()
+                for member in namelist:
+                    if member.endswith('/') or os.path.basename(member) == '':
+                        continue
+                    extracted_path = zip_ref.extract(member, target_dir)
+                    extracted_paths.append(os.path.abspath(extracted_path))
+        else:
+            extracted_paths = extract_7z(archive_path, target_dir)
             
-            # Extract files
-            for member in namelist:
-                # Avoid directory entries
-                if member.endswith('/') or os.path.basename(member) == '':
-                    continue
-                    
-                # Extract file
-                extracted_path = zip_ref.extract(member, target_dir)
+        # Clean extracted files
+        for ext_path in extracted_paths:
+            if not os.path.exists(ext_path) or os.path.isdir(ext_path):
+                continue
                 
-                # Determine clean filename
-                orig_filename = os.path.basename(extracted_path)
-                cleaned_filename = clean_name(orig_filename, keep_regions)
-                new_path = os.path.join(target_dir, cleaned_filename)
-                
-                # Handle directory structure if extracted path is nested
-                if os.path.dirname(extracted_path) != target_dir:
-                    # Move to target_dir
-                    shutil.move(extracted_path, new_path)
-                elif extracted_path != new_path:
-                    # Rename in place
-                    if os.path.exists(new_path):
-                        print(f"  Warning: File already exists, renaming with suffix: {cleaned_filename}")
-                        # append counter to handle duplicate names
-                        base, ext = os.path.splitext(cleaned_filename)
-                        counter = 1
-                        while True:
-                            collision_name = f"{base}_{counter}{ext}"
-                            new_path = os.path.join(target_dir, collision_name)
-                            if not os.path.exists(new_path):
-                                break
-                            counter += 1
-                    os.rename(extracted_path, new_path)
-                
-                print(f"  Extracted & cleaned: {os.path.basename(new_path)}")
-        
-        # If there were subdirectories created during extraction, clean them up
-        for member in namelist:
-            if '/' in member:
-                top_dir = member.split('/')[0]
+            orig_filename = os.path.basename(ext_path)
+            cleaned_filename = clean_name(orig_filename, keep_regions)
+            new_path = os.path.join(target_dir, cleaned_filename)
+            
+            # Handle directory structure if extracted path is nested
+            if os.path.dirname(ext_path) != os.path.abspath(target_dir):
+                shutil.move(ext_path, new_path)
+            elif os.path.abspath(ext_path) != os.path.abspath(new_path):
+                if os.path.exists(new_path):
+                    print(f"  Warning: File already exists, renaming with suffix: {cleaned_filename}")
+                    base, ext = os.path.splitext(cleaned_filename)
+                    counter = 1
+                    while True:
+                        collision_name = f"{base}_{counter}{ext}"
+                        new_path = os.path.join(target_dir, collision_name)
+                        if not os.path.exists(new_path):
+                            break
+                        counter += 1
+                os.rename(ext_path, new_path)
+            
+            print(f"  Extracted & cleaned: {os.path.basename(new_path)}")
+            
+        # Clean up any nested directories created during extraction
+        for ext_path in extracted_paths:
+            relative_part = os.path.relpath(ext_path, target_dir)
+            if '/' in relative_part:
+                top_dir = relative_part.split('/')[0]
                 dir_to_remove = os.path.join(target_dir, top_dir)
                 if os.path.exists(dir_to_remove) and os.path.isdir(dir_to_remove):
                     shutil.rmtree(dir_to_remove, ignore_errors=True)
                     
-        # Delete zip file
-        if delete_zip:
-            os.remove(zip_path)
-            print(f"  Deleted zip: {os.path.basename(zip_path)}")
+        # Delete archive file
+        if delete_archive:
+            os.remove(archive_path)
+            print(f"  Deleted archive: {os.path.basename(archive_path)}")
             
     except Exception as e:
-        print(f"  Error processing {os.path.basename(zip_path)}: {e}")
+        print(f"  Error processing {os.path.basename(archive_path)}: {e}")
 
 def main():
-    parser = argparse.ArgumentParser(description="Clean ROM filenames by extracting ZIPs and cleaning parenthesis contents.")
+    parser = argparse.ArgumentParser(description="Clean ROM filenames by extracting ZIP/7Z archives and cleaning parenthesis contents.")
     parser.add_argument("directory", nargs="?", default=".", help="Directory to scan (default: current directory)")
     parser.add_argument("--keep-regions", "-k", action="store_true", help="Do not remove region tags like (U), (USA), (J), (Europe), etc.")
-    parser.add_argument("--keep-zip", action="store_true", help="Do not delete ZIP archives after extraction")
+    parser.add_argument("--keep-archive", action="store_true", help="Do not delete archives after extraction")
     args = parser.parse_args()
 
     target_dir = args.directory
@@ -115,19 +158,19 @@ def main():
         sys.exit(1)
         
     print(f"Scanning directory: {os.path.abspath(target_dir)}")
-    zip_files = []
+    archive_files = []
     for root, dirs, files in os.walk(target_dir):
         for file in files:
-            if file.lower().endswith('.zip'):
-                zip_files.append(os.path.join(root, file))
+            if file.lower().endswith(('.zip', '.7z')):
+                archive_files.append(os.path.join(root, file))
                 
-    if not zip_files:
-        print("No .zip files found.")
+    if not archive_files:
+        print("No .zip or .7z files found.")
         return
         
-    print(f"Found {len(zip_files)} zip file(s).")
-    for zip_file in zip_files:
-        process_zip(zip_file, delete_zip=not args.keep_zip, keep_regions=args.keep_regions)
+    print(f"Found {len(archive_files)} archive file(s).")
+    for archive_file in archive_files:
+        process_archive(archive_file, delete_archive=not args.keep_archive, keep_regions=args.keep_regions)
         
     print("Done!")
 
