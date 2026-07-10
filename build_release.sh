@@ -52,6 +52,7 @@ mkdir -p "$STAGING_DIR/roms/snes"
 mkdir -p "$STAGING_DIR/roms/megadrive"
 mkdir -p "$STAGING_DIR/roms/megacd"
 mkdir -p "$STAGING_DIR/roms/nes"
+mkdir -p "$STAGING_DIR/roms/pce"
 mkdir -p "$STAGING_DIR/bios"
 
 # Put a simple README placeholder in folders
@@ -59,6 +60,7 @@ echo "Place your Super Nintendo (.sfc, .smc) ROMs in this folder." > "$STAGING_D
 echo "Place your Sega Mega Drive/Genesis (.bin, .md, .gen) ROMs in this folder." > "$STAGING_DIR/roms/megadrive/place_megadrive_roms_here.txt"
 echo "Place your Sega CD / Mega CD (.iso, .cue, .chd) ROMs in this folder." > "$STAGING_DIR/roms/megacd/place_megacd_roms_here.txt"
 echo "Place your Nintendo Entertainment System (.nes) ROMs in this folder." > "$STAGING_DIR/roms/nes/place_nes_roms_here.txt"
+echo "Place your PC Engine / TurboGrafx-16 (.pce) ROMs in this folder." > "$STAGING_DIR/roms/pce/place_pce_roms_here.txt"
 echo "Place your Sega CD BIOS files (bios_CD_U.bin, bios_CD_E.bin, bios_CD_J.bin) in this folder." > "$STAGING_DIR/bios/place_sega_cd_bios_here.txt"
 
 # 7. Create release directory and compress

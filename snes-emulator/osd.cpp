@@ -99,6 +99,11 @@ void COSDMenu::ScanRoms() {
                         if (my_strcasecmp(pDot, "nes") == 0) {
                             matches = TRUE;
                         }
+                    } else if (system == RomSystem_PCE) {
+                        if (my_strcasecmp(pDot, "pce") == 0 ||
+                            my_strcasecmp(pDot, "cue") == 0) {
+                            matches = TRUE;
+                        }
                     }
 
                     if (matches) {
@@ -121,6 +126,7 @@ void COSDMenu::ScanRoms() {
     scan_dir("SD:/roms/megadrive", "megadrive/", RomSystem_MD);
     scan_dir("SD:/roms/megacd", "megacd/", RomSystem_MCD);
     scan_dir("SD:/roms/nes", "nes/", RomSystem_NES);
+    scan_dir("SD:/roms/pce", "pce/", RomSystem_PCE);
 
     // Sort ROMs alphabetically on the base filename (excluding prefix)
     for (int i = 0; i < m_RomCount - 1; i++) {
@@ -168,9 +174,15 @@ void COSDMenu::FilterSystemRoms() {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }
-    } else {
+    } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
         for (int i = 0; i < m_RomCount; i++) {
             if (m_RomSystems[i] == RomSystem_NES) {
+                m_SystemIndices[m_SystemCount++] = i;
+            }
+        }
+    } else { // EmuMode_PCE
+        for (int i = 0; i < m_RomCount; i++) {
+            if (m_RomSystems[i] == RomSystem_PCE) {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }

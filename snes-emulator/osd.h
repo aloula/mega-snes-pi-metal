@@ -40,7 +40,8 @@ private:
         RomSystem_SNES,
         RomSystem_MD,
         RomSystem_MCD,
-        RomSystem_NES
+        RomSystem_NES,
+        RomSystem_PCE
     };
 
     FATFS *m_pFileSystem;

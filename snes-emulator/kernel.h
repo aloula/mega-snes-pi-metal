@@ -33,6 +33,7 @@
 #include "snes_orchestrator.h"
 #include "md_orchestrator.h"
 #include "nes_orchestrator.h"
+#include "pce_orchestrator.h"
 
 enum TShutdownMode {
     ShutdownNone,
@@ -96,6 +97,7 @@ private:
     CSNESOrchestrator  *m_pSNESOrchestrator;
     CMDOrchestrator    *m_pMDOrchestrator;
     CNESOrchestrator   *m_pNESOrchestrator;
+    CPCEOrchestrator   *m_pPCEOrchestrator;
 
     volatile TShutdownMode m_ShutdownMode;
 
