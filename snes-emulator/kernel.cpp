@@ -1137,8 +1137,9 @@ void CKernel::RunVideoDomain() {
                     int draw_h = game_h;
                     int src_y_offset = 0;
                     if (draw_h > 240) {
-                        src_y_offset = (draw_h - 240) / 2;
-                        draw_h = 240;
+                        src_y_offset = 3; // Crop the top 3 overscan lines
+                        draw_h = game_h - 3;
+                        if (draw_h > 240) draw_h = 240;
                     }
                     
                     int out_w = 640;
