@@ -56,7 +56,7 @@ static bool pce_environment_cb(unsigned cmd, void *data) {
         case RETRO_ENVIRONMENT_GET_VARIABLE: {
             struct retro_variable *var = (struct retro_variable *)data;
             if (strcmp(var->key, "pce_fast_cdimagecache") == 0 || strcmp(var->key, "pce_cdimagecache") == 0) {
-                var->value = "enabled";
+                var->value = "disabled";
                 return true;
             }
             if (strcmp(var->key, "pce_fast_nospritelimit") == 0 || strcmp(var->key, "pce_nospritelimit") == 0) {
