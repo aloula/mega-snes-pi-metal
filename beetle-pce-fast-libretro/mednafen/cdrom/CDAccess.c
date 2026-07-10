@@ -55,11 +55,15 @@ static int has_ext(const char *path, const char *ext3)
 
 CDAccess *CDAccess_Open(const char *path, bool image_memcache)
 {
+   // Force image_memcache to false to avoid caching the entire CD image (bin/cue/ccd/chd) in RAM.
+   // This eliminates the 43+ second load time and out-of-memory crashes on bare-metal.
+   image_memcache = false;
+
    if (has_ext(path, "ccd"))
-      return CDAccess_CCD_New(path, image_memcache);
+      return CDAccess_CCD_New(path, false);
 #ifdef HAVE_CHD
    if (has_ext(path, "chd"))
-      return CDAccess_CHD_New(path, image_memcache);
+      return CDAccess_CHD_New(path, false);
 #endif
-   return CDAccess_Image_New(path, image_memcache);
+   return CDAccess_Image_New(path, false);
 }
