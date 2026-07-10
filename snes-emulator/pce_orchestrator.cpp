@@ -55,23 +55,23 @@ static bool pce_environment_cb(unsigned cmd, void *data) {
         }
         case RETRO_ENVIRONMENT_GET_VARIABLE: {
             struct retro_variable *var = (struct retro_variable *)data;
-            if (strcmp(var->key, "pce_fast_cdimagecache") == 0) {
+            if (strcmp(var->key, "pce_fast_cdimagecache") == 0 || strcmp(var->key, "pce_cdimagecache") == 0) {
+                var->value = "enabled";
+                return true;
+            }
+            if (strcmp(var->key, "pce_fast_nospritelimit") == 0 || strcmp(var->key, "pce_nospritelimit") == 0) {
                 var->value = "disabled";
                 return true;
             }
-            if (strcmp(var->key, "pce_nospritelimit") == 0) {
-                var->value = "disabled";
-                return true;
-            }
-            if (strcmp(var->key, "pce_ocmultiplier") == 0) {
+            if (strcmp(var->key, "pce_fast_ocmultiplier") == 0 || strcmp(var->key, "pce_ocmultiplier") == 0) {
                 var->value = "1";
                 return true;
             }
-            if (strcmp(var->key, "pce_initial_scanline") == 0) {
+            if (strcmp(var->key, "pce_fast_initial_scanline") == 0 || strcmp(var->key, "pce_initial_scanline") == 0) {
                 var->value = "3";
                 return true;
             }
-            if (strcmp(var->key, "pce_last_scanline") == 0) {
+            if (strcmp(var->key, "pce_fast_last_scanline") == 0 || strcmp(var->key, "pce_last_scanline") == 0) {
                 var->value = "242";
                 return true;
             }
