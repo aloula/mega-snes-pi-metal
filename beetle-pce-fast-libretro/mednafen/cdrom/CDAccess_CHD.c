@@ -80,6 +80,8 @@ typedef struct CDAccess_CHD
    chd_file *chd;
    uint8_t *hunkmem;         /* hunk data cache */
    int oldhunk;              /* last hunknum read */
+   uint8_t *hunkmem_cache;   /* 16-hunk cache buffer */
+   int cache_tags[16];       /* 16-hunk cache tags */
 } CDAccess_CHD;
 
 static const int32_t DI_Size_Table[8] =
@@ -114,6 +116,12 @@ static bool CDAccess_CHD_Load(CDAccess_CHD *self, const char *path, bool image_m
    head = chd_get_header(self->chd);
    self->hunkmem = (uint8_t *)malloc(head->hunkbytes);
    self->oldhunk = -1;
+   self->hunkmem_cache = (uint8_t *)malloc(16 * head->hunkbytes);
+   if (self->hunkmem_cache != NULL)
+   {
+      for (int i = 0; i < 16; i++)
+         self->cache_tags[i] = -1;
+   }
 
    log_cb(RETRO_LOG_INFO, "chd_load '%s' hunkbytes=%d\n", path, head->hunkbytes);
 
@@ -233,16 +241,32 @@ static bool CDAccess_CHD_Read_CHD_Hunk_RAW(CDAccess_CHD *self, uint8_t *buf, int
    int hunkofs = cad % sph;
    int err = CHDERR_NONE;
 
-   if (hunknum != self->oldhunk)
+   int cache_idx = hunknum % 16;
+   if (self->hunkmem_cache == NULL)
    {
-      err = chd_read(self->chd, hunknum, self->hunkmem);
+      // Fallback to single hunk buffer if cache allocation failed
+      if (hunknum != self->oldhunk)
+      {
+         err = chd_read(self->chd, hunknum, self->hunkmem);
+         if (err != CHDERR_NONE)
+            log_cb(RETRO_LOG_ERROR, "chd_read_sector failed lba=%d error=%d\n", lba, err);
+         else
+            self->oldhunk = hunknum;
+      }
+      memcpy(buf, self->hunkmem + hunkofs * (2352 + 96), 2352);
+      return err;
+   }
+
+   if (self->cache_tags[cache_idx] != hunknum)
+   {
+      err = chd_read(self->chd, hunknum, self->hunkmem_cache + cache_idx * head->hunkbytes);
       if (err != CHDERR_NONE)
          log_cb(RETRO_LOG_ERROR, "chd_read_sector failed lba=%d error=%d\n", lba, err);
       else
-         self->oldhunk = hunknum;
+         self->cache_tags[cache_idx] = hunknum;
    }
 
-   memcpy(buf, self->hunkmem + hunkofs * (2352 + 96), 2352);
+   memcpy(buf, self->hunkmem_cache + cache_idx * head->hunkbytes + hunkofs * (2352 + 96), 2352);
    return err;
 }
 
@@ -255,16 +279,32 @@ static bool CDAccess_CHD_Read_CHD_Hunk_M1(CDAccess_CHD *self, uint8_t *buf, int3
    int hunkofs = cad % sph;
    int err = CHDERR_NONE;
 
-   if (hunknum != self->oldhunk)
+   int cache_idx = hunknum % 16;
+   if (self->hunkmem_cache == NULL)
    {
-      err = chd_read(self->chd, hunknum, self->hunkmem);
+      // Fallback to single hunk buffer if cache allocation failed
+      if (hunknum != self->oldhunk)
+      {
+         err = chd_read(self->chd, hunknum, self->hunkmem);
+         if (err != CHDERR_NONE)
+            log_cb(RETRO_LOG_ERROR, "chd_read_sector failed lba=%d error=%d\n", lba, err);
+         else
+            self->oldhunk = hunknum;
+      }
+      memcpy(buf + 16, self->hunkmem + hunkofs * (2352 + 96), 2048);
+      return err;
+   }
+
+   if (self->cache_tags[cache_idx] != hunknum)
+   {
+      err = chd_read(self->chd, hunknum, self->hunkmem_cache + cache_idx * head->hunkbytes);
       if (err != CHDERR_NONE)
          log_cb(RETRO_LOG_ERROR, "chd_read_sector failed lba=%d error=%d\n", lba, err);
       else
-         self->oldhunk = hunknum;
+         self->cache_tags[cache_idx] = hunknum;
    }
 
-   memcpy(buf + 16, self->hunkmem + hunkofs * (2352 + 96), 2048);
+   memcpy(buf + 16, self->hunkmem_cache + cache_idx * head->hunkbytes + hunkofs * (2352 + 96), 2048);
    return err;
 }
 
@@ -277,16 +317,32 @@ static bool CDAccess_CHD_Read_CHD_Hunk_M2(CDAccess_CHD *self, uint8_t *buf, int3
    int hunkofs = cad % sph;
    int err = CHDERR_NONE;
 
-   if (hunknum != self->oldhunk)
+   int cache_idx = hunknum % 16;
+   if (self->hunkmem_cache == NULL)
    {
-      err = chd_read(self->chd, hunknum, self->hunkmem);
+      // Fallback to single hunk buffer if cache allocation failed
+      if (hunknum != self->oldhunk)
+      {
+         err = chd_read(self->chd, hunknum, self->hunkmem);
+         if (err != CHDERR_NONE)
+            log_cb(RETRO_LOG_ERROR, "chd_read_sector failed lba=%d error=%d\n", lba, err);
+         else
+            self->oldhunk = hunknum;
+      }
+      memcpy(buf + 16, self->hunkmem + hunkofs * (2352 + 96), 2336);
+      return err;
+   }
+
+   if (self->cache_tags[cache_idx] != hunknum)
+   {
+      err = chd_read(self->chd, hunknum, self->hunkmem_cache + cache_idx * head->hunkbytes);
       if (err != CHDERR_NONE)
          log_cb(RETRO_LOG_ERROR, "chd_read_sector failed lba=%d error=%d\n", lba, err);
       else
-         self->oldhunk = hunknum;
+         self->cache_tags[cache_idx] = hunknum;
    }
 
-   memcpy(buf + 16, self->hunkmem + hunkofs * (2352 + 96), 2336);
+   memcpy(buf + 16, self->hunkmem_cache + cache_idx * head->hunkbytes + hunkofs * (2352 + 96), 2336);
    return err;
 }
 
@@ -496,6 +552,8 @@ static void CDAccess_CHD_destroy(CDAccess *cda)
       chd_close(self->chd);
    if (self->hunkmem)
       free(self->hunkmem);
+   if (self->hunkmem_cache)
+      free(self->hunkmem_cache);
    free(self);
 }
 
@@ -513,7 +571,9 @@ CDAccess *CDAccess_CHD_New(const char *path, bool image_memcache)
    self->NumTracks    = 0;
    self->total_sectors = 0;
 
-   CDAccess_CHD_Load(self, path, image_memcache);
+   // Force image_memcache to false to avoid caching the entire CHD file in RAM.
+   // Instead, we rely on the 16-hunk cache buffer which uses only 300KB.
+   CDAccess_CHD_Load(self, path, false);
 
    return &self->base;
 }
