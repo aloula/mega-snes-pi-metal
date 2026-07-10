@@ -31,11 +31,13 @@ def clean_name(name, keep_regions=False):
                 return match.group(0) # Keep region tag and its preceding spaces/parentheses
             return "" # Strip non-region tag
 
-        # Match any pattern like " (contents)" or "(contents)"
+        # Match any pattern like " (contents)" or "(contents)" for both (...) and [...]
         new_base = re.sub(r'\s*\(([^)]*)\)', repl, base)
+        new_base = re.sub(r'\s*\[([^\]]*)\]', repl, new_base)
     else:
-        # Standard: remove anything inside parenthesis and any leading space before it
+        # Standard: remove anything inside parenthesis/brackets and any leading space before it
         new_base = re.sub(r'\s*\([^)]*\)', '', base)
+        new_base = re.sub(r'\s*\[[^\]]*\]', '', new_base)
         
     # Replace multiple spaces with a single space and strip
     new_base = re.sub(r'\s+', ' ', new_base).strip()
