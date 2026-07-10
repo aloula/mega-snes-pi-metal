@@ -34,21 +34,26 @@ def convert_image(input_path, output_path):
     width, height = img.size
     print(f"Source Image: {input_path} ({width}x{height} {img.mode})")
 
-    # If width is not 640, resize while maintaining aspect ratio
-    if width != 640:
-        new_height = int((640.0 / width) * height)
-        print(f"Resizing width to 640px (aspect ratio scaling: {width}x{height} -> 640x{new_height})")
-        img = img.resize((640, new_height), Image.Resampling.LANCZOS)
+    # If the image is larger than the 640x480 boundary, scale it down to fit while keeping aspect ratio.
+    # Otherwise, if it is smaller, we NEVER enlarge it; we keep its original size.
+    if width > 640 or height > 480:
+        scale = min(640.0 / width, 480.0 / height)
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        print(f"Resizing/shrinking image to fit within 640x480 (aspect ratio scaling: {width}x{height} -> {new_width}x{new_height})")
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
         width, height = img.size
+    else:
+        print(f"Keeping original image dimensions: {width}x{height} (no upscaling/enlarging)")
 
-    # Clamp height to 480 (VGA maximum vertical resolution)
-    if height > 480:
-        print(f"Warning: Image height ({height}px) exceeds the 480px vertical limit.")
-        print("Cropping the image vertically to fit 640x480...")
-        # Crop from the center vertically
-        top = (height - 480) // 2
-        bottom = top + 480
-        img = img.crop((0, top, 640, bottom))
+    # The baremetal kernel expects a fixed horizontal stride of 640 pixels in the file.
+    # We paste our image centered on a 640-pixel wide black canvas of the same height.
+    if width != 640:
+        print(f"Centering horizontally on a 640px wide black canvas (height: {height}px)")
+        canvas = Image.new('RGB', (640, height), (0, 0, 0))
+        offset_x = (640 - width) // 2
+        canvas.paste(img, (offset_x, 0))
+        img = canvas
         width, height = img.size
 
     print(f"Target Dimensions: {width}x{height} (Perfect fit for dynamic centering)")
