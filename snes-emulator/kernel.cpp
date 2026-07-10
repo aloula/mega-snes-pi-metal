@@ -1029,66 +1029,28 @@ void CKernel::RunVideoDomain() {
                         }
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    // PCE video rendering (handles 256, 320, or 512 widths with ~240 height)
+                    // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio)
                     int game_w = g_SharedState.game_w[read_idx];
                     if (game_w < 1) game_w = 256;
                     if (game_h > 242) game_h = 242; // Safety cap
-                    int out_w;
+                    int out_w = 640;
                     int out_h = game_h * 2;
-                    int start_x;
+                    int start_x = 0;
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
 
-                    if (game_w <= 256) {
-                        // 256x240 -> scale 2.5x horizontally and 2x vertically to 640x480 (4:3 aspect ratio)
-                        out_w = 640;
-                        start_x = (SCREEN_WIDTH - out_w) / 2; // 0
-                        for (int y = 0; y < game_h; y++) {
-                            const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w;
-                            u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
-                            u16 *dest2 = dest1 + nPitch;
+                    for (int y = 0; y < game_h; y++) {
+                        const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w;
+                        u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
+                        u16 *dest2 = dest1 + nPitch;
 
-                            for (int x = 0; x < game_w; x++) {
-                                u16 pixel = src[x];
-                                int num_pixels = (x & 1) ? 3 : 2;
-                                for (int p = 0; p < num_pixels; p++) {
-                                    *dest1++ = pixel;
-                                    *dest2++ = pixel;
-                                }
-                            }
-                        }
-                    } else if (game_w <= 320) {
-                        // 320x240 -> scale 2x to 640x480
-                        out_w = 640;
-                        start_x = (SCREEN_WIDTH - out_w) / 2; // 0
-                        for (int y = 0; y < game_h; y++) {
-                            const u32 * __restrict src32 = (const u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w);
-                            u64 * __restrict dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch + start_x);
-                            u64 * __restrict dest64_2 = dest64_1 + (nPitch / 4);
-
-                            for (int x = 0; x < game_w / 2; x++) {
-                                u32 pixels = src32[x];
-                                u32 p1 = pixels & 0xFFFF;
-                                u32 p2 = pixels >> 16;
-                                
-                                u32 p1_32 = (p1 << 16) | p1;
-                                u32 p2_32 = (p2 << 16) | p2;
-                                u64 color64 = ((u64)p2_32 << 32) | p1_32;
-
-                                dest64_1[x] = color64;
-                                dest64_2[x] = color64;
-                            }
-                        }
-                    } else {
-                        // 512x240 -> scale 1x horizontally, 2x vertically to 512x480
-                        out_w = 512;
-                        start_x = (SCREEN_WIDTH - out_w) / 2; // 64
-                        for (int y = 0; y < game_h; y++) {
-                            u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w;
-                            u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
-                            u16 *dest2 = dest1 + nPitch;
-                            memcpy(dest1, src, game_w * sizeof(u16));
-                            memcpy(dest2, src, game_w * sizeof(u16));
+                        u32 step = (game_w << 16) / 640;
+                        u32 accum = 0;
+                        for (int x = 0; x < 640; x++) {
+                            u16 pixel = src[accum >> 16];
+                            dest1[x] = pixel;
+                            dest2[x] = pixel;
+                            accum += step;
                         }
                     }
                 } else {
