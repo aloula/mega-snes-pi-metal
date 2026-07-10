@@ -19,6 +19,7 @@ public:
 
     void CaptureRewindState();
     void RewindState();
+    void SaveSRAM();
 
 private:
     void ResetAudioAfterStateChange();

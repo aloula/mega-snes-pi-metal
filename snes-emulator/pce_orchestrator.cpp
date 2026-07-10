@@ -201,6 +201,7 @@ CPCEOrchestrator::CPCEOrchestrator(FATFS *pFileSystem)
 
 CPCEOrchestrator::~CPCEOrchestrator() {
     if (m_bRomLoaded) {
+        SaveSRAM();
         retro_unload_game();
     }
     retro_deinit();
@@ -233,6 +234,7 @@ boolean CPCEOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loading PCE ROM: %s (size %u)", pRomName, nRomSize);
 
     if (m_bRomLoaded) {
+        SaveSRAM();
         retro_unload_game();
         m_bRomLoaded = FALSE;
     }
@@ -273,6 +275,29 @@ boolean CPCEOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
         }
     }
 
+    // Load native SRAM if available
+    void* sram_ptr = retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+    size_t sram_size = retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+    if (sram_ptr != nullptr && sram_size > 0) {
+        char sramPath[160];
+        strncpy(sramPath, m_CurrentRomName, sizeof(sramPath) - 8);
+        sramPath[sizeof(sramPath) - 8] = '\0';
+        char *dot = strrchr(sramPath, '.');
+        if (dot) {
+            *dot = '\0';
+        }
+        strcat(sramPath, ".srm");
+
+        FILE *f = fopen(sramPath, "rb");
+        if (f != nullptr) {
+            size_t read_bytes = fread(sram_ptr, 1, sram_size, f);
+            fclose(f);
+            CLogger::Get()->Write(FromOrchestrator, LogNotice, "PCE SRAM loaded successfully: %s (%u bytes)", sramPath, (unsigned)read_bytes);
+        } else {
+            CLogger::Get()->Write(FromOrchestrator, LogNotice, "No PCE SRAM file found at: %s", sramPath);
+        }
+    }
+
     m_bRomLoaded = TRUE;
     m_LastPad1 = 0xFFFF;
     m_LastPad2 = 0xFFFF;
@@ -284,6 +309,14 @@ void CPCEOrchestrator::RunFrame() {
 
     retro_run();
     CaptureRewindState();
+
+    // Auto-save SRAM every 10 seconds (600 frames)
+    static u32 frame_count = 0;
+    frame_count++;
+    if (frame_count >= 600) {
+        frame_count = 0;
+        SaveSRAM();
+    }
 }
 
 void CPCEOrchestrator::SaveState(int slot) {
@@ -583,6 +616,32 @@ uint32_t encoding_crc32(uint32_t seed, const uint8_t *data, size_t len) {
         crc = (crc >> 8) ^ crc32_table[(crc ^ data[i]) & 0xff];
     }
     return crc ^ 0xffffffff;
+}
+
+void CPCEOrchestrator::SaveSRAM() {
+    if (!m_bRomLoaded) return;
+
+    void* sram_ptr = retro_get_memory_data(RETRO_MEMORY_SAVE_RAM);
+    size_t sram_size = retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
+    if (sram_ptr != nullptr && sram_size > 0) {
+        char sramPath[160];
+        strncpy(sramPath, m_CurrentRomName, sizeof(sramPath) - 8);
+        sramPath[sizeof(sramPath) - 8] = '\0';
+        char *dot = strrchr(sramPath, '.');
+        if (dot) {
+            *dot = '\0';
+        }
+        strcat(sramPath, ".srm");
+
+        FILE *f = fopen(sramPath, "wb");
+        if (f != nullptr) {
+            size_t written = fwrite(sram_ptr, 1, sram_size, f);
+            fclose(f);
+            CLogger::Get()->Write(FromOrchestrator, LogNotice, "PCE SRAM saved successfully: %s (%u bytes)", sramPath, (unsigned)written);
+        } else {
+            CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to save PCE SRAM to: %s", sramPath);
+        }
+    }
 }
 
 }
