@@ -101,7 +101,8 @@ void COSDMenu::ScanRoms() {
                         }
                     } else if (system == RomSystem_PCE) {
                         if (my_strcasecmp(pDot, "pce") == 0 ||
-                            my_strcasecmp(pDot, "cue") == 0) {
+                            my_strcasecmp(pDot, "cue") == 0 ||
+                            my_strcasecmp(pDot, "chd") == 0) {
                             matches = TRUE;
                         }
                     }
@@ -649,7 +650,7 @@ boolean COSDMenu::IsPCECD(int sys_idx) const {
     const char *name = m_RomFiles[orig_idx];
     if (name == nullptr) return FALSE;
     size_t len = strlen(name);
-    if (len > 4 && strcasecmp(name + len - 4, ".cue") == 0) {
+    if (len > 4 && (strcasecmp(name + len - 4, ".cue") == 0 || strcasecmp(name + len - 4, ".chd") == 0)) {
         return TRUE;
     }
     return FALSE;

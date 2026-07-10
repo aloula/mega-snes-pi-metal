@@ -171,7 +171,7 @@ PCE_SRCS = $(PCE_DIR)/libretro.c \
            $(PCE_DIR)/mednafen/mednafen-endian.c \
            $(PCE_DIR)/mednafen/sound/Blip_Buffer.c \
            $(wildcard $(PCE_DIR)/mednafen/pce_fast/*.c) \
-           $(filter-out %CDAccess_CHD.c, $(wildcard $(PCE_DIR)/mednafen/cdrom/*.c)) \
+            $(wildcard $(PCE_DIR)/mednafen/cdrom/*.c) \
            $(wildcard $(PCE_DIR)/mednafen/hw_misc/arcade_card/*.c) \
            $(filter-out %ivorbisfile_example.c, $(wildcard $(PCE_DIR)/mednafen/tremor/*.c))
 
@@ -245,13 +245,13 @@ nes_orchestrator.o: INCS = -I../nestopia/source -I../nestopia/source/core -I../n
 nes_orchestrator.o: CFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI
 nes_orchestrator.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive
 
-../beetle-pce-fast-libretro/%.o: INCS = -I../beetle-pce-fast-libretro -I../beetle-pce-fast-libretro/mednafen -I../beetle-pce-fast-libretro/mednafen/include -I../beetle-pce-fast-libretro/mednafen/hw_sound -I../beetle-pce-fast-libretro/mednafen/hw_cpu -I../beetle-pce-fast-libretro/mednafen/hw_misc -I../beetle-pce-fast-libretro/libretro-common/include -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-../beetle-pce-fast-libretro/%.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1
-../beetle-pce-fast-libretro/%.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1
+../beetle-pce-fast-libretro/%.o: INCS = -I../beetle-pce-fast-libretro -I../beetle-pce-fast-libretro/mednafen -I../beetle-pce-fast-libretro/mednafen/include -I../beetle-pce-fast-libretro/mednafen/hw_sound -I../beetle-pce-fast-libretro/mednafen/hw_cpu -I../beetle-pce-fast-libretro/mednafen/hw_misc -I../beetle-pce-fast-libretro/libretro-common/include -I../picodrive/pico/cd/libchdr/include -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
+../beetle-pce-fast-libretro/%.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
+../beetle-pce-fast-libretro/%.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
 
-pce_orchestrator.o: INCS = -I../beetle-pce-fast-libretro -I../beetle-pce-fast-libretro/mednafen -I../beetle-pce-fast-libretro/mednafen/include -I../beetle-pce-fast-libretro/mednafen/hw_sound -I../beetle-pce-fast-libretro/mednafen/hw_cpu -I../beetle-pce-fast-libretro/mednafen/hw_misc -I../beetle-pce-fast-libretro/libretro-common/include -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-pce_orchestrator.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1
-pce_orchestrator.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1
+pce_orchestrator.o: INCS = -I../beetle-pce-fast-libretro -I../beetle-pce-fast-libretro/mednafen -I../beetle-pce-fast-libretro/mednafen/include -I../beetle-pce-fast-libretro/mednafen/hw_sound -I../beetle-pce-fast-libretro/mednafen/hw_cpu -I../beetle-pce-fast-libretro/mednafen/hw_misc -I../beetle-pce-fast-libretro/libretro-common/include -I../picodrive/pico/cd/libchdr/include -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
+pce_orchestrator.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
+pce_orchestrator.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
 
 
 
