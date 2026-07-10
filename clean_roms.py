@@ -83,7 +83,7 @@ def extract_7z(archive_path, target_dir):
 
 def process_archive(archive_path, delete_archive=True, keep_regions=False):
     target_dir = os.path.dirname(archive_path)
-    print(f"Processing: {os.path.basename(archive_path)}")
+    print(f"Processing archive: {os.path.basename(archive_path)}")
     
     is_zip = archive_path.lower().endswith('.zip')
     extracted_paths = []
@@ -111,21 +111,21 @@ def process_archive(archive_path, delete_archive=True, keep_regions=False):
             
             # Handle directory structure if extracted path is nested
             if os.path.dirname(ext_path) != os.path.abspath(target_dir):
-                shutil.move(ext_path, new_path)
+                if os.path.exists(new_path):
+                    print(f"  Removing duplicate extracted game: {orig_filename} (already have {cleaned_filename})")
+                    os.remove(ext_path)
+                else:
+                    shutil.move(ext_path, new_path)
+                    print(f"  Extracted & cleaned: {cleaned_filename}")
             elif os.path.abspath(ext_path) != os.path.abspath(new_path):
                 if os.path.exists(new_path):
-                    print(f"  Warning: File already exists, renaming with suffix: {cleaned_filename}")
-                    base, ext = os.path.splitext(cleaned_filename)
-                    counter = 1
-                    while True:
-                        collision_name = f"{base}_{counter}{ext}"
-                        new_path = os.path.join(target_dir, collision_name)
-                        if not os.path.exists(new_path):
-                            break
-                        counter += 1
-                os.rename(ext_path, new_path)
-            
-            print(f"  Extracted & cleaned: {os.path.basename(new_path)}")
+                    print(f"  Removing duplicate extracted game: {orig_filename} (already have {cleaned_filename})")
+                    os.remove(ext_path)
+                else:
+                    os.rename(ext_path, new_path)
+                    print(f"  Extracted & cleaned: {cleaned_filename}")
+            else:
+                print(f"  Extracted & cleaned: {cleaned_filename}")
             
         # Clean up any nested directories created during extraction
         for ext_path in extracted_paths:
@@ -144,8 +144,41 @@ def process_archive(archive_path, delete_archive=True, keep_regions=False):
     except Exception as e:
         print(f"  Error processing {os.path.basename(archive_path)}: {e}")
 
+def clean_existing_roms(target_dir, keep_regions=False):
+    print("Scanning for existing unzipped ROM files to clean up...")
+    rom_extensions = ('.sfc', '.smc', '.nes', '.md', '.gen', '.bin', '.pce', '.cue', '.chd')
+    cleaned_count = 0
+    duplicate_count = 0
+    
+    for root, _, files in os.walk(target_dir):
+        for file in files:
+            if file.lower().endswith(rom_extensions):
+                current_path = os.path.join(root, file)
+                cleaned_filename = clean_name(file, keep_regions)
+                new_path = os.path.join(root, cleaned_filename)
+                
+                if os.path.abspath(current_path) == os.path.abspath(new_path):
+                    continue
+                    
+                if os.path.exists(new_path):
+                    print(f"  Removing duplicate game: {file} (already have {cleaned_filename})")
+                    try:
+                        os.remove(current_path)
+                        duplicate_count += 1
+                    except Exception as e:
+                        print(f"  Error removing duplicate {file}: {e}")
+                else:
+                    print(f"  Cleaning name: {file} -> {cleaned_filename}")
+                    try:
+                        os.rename(current_path, new_path)
+                        cleaned_count += 1
+                    except Exception as e:
+                        print(f"  Error renaming {file}: {e}")
+                        
+    print(f"Cleanup of existing ROMs complete! Renamed {cleaned_count} files, removed {duplicate_count} duplicate files.")
+
 def main():
-    parser = argparse.ArgumentParser(description="Clean ROM filenames by extracting ZIP/7Z archives and cleaning parenthesis contents.")
+    parser = argparse.ArgumentParser(description="Clean ROM filenames by extracting ZIP/7Z archives, cleaning parenthesis contents, and removing duplicate games.")
     parser.add_argument("directory", nargs="?", default=".", help="Directory to scan (default: current directory)")
     parser.add_argument("--keep-regions", "-k", action="store_true", help="Do not remove region tags like (U), (USA), (J), (Europe), etc.")
     parser.add_argument("--keep-archive", action="store_true", help="Do not delete archives after extraction")
@@ -158,19 +191,23 @@ def main():
         sys.exit(1)
         
     print(f"Scanning directory: {os.path.abspath(target_dir)}")
+    
+    # 1. Process all archives (.zip, .7z)
     archive_files = []
     for root, dirs, files in os.walk(target_dir):
         for file in files:
             if file.lower().endswith(('.zip', '.7z')):
                 archive_files.append(os.path.join(root, file))
                 
-    if not archive_files:
-        print("No .zip or .7z files found.")
-        return
+    if archive_files:
+        print(f"Found {len(archive_files)} archive file(s).")
+        for archive_file in archive_files:
+            process_archive(archive_file, delete_archive=not args.keep_archive, keep_regions=args.keep_regions)
+    else:
+        print("No .zip or .7z archives found.")
         
-    print(f"Found {len(archive_files)} archive file(s).")
-    for archive_file in archive_files:
-        process_archive(archive_file, delete_archive=not args.keep_archive, keep_regions=args.keep_regions)
+    # 2. Clean existing unzipped ROM files
+    clean_existing_roms(target_dir, keep_regions=args.keep_regions)
         
     print("Done!")
 
