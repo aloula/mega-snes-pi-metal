@@ -103,8 +103,12 @@ static void pce_video_cb(const void *data, unsigned width, unsigned height, size
     const u16 *src = (const u16 *)data;
     unsigned src_pitch_pixels = pitch / sizeof(u16);
 
-    for (unsigned y = 0; y < height; y++) {
-        memcpy(dest + y * width, src + y * src_pitch_pixels, width * sizeof(u16));
+    if (src_pitch_pixels == width) {
+        memcpy(dest, src, width * height * sizeof(u16));
+    } else {
+        for (unsigned y = 0; y < height; y++) {
+            memcpy(dest + y * width, src + y * src_pitch_pixels, width * sizeof(u16));
+        }
     }
 
     g_SharedState.emu_read_idx = idx;
