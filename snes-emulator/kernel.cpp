@@ -1040,25 +1040,21 @@ void CKernel::RunVideoDomain() {
                     if (start_y < 0) start_y = 0;
 
                     if (game_w <= 256) {
-                        // 256x240 -> scale 2x to 512x480
-                        out_w = 512;
-                        start_x = (SCREEN_WIDTH - out_w) / 2; // 64
+                        // 256x240 -> scale 2.5x horizontally and 2x vertically to 640x480 (4:3 aspect ratio)
+                        out_w = 640;
+                        start_x = (SCREEN_WIDTH - out_w) / 2; // 0
                         for (int y = 0; y < game_h; y++) {
-                            const u32 * __restrict src32 = (const u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w);
-                            u64 * __restrict dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch + start_x);
-                            u64 * __restrict dest64_2 = dest64_1 + (nPitch / 4);
+                            const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * game_w;
+                            u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
+                            u16 *dest2 = dest1 + nPitch;
 
-                            for (int x = 0; x < game_w / 2; x++) {
-                                u32 pixels = src32[x];
-                                u32 p1 = pixels & 0xFFFF;
-                                u32 p2 = pixels >> 16;
-                                
-                                u32 p1_32 = (p1 << 16) | p1;
-                                u32 p2_32 = (p2 << 16) | p2;
-                                u64 color64 = ((u64)p2_32 << 32) | p1_32;
-
-                                dest64_1[x] = color64;
-                                dest64_2[x] = color64;
+                            for (int x = 0; x < game_w; x++) {
+                                u16 pixel = src[x];
+                                int num_pixels = (x & 1) ? 3 : 2;
+                                for (int p = 0; p < num_pixels; p++) {
+                                    *dest1++ = pixel;
+                                    *dest2++ = pixel;
+                                }
                             }
                         }
                     } else if (game_w <= 320) {
