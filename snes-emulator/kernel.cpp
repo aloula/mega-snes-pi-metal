@@ -867,15 +867,15 @@ void CKernel::RunVideoDomain() {
             int bx2 = SCREEN_WIDTH / 2 + 180;
             int by2 = SCREEN_HEIGHT / 2 + 50;
             
-            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 6, 2));
-            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(16, 16, 16), 2);
+            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 3, 5));
+            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(8, 12, 16), 2);
             
             const char* msg = (m_ShutdownMode == ShutdownHalt) ? "SHUTTING DOWN..." : "REBOOTING SYSTEM...";
             int msg_w = strlen(msg) * 8;
             int msg_x = bx1 + ((bx2 - bx1) - msg_w) / 2;
             int msg_y = by1 + 42;
             
-            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(31, 31, 31), COLOR15(2, 6, 2));
+            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(24, 28, 28), COLOR15(2, 3, 5));
             
             CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
             CTimer::SimpleMsDelay(50);
@@ -894,14 +894,14 @@ void CKernel::RunVideoDomain() {
                 // Draw menu elements onto OSD backbuffer to prevent flickering (pure black background)
                 DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
 
-                // Draw central card/container (cool dark green background!)
+                // Draw central card/container (cool dark slate-indigo background!)
                 int x1 = 40, y1 = 15, x2 = SCREEN_WIDTH - 40, y2 = SCREEN_HEIGHT - 15;
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(2, 6, 2));
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(2, 3, 5));
                 
-                // Draw clean medium gray border (pure 15-bit gray)
-                DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(16, 16, 16), 2);
+                // Draw clean steel blue border
+                DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(8, 12, 16), 2);
 
-                // Draw Title (pure white)
+                // Draw Title (soft cool white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                     snprintf(title_str, sizeof(title_str), "### SNES Baremetal Emulator ###");
@@ -914,16 +914,16 @@ void CKernel::RunVideoDomain() {
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
-                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(31, 31, 31), 0);
+                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(22, 24, 26), 0);
                 
                 if (num_lines > 0) {
                     char count_str[32];
                     snprintf(count_str, sizeof(count_str), "[%d/%d]", selected + 1, num_lines);
-                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(31, 31, 31), COLOR15(2, 6, 2));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
                 }
                 
-                // Draw separator 1 (dark gray)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(6, 6, 6));
+                // Draw separator 1 (dark steel blue)
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(4, 6, 8));
 
                 // Draw tabs
                 int num_tabs = 8;
@@ -946,13 +946,13 @@ void CKernel::RunVideoDomain() {
                     
                     u16 bg_color, border_color, text_color;
                     if (t == active_tab) {
-                        bg_color = COLOR15(8, 20, 8);      // highlight card background (lighter green)
-                        border_color = COLOR15(31, 31, 31); // white border
-                        text_color = COLOR15(31, 31, 31);   // white text
+                        bg_color = COLOR15(4, 10, 15);      // highlight card background (cool slate-blue)
+                        border_color = COLOR15(10, 24, 28); // cyan/teal border
+                        text_color = COLOR15(24, 28, 28);   // muted cool white
                     } else {
-                        bg_color = COLOR15(3, 8, 3);        // darker green background
-                        border_color = COLOR15(6, 12, 6);   // dark green border
-                        text_color = COLOR15(12, 12, 12);   // gray text
+                        bg_color = COLOR15(2, 4, 6);        // darker slate background
+                        border_color = COLOR15(3, 7, 10);   // dark teal/blue border
+                        text_color = COLOR15(12, 14, 16);   // muted gray/blue text
                     }
                     
                     // Draw tab box
@@ -966,14 +966,14 @@ void CKernel::RunVideoDomain() {
                     DrawString(pBackBuffer, SCREEN_WIDTH, tab_name, text_x, y1 + 49, text_color, bg_color);
                 }
 
-                // Draw separator 2 (dark gray)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, COLOR15(6, 6, 6));
+                // Draw separator 2 (dark steel blue)
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, COLOR15(4, 6, 8));
 
                 if (num_lines == 0) {
                     if (active_tab == 1) {
-                        DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press Y on a game to favorite it.", 116, 180, COLOR15(31, 31, 31), 0);
+                        DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press Y on a game to favorite it.", 116, 180, COLOR15(22, 24, 26), 0);
                     } else {
-                        DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(31, 10, 10), 0);
+                        DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(24, 14, 10), 0);
                     }
                 } else {
                     // List ROM files with centered viewport scrolling (mega-pi-metal style)
@@ -991,11 +991,11 @@ void CKernel::RunVideoDomain() {
                     for (int v = 0; v < view_size && (start_i + v) < num_lines; v++) {
                         int i = start_i + v;
                         int row_y = start_y + v * 20;
-                        u16 fg = (i == selected) ? COLOR15(31, 31, 31) : COLOR15(16, 16, 16);
+                        u16 fg = (i == selected) ? COLOR15(12, 24, 28) : COLOR15(14, 16, 18);
                         
                         if (i == selected) {
-                            // Highlight selector bar (ends at x2 - 22 to not overlap scrollbar) (medium-dark gray)
-                            DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 10, row_y - 2, x2 - 22, row_y + 16, COLOR15(8, 8, 8));
+                            // Highlight selector bar (ends at x2 - 22 to not overlap scrollbar) (soft slate highlight)
+                            DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 10, row_y - 2, x2 - 22, row_y + 16, COLOR15(4, 6, 9));
                         }
                         
                         DrawString(pBackBuffer, SCREEN_WIDTH, g_SharedState.menu_lines[i], x1 + 20, row_y, fg, 0);
@@ -1008,28 +1008,28 @@ void CKernel::RunVideoDomain() {
                         int track_w = 4;
                         int track_h = view_size * 20 - 4;
                         
-                        // Track (dark gray)
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, track_y, track_x + track_w, track_y + track_h, COLOR15(6, 6, 6));
+                        // Track (dark slate)
+                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, track_y, track_x + track_w, track_y + track_h, COLOR15(3, 4, 6));
                         
-                        // Thumb (medium gray)
+                        // Thumb (muted steel blue)
                         int thumb_h = (view_size * track_h) / num_lines;
                         if (thumb_h < 10) thumb_h = 10;
                         int thumb_y = track_y + (start_i * track_h) / num_lines;
                         if (thumb_y + thumb_h > track_y + track_h) {
                             thumb_y = track_y + track_h - thumb_h;
                         }
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, thumb_y, track_x + track_w, thumb_y + thumb_h, COLOR15(16, 16, 16));
+                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, thumb_y, track_x + track_w, thumb_y + thumb_h, COLOR15(8, 12, 16));
                     }
                 }
 
-                // Draw separator before instructions (dark gray)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, COLOR15(6, 6, 6));
+                // Draw separator before instructions (dark steel blue)
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, COLOR15(4, 6, 8));
 
                 // Center instructions footer inside the screen limits
                 const char *footer_text = "D-PAD:Nav | A/B:Start | L/R:System | Y/X:Fav | START+SEL:Reset";
                 int footer_w = strlen(footer_text) * 8;
                 int footer_x = (SCREEN_WIDTH - footer_w) / 2;
-                DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 12, 12), 0);
+                DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 14, 16), 0);
 
                 if (g_SharedState.rom_loading) {
                     // Draw a beautiful centered loading box overlay on top of the menu
@@ -1038,16 +1038,16 @@ void CKernel::RunVideoDomain() {
                     int bx2 = bx1 + 280;
                     int by2 = by1 + 70;
                     
-                    // Box background (very dark gray)
-                    DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 2, 2));
-                    // Accent border (medium gray)
-                    DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(16, 16, 16), 2);
+                    // Box background (very dark slate/indigo)
+                    DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 3, 5));
+                    // Accent border (steel blue)
+                    DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(8, 12, 16), 2);
                     
                     const char *loading_msg = "LOADING GAME, PLEASE WAIT...";
                     int msg_w = strlen(loading_msg) * 8;
                     int msg_x = bx1 + (280 - msg_w) / 2;
                     int msg_y = by1 + (70 - 16) / 2;
-                    DrawString(pBackBuffer, SCREEN_WIDTH, loading_msg, msg_x, msg_y, COLOR15(31, 31, 31), COLOR15(2, 2, 2));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, loading_msg, msg_x, msg_y, COLOR15(24, 28, 28), COLOR15(2, 3, 5));
                 }
 
                 // Copy fully rendered backbuffer to the active framebuffer in a single fast operation
