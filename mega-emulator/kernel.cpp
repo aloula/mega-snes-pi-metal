@@ -570,6 +570,38 @@ void CKernel::RunOrchestrator() {
     f_mount(nullptr, "SD:", 0);
 }
 
+struct ScaleTable {
+    int src_w;
+    u16 idx1[640];
+    u16 idx2[640];
+    u8 weight[640]; // 0..32
+};
+
+static ScaleTable s_ScaleTableCache = {0};
+
+static void UpdateScaleTable(int src_w) {
+    if (s_ScaleTableCache.src_w == src_w) return;
+    s_ScaleTableCache.src_w = src_w;
+    u32 step = (src_w << 16) / 640;
+    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
+    u32 transition_start = 65536 - step;
+    u32 accum = 0;
+    for (int x = 0; x < 640; x++) {
+        u32 idx = accum >> 16;
+        u32 frac_part = accum & 0xFFFF;
+        s_ScaleTableCache.idx1[x] = idx;
+        if (frac_part >= transition_start && step > 0) {
+            s_ScaleTableCache.idx2[x] = (idx + 1 < (u32)src_w) ? idx + 1 : idx;
+            u32 frac = ((frac_part - transition_start) * scale) >> 16;
+            s_ScaleTableCache.weight[x] = (frac > 32) ? 32 : frac;
+        } else {
+            s_ScaleTableCache.idx2[x] = idx;
+            s_ScaleTableCache.weight[x] = 0;
+        }
+        accum += step;
+    }
+}
+
 static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
     if (nPitch == SCREEN_WIDTH) {
         memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
@@ -837,41 +869,30 @@ void CKernel::RunVideoDomain() {
                     }
                 } else {
                     // H32 Mode: 256x224 scaled 2.5x to 640x448 (using Sharp Bilinear filter to avoid pixel shimmering/aliasing)
-                    u32 step = (256 << 16) / 640;
-                    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                    u32 transition_start = 65536 - step;
-
+                    UpdateScaleTable(256);
+                    const u16 *idx1 = s_ScaleTableCache.idx1;
+                    const u16 *idx2 = s_ScaleTableCache.idx2;
+                    const u8 *weight = s_ScaleTableCache.weight;
                     for (int y = 0; y < game_h; y++) {
                         // Active 256 pixels start at offset 32 in the 320-pixel stride
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320 + 32;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                         u16 *dest2 = dest1 + nPitch;
-
-                        u32 accum = 0;
+                        u16 line_buf[640];
                         for (int x = 0; x < 640; x++) {
-                            u32 idx = accum >> 16;
-                            u32 frac_part = accum & 0xFFFF;
-                            
-                            u16 blended;
-                            if (frac_part >= transition_start && step > 0) {
-                                u32 idx2 = (idx + 1 < 256) ? idx + 1 : idx;
-                                u16 c1 = src[idx];
-                                u16 c2 = src[idx2];
-                                
-                                u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                if (frac > 32) frac = 32;
-
-                                u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                blended = rb | g;
+                            u16 c1 = src[idx1[x]];
+                            u32 w = weight[x];
+                            if (w > 0) {
+                                u16 c2 = src[idx2[x]];
+                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                line_buf[x] = rb | g;
                             } else {
-                                blended = src[idx];
+                                line_buf[x] = c1;
                             }
-
-                            dest1[x] = blended;
-                            dest2[x] = blended;
-                            accum += step;
                         }
+                        memcpy(dest1, line_buf, 640 * sizeof(u16));
+                        memcpy(dest2, line_buf, 640 * sizeof(u16));
                     }
                 }
             } else {
@@ -939,12 +960,12 @@ void CKernel::RunAudioDomain() {
         }
     }
 
-    s16 local_buf[512 * 2];
+    s16 local_buf[1024 * 2];
 
     while (1) {
         unsigned avail = g_SharedState.audio_ring_buffer.GetAvailable();
         if (avail > 0) {
-            if (avail > 512) avail = 512;
+            if (avail > 1024) avail = 1024;
             unsigned read = g_SharedState.audio_ring_buffer.Read(local_buf, avail);
             pSoundDevice->Write(local_buf, read * 4); // each stereo sample is 4 bytes
         } else {

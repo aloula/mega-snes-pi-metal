@@ -711,6 +711,38 @@ void CKernel::RunOrchestrator() {
     f_mount(nullptr, "SD:", 0);
 }
 
+struct ScaleTable {
+    int src_w;
+    u16 idx1[640];
+    u16 idx2[640];
+    u8 weight[640]; // 0..32
+};
+
+static ScaleTable s_ScaleTableCache = {0};
+
+static void UpdateScaleTable(int src_w) {
+    if (s_ScaleTableCache.src_w == src_w) return;
+    s_ScaleTableCache.src_w = src_w;
+    u32 step = (src_w << 16) / 640;
+    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
+    u32 transition_start = 65536 - step;
+    u32 accum = 0;
+    for (int x = 0; x < 640; x++) {
+        u32 idx = accum >> 16;
+        u32 frac_part = accum & 0xFFFF;
+        s_ScaleTableCache.idx1[x] = idx;
+        if (frac_part >= transition_start && step > 0) {
+            s_ScaleTableCache.idx2[x] = (idx + 1 < (u32)src_w) ? idx + 1 : idx;
+            u32 frac = ((frac_part - transition_start) * scale) >> 16;
+            s_ScaleTableCache.weight[x] = (frac > 32) ? 32 : frac;
+        } else {
+            s_ScaleTableCache.idx2[x] = idx;
+            s_ScaleTableCache.weight[x] = 0;
+        }
+        accum += step;
+    }
+}
+
 static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
     if (nPitch == SCREEN_WIDTH) {
         memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
@@ -1065,127 +1097,99 @@ void CKernel::RunVideoDomain() {
                     if (start_y < 0) start_y = 0;
 
                     if (game_w == 256) {
+                        UpdateScaleTable(256);
+                        const u16 *idx1 = s_ScaleTableCache.idx1;
+                        const u16 *idx2 = s_ScaleTableCache.idx2;
+                        const u8 *weight = s_ScaleTableCache.weight;
                         if (game_h <= 240) {
                             // Case 1: 256x224/239 -> scale 2.5x horizontally and 2x vertically to 640x448/478 (Sharp Bilinear)
-                            u32 step = (256 << 16) / 640;
-                            u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                            u32 transition_start = 65536 - step;
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
-                                u32 accum = 0;
+                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
-                                    u32 idx = accum >> 16;
-                                    u32 frac_part = accum & 0xFFFF;
-                                    u16 blended;
-                                    if (frac_part >= transition_start && step > 0) {
-                                        u32 idx2 = (idx + 1 < 256) ? idx + 1 : idx;
-                                        u16 c1 = src[idx];
-                                        u16 c2 = src[idx2];
-                                        u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                        if (frac > 32) frac = 32;
-                                        u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                        blended = rb | g;
+                                    u16 c1 = src[idx1[x]];
+                                    u32 w = weight[x];
+                                    if (w > 0) {
+                                        u16 c2 = src[idx2[x]];
+                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                        line_buf[x] = rb | g;
                                     } else {
-                                        blended = src[idx];
+                                        line_buf[x] = c1;
                                     }
-                                    dest1[x] = blended;
-                                    dest2[x] = blended;
-                                    accum += step;
                                 }
+                                memcpy(dest1, line_buf, 640 * sizeof(u16));
+                                memcpy(dest2, line_buf, 640 * sizeof(u16));
                             }
                         } else {
                             // Case 3: 256x448/478 -> scale 2.5x horizontally and 1x vertically to 640x448/478 (Sharp Bilinear)
-                            u32 step = (256 << 16) / 640;
-                            u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                            u32 transition_start = 65536 - step;
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
-                                u32 accum = 0;
+                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
-                                    u32 idx = accum >> 16;
-                                    u32 frac_part = accum & 0xFFFF;
-                                    u16 blended;
-                                    if (frac_part >= transition_start && step > 0) {
-                                        u32 idx2 = (idx + 1 < 256) ? idx + 1 : idx;
-                                        u16 c1 = src[idx];
-                                        u16 c2 = src[idx2];
-                                        u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                        if (frac > 32) frac = 32;
-                                        u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                        blended = rb | g;
+                                    u16 c1 = src[idx1[x]];
+                                    u32 w = weight[x];
+                                    if (w > 0) {
+                                        u16 c2 = src[idx2[x]];
+                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                        line_buf[x] = rb | g;
                                     } else {
-                                        blended = src[idx];
+                                        line_buf[x] = c1;
                                     }
-                                    dest[x] = blended;
-                                    accum += step;
                                 }
+                                memcpy(dest, line_buf, 640 * sizeof(u16));
                             }
                         }
                     } else { // game_w == 512
+                        UpdateScaleTable(512);
+                        const u16 *idx1 = s_ScaleTableCache.idx1;
+                        const u16 *idx2 = s_ScaleTableCache.idx2;
+                        const u8 *weight = s_ScaleTableCache.weight;
                         if (game_h <= 240) {
                             // Case 2: 512x224/239 -> scale 1.25x horizontally and 2x vertically to 640x448/478 (Sharp Bilinear)
-                            u32 step = (512 << 16) / 640;
-                            u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                            u32 transition_start = 65536 - step;
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
-                                u32 accum = 0;
+                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
-                                    u32 idx = accum >> 16;
-                                    u32 frac_part = accum & 0xFFFF;
-                                    u16 blended;
-                                    if (frac_part >= transition_start && step > 0) {
-                                        u32 idx2 = (idx + 1 < 512) ? idx + 1 : idx;
-                                        u16 c1 = src[idx];
-                                        u16 c2 = src[idx2];
-                                        u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                        if (frac > 32) frac = 32;
-                                        u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                        blended = rb | g;
+                                    u16 c1 = src[idx1[x]];
+                                    u32 w = weight[x];
+                                    if (w > 0) {
+                                        u16 c2 = src[idx2[x]];
+                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                        line_buf[x] = rb | g;
                                     } else {
-                                        blended = src[idx];
+                                        line_buf[x] = c1;
                                     }
-                                    dest1[x] = blended;
-                                    dest2[x] = blended;
-                                    accum += step;
                                 }
+                                memcpy(dest1, line_buf, 640 * sizeof(u16));
+                                memcpy(dest2, line_buf, 640 * sizeof(u16));
                             }
                         } else {
                             // Case 4: 512x448/478 -> scale 1.25x horizontally and 1x vertically to 640x448/478 (Sharp Bilinear)
-                            u32 step = (512 << 16) / 640;
-                            u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                            u32 transition_start = 65536 - step;
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
-                                u32 accum = 0;
+                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
-                                    u32 idx = accum >> 16;
-                                    u32 frac_part = accum & 0xFFFF;
-                                    u16 blended;
-                                    if (frac_part >= transition_start && step > 0) {
-                                        u32 idx2 = (idx + 1 < 512) ? idx + 1 : idx;
-                                        u16 c1 = src[idx];
-                                        u16 c2 = src[idx2];
-                                        u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                        if (frac > 32) frac = 32;
-                                        u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                        blended = rb | g;
+                                    u16 c1 = src[idx1[x]];
+                                    u32 w = weight[x];
+                                    if (w > 0) {
+                                        u16 c2 = src[idx2[x]];
+                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                        line_buf[x] = rb | g;
                                     } else {
-                                        blended = src[idx];
+                                        line_buf[x] = c1;
                                     }
-                                    dest[x] = blended;
-                                    accum += step;
                                 }
+                                memcpy(dest, line_buf, 640 * sizeof(u16));
                             }
                         }
                     }
@@ -1195,40 +1199,29 @@ void CKernel::RunVideoDomain() {
                     int start_y = (SCREEN_HEIGHT - out_h) / 2;
                     if (start_y < 0) start_y = 0;
 
-                    u32 step = (256 << 16) / 640;
-                    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                    u32 transition_start = 65536 - step;
-
+                    UpdateScaleTable(256);
+                    const u16 *idx1 = s_ScaleTableCache.idx1;
+                    const u16 *idx2 = s_ScaleTableCache.idx2;
+                    const u8 *weight = s_ScaleTableCache.weight;
                     for (int y = 0; y < game_h; y++) {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                         u16 *dest2 = dest1 + nPitch;
-
-                        u32 accum = 0;
+                        u16 line_buf[640];
                         for (int x = 0; x < 640; x++) {
-                            u32 idx = accum >> 16;
-                            u32 frac_part = accum & 0xFFFF;
-                            
-                            u16 blended;
-                            if (frac_part >= transition_start && step > 0) {
-                                u32 idx2 = (idx + 1 < 256) ? idx + 1 : idx;
-                                u16 c1 = src[idx];
-                                u16 c2 = src[idx2];
-                                
-                                u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                if (frac > 32) frac = 32;
-
-                                u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                blended = rb | g;
+                            u16 c1 = src[idx1[x]];
+                            u32 w = weight[x];
+                            if (w > 0) {
+                                u16 c2 = src[idx2[x]];
+                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                line_buf[x] = rb | g;
                             } else {
-                                blended = src[idx];
+                                line_buf[x] = c1;
                             }
-
-                            dest1[x] = blended;
-                            dest2[x] = blended;
-                            accum += step;
                         }
+                        memcpy(dest1, line_buf, 640 * sizeof(u16));
+                        memcpy(dest2, line_buf, 640 * sizeof(u16));
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
                     // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio using a high-quality software Sharp Bilinear filter)
@@ -1285,43 +1278,29 @@ void CKernel::RunVideoDomain() {
                         memset(pBuf + (start_y + out_h) * nPitch, 0, (SCREEN_HEIGHT - (start_y + out_h)) * nPitch * sizeof(u16));
                     }
 
-                    u32 step = (game_w << 16) / 640;
-                    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                    u32 transition_start = 65536 - step;
-
+                    UpdateScaleTable(game_w);
+                    const u16 *idx1 = s_ScaleTableCache.idx1;
+                    const u16 *idx2 = s_ScaleTableCache.idx2;
+                    const u8 *weight = s_ScaleTableCache.weight;
                     for (int y = 0; y < draw_h; y++) {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y_offset + y) * game_w;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
                         u16 *dest2 = dest1 + nPitch;
-
-                        u32 accum = 0;
+                        u16 line_buf[640];
                         for (int x = 0; x < 640; x++) {
-                            u32 idx = accum >> 16;
-                            u32 frac_part = accum & 0xFFFF;
-                            
-                            u16 blended;
-                            if (frac_part >= transition_start && step > 0) {
-                                // Boundary transition: blend between idx and idx + 1 over exactly 1 destination pixel
-                                u32 idx2 = (idx + 1 < (u32)game_w) ? idx + 1 : idx;
-                                u16 c1 = src[idx];
-                                u16 c2 = src[idx2];
-                                
-                                // Map the transition region [transition_start, 65536] to [0, 32] for 5-bit blend weight using precalculated scale
-                                u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                if (frac > 32) frac = 32;
-
-                                u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                blended = rb | g;
+                            u16 c1 = src[idx1[x]];
+                            u32 w = weight[x];
+                            if (w > 0) {
+                                u16 c2 = src[idx2[x]];
+                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                line_buf[x] = rb | g;
                             } else {
-                                // Flat area of the pixel: draw 100% sharp color
-                                blended = src[idx];
+                                line_buf[x] = c1;
                             }
-
-                            dest1[x] = blended;
-                            dest2[x] = blended;
-                            accum += step;
                         }
+                        memcpy(dest1, line_buf, 640 * sizeof(u16));
+                        memcpy(dest2, line_buf, 640 * sizeof(u16));
                     }
                 } else {
                     // Mega Drive video rendering
@@ -1362,41 +1341,30 @@ void CKernel::RunVideoDomain() {
                         }
                     } else {
                         // H32 Mode: 256x224 scaled 2.5x to 640x448 (using Sharp Bilinear filter to avoid pixel shimmering/aliasing)
-                        u32 step = (256 << 16) / 640;
-                        u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
-                        u32 transition_start = 65536 - step;
-
+                        UpdateScaleTable(256);
+                        const u16 *idx1 = s_ScaleTableCache.idx1;
+                        const u16 *idx2 = s_ScaleTableCache.idx2;
+                        const u8 *weight = s_ScaleTableCache.weight;
                         for (int y = 0; y < game_h; y++) {
                             // Active 256 pixels start at offset 32 in the 320-pixel stride
                             const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320 + 32;
                             u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                             u16 *dest2 = dest1 + nPitch;
-
-                            u32 accum = 0;
+                            u16 line_buf[640];
                             for (int x = 0; x < 640; x++) {
-                                u32 idx = accum >> 16;
-                                u32 frac_part = accum & 0xFFFF;
-                                
-                                u16 blended;
-                                if (frac_part >= transition_start && step > 0) {
-                                    u32 idx2 = (idx + 1 < 256) ? idx + 1 : idx;
-                                    u16 c1 = src[idx];
-                                    u16 c2 = src[idx2];
-                                    
-                                    u32 frac = ((frac_part - transition_start) * scale) >> 16;
-                                    if (frac > 32) frac = 32;
-
-                                    u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
-                                    u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
-                                    blended = rb | g;
+                                u16 c1 = src[idx1[x]];
+                                u32 w = weight[x];
+                                if (w > 0) {
+                                    u16 c2 = src[idx2[x]];
+                                    u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                    u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                    line_buf[x] = rb | g;
                                 } else {
-                                    blended = src[idx];
+                                    line_buf[x] = c1;
                                 }
-
-                                dest1[x] = blended;
-                                dest2[x] = blended;
-                                accum += step;
                             }
+                            memcpy(dest1, line_buf, 640 * sizeof(u16));
+                            memcpy(dest2, line_buf, 640 * sizeof(u16));
                         }
                     }
                 }
@@ -1465,12 +1433,12 @@ void CKernel::RunAudioDomain() {
         }
     }
 
-    s16 local_buf[512 * 2];
+    s16 local_buf[1024 * 2];
 
     while (1) {
         unsigned avail = g_SharedState.audio_ring_buffer.GetAvailable();
         if (avail > 0) {
-            if (avail > 512) avail = 512;
+            if (avail > 1024) avail = 1024;
             unsigned read = g_SharedState.audio_ring_buffer.Read(local_buf, avail);
             pSoundDevice->Write(local_buf, read * 4); // each stereo sample is 4 bytes
         } else {
