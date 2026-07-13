@@ -993,9 +993,12 @@ int seekcompresszip(ZIP* zip, struct zipent* ent) { return -1; }
 
 // Picodrive video mode change callback
 void emu_video_mode_change(int start_line, int line_count, int start_col, int col_count) {
-    int idx = g_SharedState.emu_write_idx;
-    g_SharedState.start_line[idx] = start_line;
-    g_SharedState.game_h[idx] = line_count;
+    g_SharedState.start_line[0] = start_line;
+    g_SharedState.start_line[1] = start_line;
+    g_SharedState.game_h[0] = line_count;
+    g_SharedState.game_h[1] = line_count;
+    g_SharedState.game_w[0] = col_count;
+    g_SharedState.game_w[1] = col_count;
 }
 
 // Picodrive Sega CD MP3 & OGG stubs

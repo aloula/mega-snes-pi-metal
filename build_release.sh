@@ -28,8 +28,11 @@ fi
 
 if [ -f "$SPLASH_PNG" ]; then
     echo -e "${BLUE}Generating Splash_Screen.raw16 from $SPLASH_PNG...${NC}"
-    if command -v convert &> /dev/null; then
-        convert "$SPLASH_PNG" rgb:res/Splash_Screen.rgb
+    if python3 convert_splash.py "$SPLASH_PNG" snes-emulator/boot/Splash_Screen.raw16; then
+        echo -e "${GREEN}Splash screen converted successfully using convert_splash.py!${NC}"
+    elif command -v convert &> /dev/null; then
+        echo -e "${BLUE}Falling back to ImageMagick convert...${NC}"
+        convert "$SPLASH_PNG" -resize '640x480!' rgb:res/Splash_Screen.rgb
         python3 -c '
 import struct
 with open("res/Splash_Screen.rgb", "rb") as f:
@@ -43,9 +46,9 @@ with open("snes-emulator/boot/Splash_Screen.raw16", "wb") as f:
     f.write(out)
 '
         rm -f res/Splash_Screen.rgb
-        echo -e "${GREEN}Splash screen converted successfully!${NC}"
+        echo -e "${GREEN}Splash screen converted successfully using ImageMagick fallback!${NC}"
     else
-        echo -e "${RED}Warning: 'convert' (ImageMagick) not found. Skipping splash screen generation.${NC}"
+        echo -e "${RED}Warning: Neither 'convert_splash.py' dependency (Pillow) nor 'convert' (ImageMagick) is functional. Skipping splash screen generation.${NC}"
     fi
 fi
 # 3. Clean snes-emulator build files

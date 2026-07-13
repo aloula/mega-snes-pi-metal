@@ -362,8 +362,10 @@ void CKernel::RunOrchestrator() {
     g_SharedState.emu_write_idx = 0;
     g_SharedState.emu_read_idx = 0;
     g_SharedState.start_line[0] = 8;
+    g_SharedState.game_w[0] = 320;
     g_SharedState.game_h[0] = 224;
     g_SharedState.start_line[1] = 8;
+    g_SharedState.game_w[1] = 320;
     g_SharedState.game_h[1] = 224;
 
     static boolean just_entered_menu = TRUE;
@@ -497,8 +499,10 @@ void CKernel::RunOrchestrator() {
                     g_SharedState.emu_write_idx = 0;
                     g_SharedState.emu_read_idx = 0;
                     g_SharedState.start_line[0] = 8;
+                    g_SharedState.game_w[0] = 320;
                     g_SharedState.game_h[0] = 224;
                     g_SharedState.start_line[1] = 8;
+                    g_SharedState.game_w[1] = 320;
                     g_SharedState.game_h[1] = 224;
                     g_SharedState.video_frame_ready = FALSE;
                     DataMemBarrier();
@@ -566,6 +570,16 @@ void CKernel::RunOrchestrator() {
     f_mount(nullptr, "SD:", 0);
 }
 
+static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
+    if (nPitch == SCREEN_WIDTH) {
+        memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+    } else {
+        for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
+            memcpy(pBuf + y * nPitch, pBackBuffer + y * SCREEN_WIDTH, SCREEN_WIDTH * sizeof(u16));
+        }
+    }
+}
+
 void CKernel::RunVideoDomain() {
     m_Logger.Write("video", LogNotice, "Core 1: Video Engine Active");
 
@@ -591,7 +605,7 @@ void CKernel::RunVideoDomain() {
 
     // Clear screen to pure black
     DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
-    memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+    CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
 
     boolean was_in_menu = TRUE;
     while (1) {
@@ -614,7 +628,7 @@ void CKernel::RunVideoDomain() {
             
             DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(31, 31, 31), COLOR15(2, 6, 2));
             
-            memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+            CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
             CTimer::SimpleMsDelay(50);
             continue;
         }
@@ -755,7 +769,7 @@ void CKernel::RunVideoDomain() {
                 DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 12, 12), 0);
 
                 // Copy fully rendered backbuffer to the active framebuffer in a single fast operation
-                memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+                CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
             }
             pFB->WaitForVerticalSync();
             CTimer::SimpleMsDelay(16);
@@ -799,23 +813,65 @@ void CKernel::RunVideoDomain() {
  
                 int start_y = (SCREEN_HEIGHT - scale_h) / 2;
  
-                // Upscale using optimized 64-bit integer 2x nearest neighbor
-                for (int y = 0; y < game_h; y++) {
-                    const u32 * __restrict src32 = (const u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320);
-                    u64 * __restrict dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch);
-                    u64 * __restrict dest64_2 = dest64_1 + (nPitch / 4);
- 
-                    for (int x = 0; x < 160; x++) {
-                        u32 pixels = src32[x];
-                        u32 p1 = pixels & 0xFFFF;
-                        u32 p2 = pixels >> 16;
-                        
-                        u32 p1_32 = (p1 << 16) | p1;
-                        u32 p2_32 = (p2 << 16) | p2;
-                        u64 color64 = ((u64)p2_32 << 32) | p1_32;
- 
-                        dest64_1[x] = color64;
-                        dest64_2[x] = color64;
+                // Upscale to full 4:3 (640x448) based on game mode width
+                int game_w = g_SharedState.game_w[read_idx];
+                if (game_w != 256) {
+                    // H40 Mode: 320x224 scaled 2x to 640x448 (using optimized nearest-neighbor)
+                    for (int y = 0; y < game_h; y++) {
+                        const u32 * __restrict src32 = (const u32 *)(g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320);
+                        u64 * __restrict dest64_1 = (u64 *)(pBuf + (start_y + 2 * y) * nPitch);
+                        u64 * __restrict dest64_2 = dest64_1 + (nPitch / 4);
+
+                        for (int x = 0; x < 160; x++) {
+                            u32 pixels = src32[x];
+                            u32 p1 = pixels & 0xFFFF;
+                            u32 p2 = pixels >> 16;
+                            
+                            u32 p1_32 = (p1 << 16) | p1;
+                            u32 p2_32 = (p2 << 16) | p2;
+                            u64 color64 = ((u64)p2_32 << 32) | p1_32;
+
+                            dest64_1[x] = color64;
+                            dest64_2[x] = color64;
+                        }
+                    }
+                } else {
+                    // H32 Mode: 256x224 scaled 2.5x to 640x448 (using Sharp Bilinear filter to avoid pixel shimmering/aliasing)
+                    u32 step = (256 << 16) / 640;
+                    u32 scale = (step > 0) ? (32ULL << 16) / step : 0;
+                    u32 transition_start = 65536 - step;
+
+                    for (int y = 0; y < game_h; y++) {
+                        // Active 256 pixels start at offset 32 in the 320-pixel stride
+                        const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320 + 32;
+                        u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
+                        u16 *dest2 = dest1 + nPitch;
+
+                        u32 accum = 0;
+                        for (int x = 0; x < 640; x++) {
+                            u32 idx = accum >> 16;
+                            u32 frac_part = accum & 0xFFFF;
+                            
+                            u16 blended;
+                            if (frac_part >= transition_start && step > 0) {
+                                u32 idx2 = (idx + 1 < 256) ? idx + 1 : idx;
+                                u16 c1 = src[idx];
+                                u16 c2 = src[idx2];
+                                
+                                u32 frac = ((frac_part - transition_start) * scale) >> 16;
+                                if (frac > 32) frac = 32;
+
+                                u32 rb = (((c1 & 0xF81F) * (32 - frac) + (c2 & 0xF81F) * frac) >> 5) & 0xF81F;
+                                u32 g  = (((c1 & 0x07E0) * (32 - frac) + (c2 & 0x07E0) * frac) >> 5) & 0x07E0;
+                                blended = rb | g;
+                            } else {
+                                blended = src[idx];
+                            }
+
+                            dest1[x] = blended;
+                            dest2[x] = blended;
+                            accum += step;
+                        }
                     }
                 }
             } else {

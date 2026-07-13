@@ -28,6 +28,7 @@ struct SharedState {
     volatile int emu_read_idx;
     volatile boolean video_frame_ready __attribute__((aligned(64)));
     volatile int start_line[2];
+    volatile int game_w[2];
     volatile int game_h[2];
 
     // Audio ring buffer
