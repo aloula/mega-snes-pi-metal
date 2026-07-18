@@ -434,12 +434,14 @@ void CKernel::RunOrchestrator() {
             // OSD Menu navigation using gamepad/keyboard pad state with auto scrolling
             static u16 prev_pad1 = 0;
             static boolean start_released = TRUE;
+            static u64 menu_enter_time = 0;
             u16 pad1 = g_SharedState.pad1 | g_SharedState.pad2;
             
             if (just_entered_menu) {
                 prev_pad1 = pad1;
                 start_released = FALSE;
                 just_entered_menu = FALSE;
+                menu_enter_time = CTimer::GetClockTicks64();
             }
 
             if ((pad1 & ((1 << 6) | (1 << 7))) == 0) {
@@ -544,7 +546,10 @@ void CKernel::RunOrchestrator() {
                 m_pOSDMenu->OnEmuModeChanged();
             }
 
-            if ((pressed & ((1 << 4) | (1 << 5) | (1 << 10))) && start_released) { // SNES A, B or Start -> Select ROM
+            u64 now_ticks = CTimer::GetClockTicks64();
+            boolean is_locked_out = ((now_ticks - menu_enter_time) / 1000) < 2000; // 2 seconds lockout
+
+            if (!is_locked_out && (pressed & ((1 << 4) | (1 << 5) | (1 << 10))) && start_released) { // SNES A, B or Start -> Select ROM
                 const char *pRomName = m_pOSDMenu->GetSelectedRom();
                 unsigned nRomSize = m_pOSDMenu->GetSelectedRomSize();
                 if (pRomName) {
@@ -1564,7 +1569,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     }
 
     // START + SELECT combo -> Exit to menu
-    if ((pState->buttons & GamePadButtonStart) && (pState->buttons & GamePadButtonSelect)) {
+    if ((pState->buttons & (GamePadButtonStart | GamePadButtonPlus)) && (pState->buttons & (GamePadButtonSelect | GamePadButtonMinus))) {
         g_SharedState.escape_pressed = TRUE;
     }
 

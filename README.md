@@ -1,6 +1,6 @@
 # MEGA-SNES Pi Metal
 
-![MEGA-SNES_Pi_Metal](res/MEGA-SNES_Pi_Metal.png)
+![MEGA-SNES_Pi_Metal](res/MD_PCE_NES_SNES_Baremetal_Emulator.png)
 
 A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel. It includes support for the **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), and **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), allowing real-time switching between systems directly from the On-Screen Display (OSD) menu.
 
