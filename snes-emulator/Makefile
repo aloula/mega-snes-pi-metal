@@ -68,6 +68,7 @@ OBJS	= main.o kernel.o osd.o snes_orchestrator.o md_orchestrator.o clib_stubs.o 
 	  ../picodrive/pico/draw2.o \
 	  ../picodrive/pico/draw.o \
 	  ../picodrive/pico/mode4.o \
+	  ../picodrive/pico/sms.o \
 	  ../picodrive/pico/misc.o \
 	  ../picodrive/pico/eeprom.o \
 	  ../picodrive/pico/patch.o \
@@ -177,7 +178,7 @@ PCE_SRCS = $(PCE_DIR)/libretro.c \
 
 PCE_OBJS = $(PCE_SRCS:.c=.o)
 
-OBJS += $(NESTOPIA_OBJS) $(NESTOPIA_C_OBJS) nes_orchestrator.o $(PCE_OBJS) pce_orchestrator.o
+OBJS += $(NESTOPIA_OBJS) $(NESTOPIA_C_OBJS) nes_orchestrator.o $(PCE_OBJS) pce_orchestrator.o sms_orchestrator.o
 
 SNESPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 MEGAPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
@@ -185,7 +186,7 @@ MEGAPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 # Combined compiler definitions
 DEFS     = -DSNESPI_VERSION="\"$(SNESPI_VERSION)\"" -DMEGAPI_VERSION="\"$(MEGAPI_VERSION)\"" \
            -DPIXEL_FORMAT=RGB565 -DALLOW_CPU_OVERCLOCK=1 -DHAVE_STDINT_H -DHAVE_STRINGS_H -D_GNU_SOURCE \
-           -D_USE_DRZ80 -DEMU_C68K -D_ASM_DRAW_C -D_ASM_MEMORY_C -D_ASM_YM2612_C -D_ASM_MISC_C -D_ASM_CD_MEMORY_C -DNO_32X -DNO_SMS -DUSE_LIBCHDR -DZ7_ST -DEL_LOGMASK=0xc0000000
+           -D_USE_DRZ80 -DEMU_C68K -D_ASM_DRAW_C -D_ASM_MEMORY_C -D_ASM_YM2612_C -D_ASM_MISC_C -D_ASM_CD_MEMORY_C -DNO_32X -DUSE_LIBCHDR -DZ7_ST -DEL_LOGMASK=0xc0000000
 
 # Base include path order default (Snes9x first)
 INCS     = -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu \

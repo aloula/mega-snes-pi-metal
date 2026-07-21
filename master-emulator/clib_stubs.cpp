@@ -1,8 +1,4 @@
 #include <circle/timer.h>
-#include <circle/time.h>
-#include <circle/logger.h>
-#define __time_t_defined
-#define _TIME_T_DECLARED
 #include <circle/string.h>
 #include <circle/alloc.h>
 #include <circle/util.h>
@@ -10,11 +6,8 @@
 #include <circle/synchronize.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <wchar.h>
-#include <wctype.h>
 #include <ff.h>
 #include "shared_state.h"
 
@@ -30,8 +23,8 @@ static CFileWrapper s_OpenFiles[64];
 
 extern "C" {
 
-// static char dummy_reent[1024];
-// struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
+static char dummy_reent[1024];
+struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
 
 char *strdup(const char *s) {
     if (s == nullptr) return nullptr;
@@ -43,19 +36,7 @@ char *strdup(const char *s) {
     return dup;
 }
 
-void lprintf(const char *fmt, ...) {
-    char buf[256];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-    int len = strlen(buf);
-    while (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r')) {
-        buf[len-1] = '\0';
-        len--;
-    }
-    CLogger::Get()->Write("orchestrator", LogNotice, "%s", buf);
-}
+extern "C" void lprintf(const char *fmt, ...);
 
 FILE *fopen(const char *pathname, const char *mode) {
     // Find a free wrapper slot
@@ -90,9 +71,7 @@ FILE *fopen(const char *pathname, const char *mode) {
 
     FRESULT res = f_open(&s_OpenFiles[slot].file, fullPath, flags);
     if (res != FR_OK) {
-        if (res != 4) { // Don't log expected FR_NO_FILE (4) failures for optional patches/saves
-            lprintf("clib_stubs: fopen(%s) failed: FR_%d", fullPath, (int)res);
-        }
+        lprintf("clib_stubs: fopen(%s) failed: FR_%d", fullPath, (int)res);
         return nullptr;
     }
 
@@ -254,7 +233,6 @@ char *strerror(int errnum) {
     return (char *)"Unknown error";
 }
 
-/*
 int sscanf(const char *str, const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -368,9 +346,7 @@ int sscanf(const char *str, const char *format, ...) {
     va_end(args);
     return count;
 }
-*/
 
-/*
 int sprintf(char *buf, const char *fmt, ...) {
     va_list var;
     va_start(var, fmt);
@@ -409,7 +385,6 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list var) {
     buf[len] = '\0';
     return len;
 }
-*/
 
 int fprintf(FILE *stream, const char *fmt, ...) {
     return 0;
@@ -434,387 +409,6 @@ char *strrchr(const char *s, int c) {
     } while (*s++);
     return (char *)last;
 }
-
-int strcoll(const char *s1, const char *s2) {
-    return strcmp(s1, s2);
-}
-
-size_t strxfrm(char *dest, const char *src, size_t n) {
-    if (n > 0) {
-        strncpy(dest, src, n);
-        dest[n - 1] = '\0';
-    }
-    return strlen(src);
-}
-
-int wcscoll(const wchar_t *s1, const wchar_t *s2) {
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return (int)*s1 - (int)*s2;
-}
-
-size_t wcsxfrm(wchar_t *dest, const wchar_t *src, size_t n) {
-    size_t len = 0;
-    const wchar_t *s = src;
-    while (*s++) len++;
-    if (n > 0) {
-        size_t i;
-        for (i = 0; i < n - 1 && src[i]; i++) {
-            dest[i] = src[i];
-        }
-        dest[i] = 0;
-    }
-    return len;
-}
-
-void *memchr(const void *s, int c, size_t n) {
-    const unsigned char *p = (const unsigned char *)s;
-    while (n--) {
-        if (*p == (unsigned char)c) {
-            return (void *)p;
-        }
-        p++;
-    }
-    return nullptr;
-}
-
-wchar_t *wmemchr(const wchar_t *s, wchar_t c, size_t n) {
-    while (n--) {
-        if (*s == c) {
-            return (wchar_t *)s;
-        }
-        s++;
-    }
-    return nullptr;
-}
-
-wchar_t *wmemcpy(wchar_t *dest, const wchar_t *src, size_t n) {
-    wchar_t *d = dest;
-    const wchar_t *s = src;
-    while (n--) {
-        *d++ = *s++;
-    }
-    return dest;
-}
-
-size_t wcslen(const wchar_t *s) {
-    size_t len = 0;
-    while (*s++) {
-        len++;
-    }
-    return len;
-}
-
-char *setlocale(int category, const char *locale) {
-    return (char *)"C";
-}
-
-struct tm;
-
-size_t strftime(char *s, size_t max, const char *format, const struct tm *tm) {
-    if (max > 0) s[0] = '\0';
-    return 0;
-}
-
-size_t wcsftime(wchar_t *s, size_t max, const wchar_t *format, const struct tm *tm) {
-    if (max > 0) s[0] = 0;
-    return 0;
-}
-
-void abort(void) {
-    extern void lprintf(const char *fmt, ...);
-    lprintf("clib_stubs: abort() called\n");
-    while (1);
-}
-
-wchar_t *wmemmove(wchar_t *dest, const wchar_t *src, size_t n) {
-    if (dest < src) {
-        wchar_t *d = dest;
-        const wchar_t *s = src;
-        while (n--) {
-            *d++ = *s++;
-        }
-    } else if (dest > src) {
-        wchar_t *d = dest + n;
-        const wchar_t *s = src + n;
-        while (n--) {
-            *--d = *--s;
-        }
-    }
-    return dest;
-}
-
-int wmemcmp(const wchar_t *s1, const wchar_t *s2, size_t n) {
-    while (n--) {
-        if (*s1 != *s2) {
-            return (int)*s1 - (int)*s2;
-        }
-        s1++;
-        s2++;
-    }
-    return 0;
-}
-
-char *getenv(const char *name) {
-    return nullptr;
-}
-
-double strtod(const char *nptr, char **endptr) {
-    double val = 0.0;
-    double sign = 1.0;
-    const char *p = nptr;
-    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
-    if (*p == '-') {
-        sign = -1.0;
-        p++;
-    } else if (*p == '+') {
-        p++;
-    }
-    while (*p >= '0' && *p <= '9') {
-        val = val * 10.0 + (*p - '0');
-        p++;
-    }
-    if (*p == '.') {
-        p++;
-        double dec = 0.1;
-        while (*p >= '0' && *p <= '9') {
-            val += (*p - '0') * dec;
-            dec *= 0.1;
-            p++;
-        }
-    }
-    if (endptr) *endptr = (char *)p;
-    return val * sign;
-}
-
-float strtof(const char *nptr, char **endptr) {
-    return (float)strtod(nptr, endptr);
-}
-
-int __locale_mb_cur_max(void) {
-    return 1;
-}
-
-
-size_t wcrtomb(char *s, wchar_t wc, mbstate_t *ps) {
-    if (s == nullptr) return 1;
-    *s = (char)wc;
-    return 1;
-}
-
-size_t mbrtowc(wchar_t *pwc, const char *s, size_t n, mbstate_t *ps) {
-    if (s == nullptr) return 0;
-    if (n == 0) return 0;
-    if (pwc) *pwc = (wchar_t)*s;
-    return (*s == '\0') ? 0 : 1;
-}
-
-wctype_t wctype(const char *name) {
-    return 0;
-}
-
-wint_t towupper(wint_t wc) {
-    if (wc >= 'a' && wc <= 'z') return wc - 'a' + 'A';
-    return wc;
-}
-
-wint_t towlower(wint_t wc) {
-    if (wc >= 'A' && wc <= 'Z') return wc - 'A' + 'a';
-    return wc;
-}
-
-int iswctype(wint_t wc, wctype_t desc) {
-    return 0;
-}
-
-int wctob(wint_t wc) {
-    if (wc <= 127) return (int)wc;
-    return -1;
-}
-
-wint_t btowc(int c) {
-    if (c == -1) return (wint_t)-1;
-    return (wint_t)c;
-}
-
-int getentropy(void *buffer, size_t length) {
-    unsigned char *p = (unsigned char *)buffer;
-    while (length--) {
-        *p++ = (unsigned char)rand();
-    }
-    return 0;
-}
-
-__uint32_t arc4random(void) {
-    return ((__uint32_t)rand() << 16) | (__uint32_t)rand();
-}
-
-
-int read(int fd, void *buf, size_t count) {
-    return -1;
-}
-
-int write(int fd, const void *buf, size_t count) {
-    return -1;
-}
-
-off_t lseek(int fd, off_t offset, int whence) {
-    return -1;
-}
-
-int puts(const char *s) {
-    extern void lprintf(const char *fmt, ...);
-    lprintf("%s\n", s);
-    return 1;
-}
-
-time_t time(time_t *tloc) {
-    time_t t = (time_t)(CTimer::GetClockTicks64() / 1000000);
-    if (tloc) *tloc = t;
-    return t;
-}
-
-int setvbuf(FILE *stream, char *buf, int mode, size_t size) {
-    return 0;
-}
-
-int fileno(FILE *stream) {
-    return -1;
-}
-
-int fstat(int fd, struct stat *statbuf) {
-    return -1;
-}
-
-wchar_t *wmemset(wchar_t *dest, wchar_t c, size_t n) {
-    wchar_t *d = dest;
-    while (n--) {
-        *d++ = c;
-    }
-    return dest;
-}
-
-int isalnum(int c) {
-    return ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'));
-}
-
-int toupper(int c) {
-    if (c >= 'a' && c <= 'z') return c - 'a' + 'A';
-    return c;
-}
-
-int isspace(int c) {
-    return (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f');
-}
-
-int fgetc(FILE *stream) {
-    unsigned char c;
-    if (fread(&c, 1, 1, stream) != 1) return -1;
-    return c;
-}
-
-int getc(FILE *stream) {
-    return fgetc(stream);
-}
-
-int putchar(int c) {
-    extern void lprintf(const char *fmt, ...);
-    lprintf("%c", c);
-    return c;
-}
-
-int ftruncate(int fd, off_t length) {
-    return -1;
-}
-
-struct tm *localtime(const time_t *timer) {
-    static struct tm dummy_tm;
-    memset(&dummy_tm, 0, sizeof(dummy_tm));
-    dummy_tm.tm_mday = 1;
-    dummy_tm.tm_mon = 0;
-    dummy_tm.tm_year = 126;
-    return &dummy_tm;
-}
-
-void exit(int status) {
-    extern void lprintf(const char *fmt, ...);
-    lprintf("clib_stubs: exit(%d) called\n", status);
-    while (1);
-}
-
-int remove(const char *pathname) {
-    char fullPath[256];
-    if (pathname[0] == '/') {
-        snprintf(fullPath, sizeof(fullPath), "SD:%s", pathname);
-    } else if (strncmp(pathname, "SD:", 3) != 0) {
-        snprintf(fullPath, sizeof(fullPath), "SD:/%s", pathname);
-    } else {
-        strncpy(fullPath, pathname, sizeof(fullPath) - 1);
-        fullPath[sizeof(fullPath) - 1] = '\0';
-    }
-    return f_unlink(fullPath) == FR_OK ? 0 : -1;
-}
-
-char *ctime(const time_t *timep) {
-    static char buf[26];
-    strcpy(buf, "Thu Jan  1 00:00:00 2026\n");
-    return buf;
-}
-
-int ferror(FILE *stream) {
-    return 0;
-}
-
-int fputs(const char *s, FILE *stream) {
-    if (stream == nullptr || s == nullptr) return -1;
-    size_t len = strlen(s);
-    return fwrite(s, 1, len, stream) == len ? 0 : -1;
-}
-
-
-
-#define _U 01
-#define _L 02
-#define _N 04
-#define _S 010
-#define _P 020
-#define _C 040
-#define _X 0100
-#define _B 0200
-
-extern "C" const unsigned char _ctype_[257] = {
-    0, // EOF
-    _C, _C, _C, _C, _C, _C, _C, _C,                     // 0-7
-    _C, _C|_S, _C|_S, _C|_S, _C|_S, _C|_S, _C, _C,       // 8-15
-    _C, _C, _C, _C, _C, _C, _C, _C,                     // 16-23
-    _C, _C, _C, _C, _C, _C, _C, _C,                     // 24-31
-    _S|_B, _P, _P, _P, _P, _P, _P, _P,                 // 32-39
-    _P, _P, _P, _P, _P, _P, _P, _P,                     // 40-47
-    _N|_X, _N|_X, _N|_X, _N|_X, _N|_X, _N|_X, _N|_X, _N|_X, // 48-55
-    _N|_X, _N|_X, _P, _P, _P, _P, _P, _P,                 // 56-63
-    _P, _U|_X, _U|_X, _U|_X, _U|_X, _U|_X, _U|_X, _U,     // 64-71
-    _U, _U, _U, _U, _U, _U, _U, _U,                     // 72-79
-    _U, _U, _U, _U, _U, _U, _U, _U,                     // 80-87
-    _U, _U, _U, _P, _P, _P, _P, _P,                     // 88-95
-    _P, _L|_X, _L|_X, _L|_X, _L|_X, _L|_X, _L|_X, _L,     // 96-103
-    _L, _L, _L, _L, _L, _L, _L, _L,                     // 104-111
-    _L, _L, _L, _L, _L, _L, _L, _L,                     // 112-119
-    _L, _L, _L, _P, _P, _P, _P, _C,                     // 120-127
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-};
-
-
-
-
 
 #ifndef LONG_MAX
 #define LONG_MAX 2147483647L
@@ -974,6 +568,12 @@ void qsort(void *base, size_t num, size_t size, int (*compar)(const void *, cons
 }
 
 // Picodrive SMS & 32x stubs
+int putchar(int c) {
+    extern void lprintf(const char *fmt, ...);
+    lprintf("%c", c);
+    return c;
+}
+
 void Pico32xPrepare(void) {}
 #ifndef _ASM_MEMORY_C
 unsigned int PicoRead8_32x(unsigned int a) { return 0; }
@@ -1016,6 +616,17 @@ void cache_flush_d_inval_i(void *start_addr, void *end_addr) {
         CleanAndInvalidateDataCacheRange(start, end - start);
     }
     InvalidateInstructionCache();
+}
+
+char *stpcpy(char *dest, const char *src) {
+    while ((*dest++ = *src++)) {}
+    return dest - 1;
+}
+
+int puts(const char *s) {
+    extern void lprintf(const char *fmt, ...);
+    lprintf("%s\n", s);
+    return 1;
 }
 
 } // extern "C"

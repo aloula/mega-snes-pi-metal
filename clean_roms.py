@@ -148,7 +148,7 @@ def process_archive(archive_path, delete_archive=True, keep_regions=False):
 
 def clean_existing_roms(target_dir, keep_regions=False):
     print("Scanning for existing unzipped ROM files to clean up...")
-    rom_extensions = ('.sfc', '.smc', '.nes', '.md', '.gen', '.bin', '.pce', '.cue', '.chd')
+    rom_extensions = ('.sfc', '.smc', '.nes', '.md', '.gen', '.bin', '.pce', '.sms', '.gg', '.cue', '.chd')
     cleaned_count = 0
     duplicate_count = 0
     

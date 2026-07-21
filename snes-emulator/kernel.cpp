@@ -230,6 +230,7 @@ CKernel::CKernel(void)
       m_pMDOrchestrator(nullptr),
       m_pNESOrchestrator(nullptr),
       m_pPCEOrchestrator(nullptr),
+      m_pSMSOrchestrator(nullptr),
       m_ShutdownMode(ShutdownNone)
 {
     s_pThis = this;
@@ -239,6 +240,10 @@ CKernel::CKernel(void)
 }
 
 CKernel::~CKernel(void) {
+    if (m_pSMSOrchestrator != nullptr) {
+        delete m_pSMSOrchestrator;
+        m_pSMSOrchestrator = nullptr;
+    }
     if (m_pPCEOrchestrator != nullptr) {
         delete m_pPCEOrchestrator;
         m_pPCEOrchestrator = nullptr;
@@ -384,6 +389,9 @@ void CKernel::RunOrchestrator() {
     m_pPCEOrchestrator = new CPCEOrchestrator(&m_FileSystem);
     m_pPCEOrchestrator->Initialize();
 
+    m_pSMSOrchestrator = new CSMSOrchestrator(&m_FileSystem);
+    m_pSMSOrchestrator->Initialize();
+
     // Turn activity LED OFF once the emulator has fully booted (HDD LED style)
     m_ActLED.Off();
 
@@ -526,6 +534,8 @@ void CKernel::RunOrchestrator() {
                     if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                         g_SharedState.active_emu_mode = EmuMode_NES;
                     } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
+                        g_SharedState.active_emu_mode = EmuMode_SMS;
+                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
                         g_SharedState.active_emu_mode = EmuMode_PCE;
                     } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
                         g_SharedState.active_emu_mode = EmuMode_MD;
@@ -538,6 +548,8 @@ void CKernel::RunOrchestrator() {
                     } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                         g_SharedState.active_emu_mode = EmuMode_PCE;
                     } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
+                        g_SharedState.active_emu_mode = EmuMode_SMS;
+                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
                         g_SharedState.active_emu_mode = EmuMode_NES;
                     } else {
                         g_SharedState.active_emu_mode = EmuMode_SNES;
@@ -580,6 +592,13 @@ void CKernel::RunOrchestrator() {
                         g_SharedState.start_line[1] = 0;
                         g_SharedState.game_w[1] = 256;
                         g_SharedState.game_h[1] = 240;
+                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                        g_SharedState.start_line[0] = 24;
+                        g_SharedState.game_w[0] = 256;
+                        g_SharedState.game_h[0] = 192;
+                        g_SharedState.start_line[1] = 24;
+                        g_SharedState.game_w[1] = 256;
+                        g_SharedState.game_h[1] = 192;
                     } else { // EmuMode_PCE
                         g_SharedState.start_line[0] = 0;
                         g_SharedState.game_w[0] = 256;
@@ -601,6 +620,8 @@ void CKernel::RunOrchestrator() {
                         loaded = m_pMDOrchestrator->LoadROM(fullPath, nRomSize);
                     } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                         loaded = m_pNESOrchestrator->LoadROM(fullPath, nRomSize);
+                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                        loaded = m_pSMSOrchestrator->LoadROM(fullPath, nRomSize);
                     } else { // EmuMode_PCE
                         loaded = m_pPCEOrchestrator->LoadROM(fullPath, nRomSize);
                     }
@@ -625,6 +646,8 @@ void CKernel::RunOrchestrator() {
                 m_pMDOrchestrator->RunFrame();
             } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                 m_pNESOrchestrator->RunFrame();
+            } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                m_pSMSOrchestrator->RunFrame();
             } else {
                 m_pPCEOrchestrator->RunFrame();
             }
@@ -646,6 +669,8 @@ void CKernel::RunOrchestrator() {
                     m_pMDOrchestrator->SaveState(0);
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                     m_pNESOrchestrator->SaveState(0);
+                } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    m_pSMSOrchestrator->SaveState(0);
                 } else {
                     m_pPCEOrchestrator->SaveState(0);
                 }
@@ -660,6 +685,8 @@ void CKernel::RunOrchestrator() {
                     m_pMDOrchestrator->LoadState(0);
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                     m_pNESOrchestrator->LoadState(0);
+                } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    m_pSMSOrchestrator->LoadState(0);
                 } else {
                     m_pPCEOrchestrator->LoadState(0);
                 }
@@ -674,6 +701,8 @@ void CKernel::RunOrchestrator() {
                     m_pMDOrchestrator->RewindState();
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                     m_pNESOrchestrator->RewindState();
+                } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    m_pSMSOrchestrator->RewindState();
                 } else {
                     m_pPCEOrchestrator->RewindState();
                 }
@@ -693,6 +722,10 @@ void CKernel::RunOrchestrator() {
                 }
             } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                 if (m_pNESOrchestrator->IsPAL()) {
+                    frame_time = 20000; // 50 FPS for PAL (20 ms)
+                }
+            } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                if (m_pSMSOrchestrator->IsPAL()) {
                     frame_time = 20000; // 50 FPS for PAL (20 ms)
                 }
             } else {
@@ -909,13 +942,15 @@ void CKernel::RunVideoDomain() {
                 // Draw Title (soft cool white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    snprintf(title_str, sizeof(title_str), "### SNES Baremetal Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### SNES - 5 in 1 Emulator ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
-                    snprintf(title_str, sizeof(title_str), "### NES Baremetal Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### NES - 5 in 1 Emulator ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    snprintf(title_str, sizeof(title_str), "### PC Engine Baremetal Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### PC Engine - 5 in 1 Emulator ###");
+                } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    snprintf(title_str, sizeof(title_str), "### Master System - 5 in 1 Emulator ###");
                 } else {
-                    snprintf(title_str, sizeof(title_str), "### Mega Drive Baremetal Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### Mega Drive - 5 in 1 Emulator ###");
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
@@ -1307,6 +1342,45 @@ void CKernel::RunVideoDomain() {
                         memcpy(dest1, line_buf, 640 * sizeof(u16));
                         memcpy(dest2, line_buf, 640 * sizeof(u16));
                     }
+                } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    // Master System video rendering (256x192 active area in 512-pitch frame buffer, start_line=24, x_offset=32)
+                    int game_w = g_SharedState.game_w[read_idx];
+                    if (game_w < 1) game_w = 256;
+                    if (game_h < 1) game_h = 192;
+                    if (game_h > 240) game_h = 240;
+
+                    UpdateScaleTable(game_w);
+                    const u16 *idx1 = s_ScaleTableCache.idx1;
+                    const u16 *idx2 = s_ScaleTableCache.idx2;
+                    const u8 *weight = s_ScaleTableCache.weight;
+
+                    u16 line_buf[640];
+                    int last_src_y = -1;
+                    for (int y = 0; y < 480; y++) {
+                        int src_y = (y * game_h) / 480;
+                        u16 *dest = pBuf + y * nPitch;
+
+                        if (src_y == last_src_y) {
+                            memcpy(dest, line_buf, 640 * sizeof(u16));
+                            continue;
+                        }
+                        last_src_y = src_y;
+
+                        const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y) * 512 + 32;
+                        for (int x = 0; x < 640; x++) {
+                            u16 c1 = src[idx1[x]];
+                            u32 w = weight[x];
+                            if (w > 0) {
+                                u16 c2 = src[idx2[x]];
+                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
+                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
+                                line_buf[x] = rb | g;
+                            } else {
+                                line_buf[x] = c1;
+                            }
+                        }
+                        memcpy(dest, line_buf, 640 * sizeof(u16));
+                    }
                 } else {
                     // Mega Drive video rendering
                     if (game_h > 320) game_h = 320;
@@ -1546,6 +1620,17 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         if (pState->buttons & (GamePadButtonRT | GamePadButtonRB)) pad |= (1 << 9);  // SNES R
         if (pState->buttons & GamePadButtonStart) pad |= (1 << 10); // SNES Start
         if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11); // SNES Select
+    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+        // Master System gamepad mapping:
+        // bit 4: Button 1, bit 5: Button 2, bit 7: Pause (Z80 NMI)
+        if (pState->buttons & GamePadButtonA)     pad |= (1 << 4);           // SMS Button 1
+        if (pState->buttons & GamePadButtonB)     pad |= (1 << 5);           // SMS Button 2
+        if (pState->buttons & GamePadButtonX)     pad |= (1 << 4);           // SMS Button 1
+        if (pState->buttons & GamePadButtonY)     pad |= (1 << 5);           // SMS Button 2
+        if (pState->buttons & (GamePadButtonLT | GamePadButtonLB)) pad |= (1 << 8); // L shoulder
+        if (pState->buttons & (GamePadButtonRT | GamePadButtonRB)) pad |= (1 << 9); // R shoulder
+        if (pState->buttons & GamePadButtonStart) pad |= (1 << 4) | (1 << 7); // SMS Button 1 + Pause
+        if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11);          // Select
     } else {
         if (s_Is3ButtonGame) {
             if (pState->buttons & GamePadButtonA)     pad |= (1 << 6);  // Sega A
@@ -1656,6 +1741,13 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
             if (key == 0x16) pad |= (1 << 9); // S key -> SNES R (bit 9)
             if (key == 0x28) pad |= (1 << 10); // Enter -> SNES Start (bit 10)
             if (key == 0x2C) pad |= (1 << 11); // Space -> SNES Select (bit 11)
+        } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+            if (key == 0x1D) pad |= (1 << 4); // Z -> SMS Button 1
+            if (key == 0x1B) pad |= (1 << 5); // X -> SMS Button 2
+            if (key == 0x06) pad |= (1 << 4); // C -> SMS Button 1
+            if (key == 0x19) pad |= (1 << 5); // V -> SMS Button 2
+            if (key == 0x28) pad |= (1 << 4) | (1 << 7); // Enter -> SMS Button 1 + Pause
+            if (key == 0x2C) pad |= (1 << 11); // Space -> Select
         } else {
             if (key == 0x1D) pad |= (1 << 6); // Z -> A
             if (key == 0x1B) pad |= (1 << 4); // X -> B

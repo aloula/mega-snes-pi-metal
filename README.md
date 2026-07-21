@@ -1,8 +1,8 @@
 # MEGA-SNES Pi Metal
 
-![MEGA-SNES_Pi_Metal](res/MD_PCE_NES_SNES_Baremetal_Emulator.png)
+![Baremetal Emulator](res/Baremetal_Emulator.png)
 
-A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel. It includes support for the **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), and **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), allowing real-time switching between systems directly from the On-Screen Display (OSD) menu.
+A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel. It includes support for the **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), **Sega Master System (SMS)** (via PicoDrive), and **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), allowing real-time switching between systems directly from the On-Screen Display (OSD) menu.
 
 Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, **Nestopia**, and **Beetle PCE Fast**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
 
@@ -12,19 +12,19 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
 
 ### 🚀 Key Features
 
-* **Multi-Console Emulation**: Run SNES, NES, Sega Mega Drive/Mega CD, and PC Engine/PC Engine CD games from a single boot image.
+* **Multi-Console Emulation**: Run SNES, NES, Sega Master System, Sega Mega Drive/Mega CD, and PC Engine/PC Engine CD games from a single boot image.
 * **Low Latency**: Direct hardware access bypassing OS overhead, providing sub-millisecond input and audio response.
 * **Unified OSD Menu**: Dynamic graphical user interface featuring:
   * Dynamic header banners changing based on the selected system.
   * Real-time console switching via **L** and **R** shoulder buttons.
   * 8-tab browsing per system:
-    * **SNES/NES**: `ALL`, `FAV`, and 6 auto-balanced alphabetical tabs.
+    * **SNES/NES/SMS**: `ALL`, `FAV`, and 6 auto-balanced alphabetical tabs.
     * **Mega Drive**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `MCD`.
     * **PC Engine**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `PCD` (PC Engine CD).
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
 * **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**).
-* **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES).
+* **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES, YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 
 ---
@@ -45,6 +45,7 @@ SD:/
       ├── nes/               (NES ROM files: .nes)
       ├── megadrive/         (Mega Drive ROM files: .bin, .md, .gen)
       ├── megacd/            (Sega CD ROM files: .iso, .cue, .chd)
+      ├── mastersystem/      (Master System ROM files: .sms, .gg, .bin)
       ├── pce/               (PC Engine / PCE CD files: .pce, .cue, .chd)
       └── favorites.txt      (Auto-generated file tracking favorite games)
 ```
@@ -63,7 +64,7 @@ The emulator supports standard XInput gamepads out-of-the-box (like the **Gamesi
 * **A / B Buttons**: Start / select highlighted game.
 * **Y Button**: Add to Favorites (`*` prefix).
 * **X Button**: Remove from Favorites (Unfavorite).
-* **L / R Shoulder Buttons**: Cycle emulator mode (**SNES** $\leftrightarrow$ **NES** $\leftrightarrow$ **Mega Drive** $\leftrightarrow$ **PC Engine**).
+* **L / R Shoulder Buttons**: Cycle emulator mode (**SNES** $\leftrightarrow$ **NES** $\leftrightarrow$ **Master System** $\leftrightarrow$ **Mega Drive** $\leftrightarrow$ **PC Engine**).
 * **START + SELECT**: Resets or exits the current game to return to the OSD menu.
 
 ---
@@ -205,10 +206,16 @@ To build the standalone Sega emulator:
 cd mega-emulator
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
-This produces `mega-emulator/boot/kernel8-32.img`. Copy the files inside `mega-emulator/boot/` to your SD card.
+#### 4. Building the Standalone Master System Emulator
+To build the standalone Sega Master System emulator:
+```bash
+cd master-emulator
+make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
+```
+This produces `master-emulator/boot/kernel8-32.img`. Copy the files inside `master-emulator/boot/` to your SD card.
 
-#### 4. Generating the SD Card Release Package
-To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, and `bios`) automatically:
+#### 5. Generating the SD Card Release Package
+To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, and `bios`) automatically:
 ```bash
 ./build_release.sh
 ```

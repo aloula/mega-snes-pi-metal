@@ -105,6 +105,13 @@ void COSDMenu::ScanRoms() {
                             my_strcasecmp(pDot, "chd") == 0) {
                             matches = TRUE;
                         }
+                    } else if (system == RomSystem_SMS) {
+                        if (my_strcasecmp(pDot, "sms") == 0 ||
+                            my_strcasecmp(pDot, "gg") == 0 ||
+                            my_strcasecmp(pDot, "sg") == 0 ||
+                            my_strcasecmp(pDot, "bin") == 0) {
+                            matches = TRUE;
+                        }
                     }
 
                     if (matches) {
@@ -128,6 +135,7 @@ void COSDMenu::ScanRoms() {
     scan_dir("SD:/roms/megacd", "megacd/", RomSystem_MCD);
     scan_dir("SD:/roms/nes", "nes/", RomSystem_NES);
     scan_dir("SD:/roms/pce", "pce/", RomSystem_PCE);
+    scan_dir("SD:/roms/mastersystem", "mastersystem/", RomSystem_SMS);
 
     // Sort ROMs alphabetically on the base filename (excluding prefix)
     for (int i = 0; i < m_RomCount - 1; i++) {
@@ -181,9 +189,15 @@ void COSDMenu::FilterSystemRoms() {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }
-    } else { // EmuMode_PCE
+    } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
         for (int i = 0; i < m_RomCount; i++) {
             if (m_RomSystems[i] == RomSystem_PCE) {
+                m_SystemIndices[m_SystemCount++] = i;
+            }
+        }
+    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+        for (int i = 0; i < m_RomCount; i++) {
+            if (m_RomSystems[i] == RomSystem_SMS) {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }
