@@ -102,12 +102,13 @@ DEFS     = -D_USE_DRZ80 -DEMU_C68K -D_ASM_DRAW_C -D_ASM_MEMORY_C -D_ASM_YM2612_C
 INCS     = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon \
            -I../picodrive/pico/cd/libchdr/include \
            -I../picodrive/pico/cd/libchdr/deps/lzma-24.05/include \
-           -I../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib
+           -I../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib \
+           -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
 OPTIMIZE = -O3 -ffast-math -fomit-frame-pointer -ftree-vectorize -funroll-loops -fno-strict-aliasing
 
-CFLAGS   += $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2
-CPPFLAGS += $(INCS) $(DEFS) -falign-functions=2
+CFLAGS   += $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2 -mcpu=cortex-a53
+CPPFLAGS += $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions -mcpu=cortex-a53
 AFLAGS   += $(INCS) $(DEFS)
 
 LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \

@@ -1,0 +1,20 @@
+# MEGA-SNES Pi Metal - OSD System Order Configuration
+#
+# Customize the order in which console emulators are displayed and cycled
+# when pressing the L and R shoulder buttons in the OSD menu.
+# The first system listed below will also be the default console on boot.
+#
+# Valid system identifiers (one per line, case-insensitive):
+#   snes         (Super Nintendo)
+#   nes          (Nintendo Entertainment System)
+#   mastersystem (Sega Master System / SMS)
+#   pce          (PC Engine / TurboGrafx-16)
+#   megadrive    (Sega Mega Drive / Genesis / Sega CD)
+#
+# Lines starting with '#' are ignored.
+
+snes
+nes
+mastersystem
+pce
+megadrive

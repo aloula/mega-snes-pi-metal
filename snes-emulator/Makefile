@@ -201,8 +201,8 @@ INCS     = -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu \
 
 OPTIMIZE = -O3 -ffast-math -fomit-frame-pointer -ftree-vectorize -funroll-loops -fno-strict-aliasing
 
-CFLAGS   += $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2
-CPPFLAGS += $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions
+CFLAGS   += $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2 -mcpu=cortex-a53
+CPPFLAGS += $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions -mcpu=cortex-a53
 LDFLAGS  += --allow-multiple-definition --defsym=end=_end
 AFLAGS   += $(INCS) $(DEFS)
 

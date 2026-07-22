@@ -198,8 +198,23 @@ boolean CKernel::Initialize(void) {
     if (bOK) bOK = m_Screen.Initialize();
     if (bOK) bOK = m_EMMC.Initialize();
 
-    m_LedPin.Write(HIGH);
+    // Initialize safe shutdown GPIO pins for Retroflag PiCase as early as possible
+    m_PowerEnPin.AssignPin(4);
+    m_PowerEnPin.SetMode(GPIOModeOutput);
     m_PowerEnPin.Write(HIGH);
+
+    if (!bEnableSerial) {
+        // If serial logging is disabled, BCM 14 is configured as general output to drive the LED
+        m_LedPin.AssignPin(14);
+        m_LedPin.SetMode(GPIOModeOutput);
+        m_LedPin.Write(HIGH);
+    }
+
+    m_PowerPin.AssignPin(3);
+    m_PowerPin.SetMode(GPIOModeInput);
+
+    m_ResetPin.AssignPin(2);
+    m_ResetPin.SetMode(GPIOModeInput);
 
     if (bOK) {
         m_Logger.Write(FromKernel, LogNotice, "Mounting SD card filesystem...");
@@ -252,6 +267,26 @@ void CKernel::RunOrchestrator() {
     boolean just_entered_menu = TRUE;
 
     while (m_ShutdownMode == ShutdownNone) {
+        // Check safe shutdown / reset GPIO pins for Retroflag PiCase (every 100ms to reduce overhead/bus lag)
+        {
+            static u64 last_button_check = 0;
+            u64 now = CTimer::GetClockTicks64();
+            if (now - last_button_check >= 100000) { // 100ms (100,000 microseconds)
+                last_button_check = now;
+                if (m_PowerPin.Read() == LOW) {
+                    m_Logger.Write("orchestrator", LogNotice, "Safe shutdown signal detected (Power Button LOW). Shutting down...");
+                    m_ShutdownMode = ShutdownHalt;
+                    CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
+                    break;
+                }
+                if (m_ResetPin.Read() == LOW) {
+                    m_Logger.Write("orchestrator", LogNotice, "Reboot signal detected (Reset Button LOW). Rebooting...");
+                    m_ShutdownMode = ShutdownReboot;
+                    CTimer::SimpleMsDelay(2000); // Give user time to see OSD message
+                    break;
+                }
+            }
+        }
         if (g_SharedState.in_menu) {
             if (just_entered_menu) {
                 menu_enter_time = CTimer::GetClockTicks64();
@@ -296,12 +331,12 @@ void CKernel::RunOrchestrator() {
                         memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
                         g_SharedState.emu_write_idx = 0;
                         g_SharedState.emu_read_idx = 0;
-                        g_SharedState.start_line[0] = 24;
+                        g_SharedState.start_line[0] = 8;
                         g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 192;
-                        g_SharedState.start_line[1] = 24;
+                        g_SharedState.game_h[0] = 224;
+                        g_SharedState.start_line[1] = 8;
                         g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 192;
+                        g_SharedState.game_h[1] = 224;
                         g_SharedState.video_frame_ready = FALSE;
                         DataMemBarrier();
 
@@ -564,6 +599,15 @@ void CKernel::RunVideoDomain() {
                 int start_l = g_SharedState.start_line[read_idx];
 
                 if (game_w <= 0) game_w = 256;
+                if (game_h <= 0) game_h = 192;
+                // In SMS 192-line mode, Pico reports the 192 active lines, but some games use
+                // additional visible top/bottom area from the 224-line window.
+                if (game_h == 192 && start_l >= 16) {
+                    start_l -= 16;
+                    game_h = 224;
+                }
+                if (start_l < 0) start_l = 0;
+                if (game_h > 320 - start_l) game_h = 320 - start_l;
                 if (game_h <= 0) game_h = 192;
 
                 const u16 *pSrc = g_SharedState.emu_frame_buffer[read_idx];

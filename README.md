@@ -1,6 +1,8 @@
-# MEGA-SNES Pi Metal
+# 5-in-1 Game Console Emulator
 
-![Baremetal Emulator](res/Baremetal_Emulator.png)
+![Baremetal Emulator](res/5-in-1_Baremetal_Emulator.png)
+
+*Read this README in other languages: [English](README.md) | [Português do Brasil](README.pt-BR.md)*
 
 A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel. It includes support for the **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), **Sega Master System (SMS)** (via PicoDrive), and **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), allowing real-time switching between systems directly from the On-Screen Display (OSD) menu.
 
@@ -35,6 +37,7 @@ To load games and BIOS files, organize your SD card root directories as follows:
 
 ```
 SD:/
+ ├── system_order.txt        (Optional text file to customize console order and default boot system)
  ├── bios/
  │    ├── bios_CD_U.bin      (Sega CD - US Region BIOS)
  │    ├── bios_CD_E.bin      (Mega CD - EU Region BIOS)
@@ -49,6 +52,9 @@ SD:/
       ├── pce/               (PC Engine / PCE CD files: .pce, .cue, .chd)
       └── favorites.txt      (Auto-generated file tracking favorite games)
 ```
+
+> [!TIP]
+> **Customizing System Order**: Create or edit `system_order.txt` on the SD card root to set your preferred system cycling order for **L** / **R** shoulder buttons. The first system in the list will automatically become the default boot system on startup (e.g., `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!NOTE]
 > Save state files (e.g., `Game.s0` / `Game.srm`) are saved directly into the folder containing the ROM being played.
@@ -229,7 +235,7 @@ This project is built upon the incredible work of the following open-source proj
 
 * **Circle**: A C++ bare-metal environment for the Raspberry Pi.
   * Repository: [rsta2/circle](https://github.com/rsta2/circle)
-* **PicoDrive**: A fast, highly-optimized Sega Mega Drive/Genesis and Sega CD emulator.
+* **PicoDrive**: A fast, highly-optimized Sega Mega Drive/Genesis/Master System and Sega CD emulator.
   * Repository: [notaz/picodrive](https://github.com/notaz/picodrive)
 * **Snes9x**: A portable, high-compatibility Super Nintendo Entertainment System (SNES) emulator.
   * Repository: [snes9xgit/snes9x](https://github.com/snes9xgit/snes9x)

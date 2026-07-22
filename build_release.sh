@@ -76,6 +76,9 @@ mkdir -p "$STAGING_DIR"
 
 # Copy all boot partition files from snes-emulator/boot/
 cp -r snes-emulator/boot/* "$STAGING_DIR/"
+if [ -f "system_order.txt" ]; then
+    cp system_order.txt "$STAGING_DIR/"
+fi
 
 # Create roms and bios directories
 mkdir -p "$STAGING_DIR/roms/snes"

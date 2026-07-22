@@ -36,15 +36,20 @@ public:
         }
         if (num_stereo_samples == 0) return;
 
+        __builtin_prefetch(samples, 0, 3);
+
         unsigned start = write_idx;
         if (start + num_stereo_samples <= SIZE) {
             // Single contiguous segment
+            __builtin_prefetch(&buffer[start * 2], 1, 3);
             memcpy(&buffer[start * 2], samples, num_stereo_samples * 4);
         } else {
             // Wraps around the end
             unsigned first_chunk = SIZE - start;
             unsigned second_chunk = num_stereo_samples - first_chunk;
+            __builtin_prefetch(&buffer[start * 2], 1, 3);
             memcpy(&buffer[start * 2], samples, first_chunk * 4);
+            __builtin_prefetch(&buffer[0], 1, 3);
             memcpy(&buffer[0], samples + first_chunk * 2, second_chunk * 4);
         }
         DataMemBarrier();
@@ -62,12 +67,15 @@ public:
         unsigned start = read_idx;
         if (start + num_stereo_samples <= SIZE) {
             // Single contiguous segment
+            __builtin_prefetch(&buffer[start * 2], 0, 3);
             memcpy(samples, &buffer[start * 2], num_stereo_samples * 4);
         } else {
             // Wraps around the end
             unsigned first_chunk = SIZE - start;
             unsigned second_chunk = num_stereo_samples - first_chunk;
+            __builtin_prefetch(&buffer[start * 2], 0, 3);
             memcpy(samples, &buffer[start * 2], first_chunk * 4);
+            __builtin_prefetch(&buffer[0], 0, 3);
             memcpy(samples + first_chunk * 2, &buffer[0], second_chunk * 4);
         }
         DataMemBarrier();

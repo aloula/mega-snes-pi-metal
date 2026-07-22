@@ -21,6 +21,101 @@ static u16 s_SplashBuf[640 * 480] __attribute__((aligned(64)));
 static CKernel *s_pThis = nullptr;
 static boolean s_Is3ButtonGame = TRUE;
 
+static EmuMode s_SystemOrder[5] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD };
+static int s_NumSystems = 5;
+static int s_SystemOrderIdx = 0;
+
+static void LoadSystemOrder(FATFS *pFileSystem) {
+    FIL file;
+    const char *configPaths[] = { "SD:/system_order.txt", "SD:/roms/system_order.txt", nullptr };
+    const char *foundPath = nullptr;
+
+    for (int i = 0; configPaths[i] != nullptr; i++) {
+        if (f_open(&file, configPaths[i], FA_READ) == FR_OK) {
+            foundPath = configPaths[i];
+            break;
+        }
+    }
+
+    if (!foundPath) return; // Use default system order if file doesn't exist
+
+    EmuMode newOrder[5];
+    int count = 0;
+    char line[128];
+
+    while (f_gets(line, sizeof(line), &file) != nullptr && count < 5) {
+        char *p = line;
+        while (*p == ' ' || *p == '\t') p++;
+
+        if (*p == '\0' || *p == '#' || *p == '\r' || *p == '\n' || (*p == '/' && *(p+1) == '/')) {
+            continue;
+        }
+
+        char lower[128];
+        int len = 0;
+        for (int i = 0; p[i] && p[i] != '\r' && p[i] != '\n' && p[i] != '#'; i++) {
+            char c = p[i];
+            if (c >= 'A' && c <= 'Z') c += 32;
+            lower[len++] = c;
+        }
+        while (len > 0 && (lower[len-1] == ' ' || lower[len-1] == '\t')) len--;
+        lower[len] = '\0';
+
+        if (len == 0) continue;
+
+        EmuMode mode;
+        if (strstr(lower, "snes") || strstr(lower, "super nintendo")) {
+            mode = EmuMode_SNES;
+        } else if (strstr(lower, "nes") || strstr(lower, "famicom") || strstr(lower, "nintendo")) {
+            mode = EmuMode_NES;
+        } else if (strstr(lower, "md") || strstr(lower, "megadrive") || strstr(lower, "mega drive") || strstr(lower, "genesis")) {
+            mode = EmuMode_MD;
+        } else if (strstr(lower, "sms") || strstr(lower, "mastersystem") || strstr(lower, "master system")) {
+            mode = EmuMode_SMS;
+        } else if (strstr(lower, "pce") || strstr(lower, "pcengine") || strstr(lower, "pc engine") || strstr(lower, "turbografx") || strstr(lower, "tg16")) {
+            mode = EmuMode_PCE;
+        } else {
+            continue;
+        }
+
+        boolean alreadyAdded = FALSE;
+        for (int i = 0; i < count; i++) {
+            if (newOrder[i] == mode) {
+                alreadyAdded = TRUE;
+                break;
+            }
+        }
+
+        if (!alreadyAdded) {
+            newOrder[count++] = mode;
+        }
+    }
+
+    f_close(&file);
+
+    if (count > 0) {
+        const EmuMode allModes[5] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD };
+        for (int m = 0; m < 5; m++) {
+            boolean present = FALSE;
+            for (int i = 0; i < count; i++) {
+                if (newOrder[i] == allModes[m]) {
+                    present = TRUE;
+                    break;
+                }
+            }
+            if (!present && count < 5) {
+                newOrder[count++] = allModes[m];
+            }
+        }
+
+        for (int i = 0; i < count; i++) {
+            s_SystemOrder[i] = newOrder[i];
+        }
+        s_NumSystems = count;
+        s_SystemOrderIdx = 0;
+    }
+}
+
 static boolean strcontains(const char *haystack, const char *needle) {
     if (!haystack || !needle) return FALSE;
     for (int i = 0; haystack[i]; i++) {
@@ -372,7 +467,8 @@ void CKernel::RunOrchestrator() {
 
     g_pFileSystem = &m_FileSystem;
 
-    g_SharedState.active_emu_mode = EmuMode_SNES;
+    LoadSystemOrder(&m_FileSystem);
+    g_SharedState.active_emu_mode = s_SystemOrder[0];
 
     m_pOSDMenu = new COSDMenu(&m_FileSystem);
     m_pOSDMenu->Initialize();
@@ -531,30 +627,11 @@ void CKernel::RunOrchestrator() {
             }
             if (doL || doR) {
                 if (doL) {
-                    if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                        g_SharedState.active_emu_mode = EmuMode_NES;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
-                        g_SharedState.active_emu_mode = EmuMode_SMS;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                        g_SharedState.active_emu_mode = EmuMode_PCE;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                        g_SharedState.active_emu_mode = EmuMode_MD;
-                    } else {
-                        g_SharedState.active_emu_mode = EmuMode_SNES;
-                    }
+                    s_SystemOrderIdx = (s_SystemOrderIdx + s_NumSystems - 1) % s_NumSystems;
                 } else {
-                    if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                        g_SharedState.active_emu_mode = EmuMode_MD;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
-                        g_SharedState.active_emu_mode = EmuMode_PCE;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                        g_SharedState.active_emu_mode = EmuMode_SMS;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                        g_SharedState.active_emu_mode = EmuMode_NES;
-                    } else {
-                        g_SharedState.active_emu_mode = EmuMode_SNES;
-                    }
+                    s_SystemOrderIdx = (s_SystemOrderIdx + 1) % s_NumSystems;
                 }
+                g_SharedState.active_emu_mode = s_SystemOrder[s_SystemOrderIdx];
                 m_pOSDMenu->OnEmuModeChanged();
             }
 
@@ -593,12 +670,12 @@ void CKernel::RunOrchestrator() {
                         g_SharedState.game_w[1] = 256;
                         g_SharedState.game_h[1] = 240;
                     } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                        g_SharedState.start_line[0] = 24;
+                        g_SharedState.start_line[0] = 8;
                         g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 192;
-                        g_SharedState.start_line[1] = 24;
+                        g_SharedState.game_h[0] = 224;
+                        g_SharedState.start_line[1] = 8;
                         g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 192;
+                        g_SharedState.game_h[1] = 224;
                     } else { // EmuMode_PCE
                         g_SharedState.start_line[0] = 0;
                         g_SharedState.game_w[0] = 256;
@@ -840,13 +917,30 @@ void CKernel::RunVideoDomain() {
                 // Synchronize data cache for Core 1 to see the raw DMA bytes cleanly
                 CleanAndInvalidateDataCacheRange((u32)s_SplashBuf, bytesToRead);
 
-                int start_y = (480 - img_h) / 2;
+                // Keep some safe space at the bottom to avoid TV overscan cutting the footer.
+                const int splash_safe_bottom = 12;
+                int start_y = (SCREEN_HEIGHT - img_h) / 2;
+                if (start_y + img_h > SCREEN_HEIGHT - splash_safe_bottom) {
+                    start_y = (SCREEN_HEIGHT - splash_safe_bottom) - img_h;
+                }
+                int src_y_offset = 0;
+                if (start_y < 0) {
+                    src_y_offset = -start_y;
+                    start_y = 0;
+                }
+                int draw_h = img_h - src_y_offset;
+                if (draw_h > SCREEN_HEIGHT - start_y) {
+                    draw_h = SCREEN_HEIGHT - start_y;
+                }
+                if (draw_h < 1) {
+                    draw_h = 1;
+                }
 
                 // 1. Fade-in (1 second, 50 steps of 20ms)
                 for (int step = 0; step <= 50; step++) {
-                    for (int y = 0; y < img_h; y++) {
+                    for (int y = 0; y < draw_h; y++) {
                         for (int x = 0; x < 640; x++) {
-                            u16 color = s_SplashBuf[y * 640 + x];
+                            u16 color = s_SplashBuf[(src_y_offset + y) * 640 + x];
                             u32 r = (color >> 11) & 0x1F;
                             u32 g = (color >> 5) & 0x3F;
                             u32 b = color & 0x1F;
@@ -862,17 +956,17 @@ void CKernel::RunVideoDomain() {
 
                 // 2. Solid Display (2 seconds)
                 // Copy the original splash image at full brightness to pBackBuffer
-                for (int y = 0; y < img_h; y++) {
-                    memcpy(pBackBuffer + (start_y + y) * SCREEN_WIDTH, s_SplashBuf + y * 640, 640 * sizeof(u16));
+                for (int y = 0; y < draw_h; y++) {
+                    memcpy(pBackBuffer + (start_y + y) * SCREEN_WIDTH, s_SplashBuf + (src_y_offset + y) * 640, 640 * sizeof(u16));
                 }
                 CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
                 CTimer::SimpleMsDelay(2000);
 
                 // 3. Fade-out (1 second, 50 steps of 20ms)
                 for (int step = 50; step >= 0; step--) {
-                    for (int y = 0; y < img_h; y++) {
+                    for (int y = 0; y < draw_h; y++) {
                         for (int x = 0; x < 640; x++) {
-                            u16 color = s_SplashBuf[y * 640 + x];
+                            u16 color = s_SplashBuf[(src_y_offset + y) * 640 + x];
                             u32 r = (color >> 11) & 0x1F;
                             u32 g = (color >> 5) & 0x3F;
                             u32 b = color & 0x1F;
@@ -1343,11 +1437,20 @@ void CKernel::RunVideoDomain() {
                         memcpy(dest2, line_buf, 640 * sizeof(u16));
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                    // Master System video rendering (256x192 active area in 512-pitch frame buffer, start_line=24, x_offset=32)
+                    // Master System video rendering in a 512-pitch frame buffer (active area starts at x offset 32).
                     int game_w = g_SharedState.game_w[read_idx];
                     if (game_w < 1) game_w = 256;
                     if (game_h < 1) game_h = 192;
+                    // In SMS 192-line mode, Pico reports the 192 active lines, but some games use
+                    // additional visible top/bottom area from the 224-line window.
+                    if (game_h == 192 && start_line >= 16) {
+                        start_line -= 16;
+                        game_h = 224;
+                    }
+                    if (start_line < 0) start_line = 0;
                     if (game_h > 240) game_h = 240;
+                    if (start_line + game_h > 240) game_h = 240 - start_line;
+                    if (game_h < 1) game_h = 192;
 
                     UpdateScaleTable(game_w);
                     const u16 *idx1 = s_ScaleTableCache.idx1;

@@ -3,6 +3,7 @@
 #include <circle/logger.h>
 #include <string.h>
 #include <stdio.h>
+#include <algorithm>
 
 static int my_strcasecmp(const char *s1, const char *s2) {
     while (*s1 && *s2) {
@@ -86,29 +87,35 @@ void COSDMenu::ScanRoms() {
     scan_dir("SD:/roms/mastersystem", "mastersystem/");
     scan_dir("SD:/roms/sms", "sms/");
 
-    // Sort ROMs alphabetically on the base filename (excluding prefix)
-    for (int i = 0; i < m_RomCount - 1; i++) {
-        for (int j = i + 1; j < m_RomCount; j++) {
-            const char *name_i = m_RomFiles[i];
-            const char *slash_i = strchr(name_i, '/');
-            if (slash_i) name_i = slash_i + 1;
+    // Sort ROMs alphabetically on the base filename (excluding prefix) using fast O(N log N) std::sort
+    if (m_RomCount > 1) {
+        struct RomEntry {
+            char file[128];
+            unsigned size;
+        };
 
-            const char *name_j = m_RomFiles[j];
-            const char *slash_j = strchr(name_j, '/');
-            if (slash_j) name_j = slash_j + 1;
-
-            if (my_strcasecmp(name_i, name_j) > 0) {
-                // Swap files
-                char tempFile[128];
-                strcpy(tempFile, m_RomFiles[i]);
-                strcpy(m_RomFiles[i], m_RomFiles[j]);
-                strcpy(m_RomFiles[j], tempFile);
-                // Swap sizes
-                unsigned tempSize = m_RomSizes[i];
-                m_RomSizes[i] = m_RomSizes[j];
-                m_RomSizes[j] = tempSize;
-            }
+        RomEntry *entries = new RomEntry[m_RomCount];
+        for (int i = 0; i < m_RomCount; i++) {
+            strcpy(entries[i].file, m_RomFiles[i]);
+            entries[i].size = m_RomSizes[i];
         }
+
+        std::sort(entries, entries + m_RomCount, [](const RomEntry &a, const RomEntry &b) {
+            const char *name_a = strchr(a.file, '/');
+            name_a = name_a ? name_a + 1 : a.file;
+
+            const char *name_b = strchr(b.file, '/');
+            name_b = name_b ? name_b + 1 : b.file;
+
+            return my_strcasecmp(name_a, name_b) < 0;
+        });
+
+        for (int i = 0; i < m_RomCount; i++) {
+            strcpy(m_RomFiles[i], entries[i].file);
+            m_RomSizes[i] = entries[i].size;
+        }
+
+        delete[] entries;
     }
     LoadFavorites();
 }
