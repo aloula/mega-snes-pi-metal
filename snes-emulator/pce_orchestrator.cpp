@@ -19,6 +19,14 @@ extern "C" {
 static const char FromOrchestrator[] = "orchestrator";
 static CPCEOrchestrator* s_pInstance = nullptr;
 static u32 s_nAudioMuteFrames = 0;
+static s16 s_PceSingleAudioBuf[128 * 2];
+static unsigned s_PceSingleAudioFrames = 0;
+
+static void FlushPceSingleAudioBuffer() {
+    if (s_PceSingleAudioFrames == 0) return;
+    g_SharedState.audio_ring_buffer.Write(s_PceSingleAudioBuf, s_PceSingleAudioFrames);
+    s_PceSingleAudioFrames = 0;
+}
 
 static void pce_log_printf(enum retro_log_level level, const char *fmt, ...) {
     char buf[512];
@@ -121,14 +129,24 @@ static void pce_video_cb(const void *data, unsigned width, unsigned height, size
 static void pce_audio_cb(int16_t left, int16_t right) {
     s16 samples[2] = {left, right};
     if (s_nAudioMuteFrames > 0) {
+        s_nAudioMuteFrames--;
         samples[0] = 0;
         samples[1] = 0;
     }
-    g_SharedState.audio_ring_buffer.Write(samples, 1);
+
+    unsigned pos = s_PceSingleAudioFrames * 2;
+    s_PceSingleAudioBuf[pos] = samples[0];
+    s_PceSingleAudioBuf[pos + 1] = samples[1];
+    s_PceSingleAudioFrames++;
+    if (s_PceSingleAudioFrames >= 128) {
+        FlushPceSingleAudioBuffer();
+    }
 }
 
 static size_t pce_audio_batch_cb(const int16_t *data, size_t frames) {
     if (frames == 0 || data == nullptr) return 0;
+
+    FlushPceSingleAudioBuffer();
 
     if (s_nAudioMuteFrames > 0) {
         if (s_nAudioMuteFrames >= frames) {
@@ -227,6 +245,7 @@ boolean CPCEOrchestrator::Initialize() {
     retro_init();
 
     m_bRomLoaded = FALSE;
+    s_PceSingleAudioFrames = 0;
     return TRUE;
 }
 
@@ -267,6 +286,7 @@ boolean CPCEOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     m_nRewindFrameCounter = 0;
     m_nStateSize = retro_serialize_size();
     s_nAudioMuteFrames = 0;
+    s_PceSingleAudioFrames = 0;
 
     if (m_nStateSize > 0) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating PCE rewind buffer (6 slots of %u bytes)", m_nStateSize);
@@ -308,6 +328,7 @@ void CPCEOrchestrator::RunFrame() {
     if (!m_bRomLoaded) return;
 
     retro_run();
+    FlushPceSingleAudioBuffer();
     CaptureRewindState();
 }
 
@@ -462,6 +483,7 @@ void CPCEOrchestrator::RewindState() {
 void CPCEOrchestrator::ResetAudioAfterStateChange() {
     g_SharedState.audio_ring_buffer.Init();
     s_nAudioMuteFrames = 60;
+    s_PceSingleAudioFrames = 0;
 }
 
 extern "C" {

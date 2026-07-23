@@ -256,6 +256,36 @@ void COSDMenu::CalculateTabLabels() {
         }
     }
 
+    int prefix_counts[27];
+    int running = 0;
+    for (int i = 0; i < 27; i++) {
+        running += letter_counts[i];
+        prefix_counts[i] = running;
+    }
+
+    auto computeBalancedSplits = [&](int segments, int *splits_out) {
+        int prev = -1;
+        for (int s = 1; s < segments; s++) {
+            int target = (total_non_cd * s + segments / 2) / segments;
+            int min_idx = prev + 1;
+            int max_idx = 26 - ((segments - 1) - s);
+            if (max_idx < min_idx) max_idx = min_idx;
+
+            int best_idx = min_idx;
+            int best_diff = 0x7FFFFFFF;
+            for (int idx = min_idx; idx <= max_idx; idx++) {
+                int diff = prefix_counts[idx] - target;
+                if (diff < 0) diff = -diff;
+                if (diff < best_diff) {
+                    best_diff = diff;
+                    best_idx = idx;
+                }
+            }
+            splits_out[s - 1] = best_idx;
+            prev = best_idx;
+        }
+    };
+
     auto setRangeLabel = [this](int tab_idx, int lower_bound_exclusive, int upper_bound_inclusive,
                                  bool skip_cd, const char *fallback) {
         int start = -1;
@@ -296,43 +326,13 @@ void COSDMenu::CalculateTabLabels() {
         m_TabSplitK2 = 10;
         m_TabSplitK3 = 15;
         m_TabSplitK4 = 20;
-        int min_diff = 1000000;
-
         if (total_non_cd > 0) {
-            for (int k1 = 0; k1 < 23; k1++) {
-                for (int k2 = k1 + 1; k2 < 24; k2++) {
-                    for (int k3 = k2 + 1; k3 < 25; k3++) {
-                        for (int k4 = k3 + 1; k4 < 26; k4++) {
-                            int size0 = 0;
-                            for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
-                            int size1 = 0;
-                            for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
-                            int size2 = 0;
-                            for (int i = k2 + 1; i <= k3; i++) size2 += letter_counts[i];
-                            int size3 = 0;
-                            for (int i = k3 + 1; i <= k4; i++) size3 += letter_counts[i];
-                            int size4 = 0;
-                            for (int i = k4 + 1; i < 27; i++) size4 += letter_counts[i];
-
-                            int ideal = total_non_cd / 5;
-                            int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
-                            int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
-                            int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
-                            int d3 = size3 - ideal; if (d3 < 0) d3 = -d3;
-                            int d4 = size4 - ideal; if (d4 < 0) d4 = -d4;
-                            int diff = d0 + d1 + d2 + d3 + d4;
-
-                            if (diff < min_diff) {
-                                min_diff = diff;
-                                m_TabSplitK1 = k1;
-                                m_TabSplitK2 = k2;
-                                m_TabSplitK3 = k3;
-                                m_TabSplitK4 = k4;
-                            }
-                        }
-                    }
-                }
-            }
+            int splits[4] = {m_TabSplitK1, m_TabSplitK2, m_TabSplitK3, m_TabSplitK4};
+            computeBalancedSplits(5, splits);
+            m_TabSplitK1 = splits[0];
+            m_TabSplitK2 = splits[1];
+            m_TabSplitK3 = splits[2];
+            m_TabSplitK4 = splits[3];
         }
 
         setRangeLabel(2, -1, m_TabSplitK1, TRUE, "A-E");
@@ -347,49 +347,14 @@ void COSDMenu::CalculateTabLabels() {
         m_TabSplitK3 = 12;
         m_TabSplitK4 = 16;
         m_TabSplitK5 = 20;
-        int min_diff = 1000000;
-
         if (total_non_cd > 0) {
-            for (int k1 = 0; k1 < 22; k1++) {
-                for (int k2 = k1 + 1; k2 < 23; k2++) {
-                    for (int k3 = k2 + 1; k3 < 24; k3++) {
-                        for (int k4 = k3 + 1; k4 < 25; k4++) {
-                            for (int k5 = k4 + 1; k5 < 26; k5++) {
-                                int size0 = 0;
-                                for (int i = 0; i <= k1; i++) size0 += letter_counts[i];
-                                int size1 = 0;
-                                for (int i = k1 + 1; i <= k2; i++) size1 += letter_counts[i];
-                                int size2 = 0;
-                                for (int i = k2 + 1; i <= k3; i++) size2 += letter_counts[i];
-                                int size3 = 0;
-                                for (int i = k3 + 1; i <= k4; i++) size3 += letter_counts[i];
-                                int size4 = 0;
-                                for (int i = k4 + 1; i <= k5; i++) size4 += letter_counts[i];
-                                int size5 = 0;
-                                for (int i = k5 + 1; i < 27; i++) size5 += letter_counts[i];
-
-                                int ideal = total_non_cd / 6;
-                                int d0 = size0 - ideal; if (d0 < 0) d0 = -d0;
-                                int d1 = size1 - ideal; if (d1 < 0) d1 = -d1;
-                                int d2 = size2 - ideal; if (d2 < 0) d2 = -d2;
-                                int d3 = size3 - ideal; if (d3 < 0) d3 = -d3;
-                                int d4 = size4 - ideal; if (d4 < 0) d4 = -d4;
-                                int d5 = size5 - ideal; if (d5 < 0) d5 = -d5;
-                                int diff = d0 + d1 + d2 + d3 + d4 + d5;
-
-                                if (diff < min_diff) {
-                                    min_diff = diff;
-                                    m_TabSplitK1 = k1;
-                                    m_TabSplitK2 = k2;
-                                    m_TabSplitK3 = k3;
-                                    m_TabSplitK4 = k4;
-                                    m_TabSplitK5 = k5;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            int splits[5] = {m_TabSplitK1, m_TabSplitK2, m_TabSplitK3, m_TabSplitK4, m_TabSplitK5};
+            computeBalancedSplits(6, splits);
+            m_TabSplitK1 = splits[0];
+            m_TabSplitK2 = splits[1];
+            m_TabSplitK3 = splits[2];
+            m_TabSplitK4 = splits[3];
+            m_TabSplitK5 = splits[4];
         }
 
         setRangeLabel(2, -1, m_TabSplitK1, FALSE, "A-D");

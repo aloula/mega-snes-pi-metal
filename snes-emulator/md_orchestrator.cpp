@@ -419,9 +419,15 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 void CMDOrchestrator::RunFrame() {
     if (!m_bRomLoaded) return;
 
-    // Ensure the video thread has consumed the previous frame of this buffer before writing
+    // Ensure the video thread has consumed the previous frame before writing.
+    // Adaptive wait keeps latency low without burning a full core on long waits.
+    unsigned wait_spins = 0;
     while (g_SharedState.video_frame_ready) {
-        CTimer::SimpleusDelay(100);
+        if (wait_spins < 200) {
+            wait_spins++;
+        } else {
+            CTimer::SimpleusDelay(10);
+        }
     }
 
     static int frame_count = 0;

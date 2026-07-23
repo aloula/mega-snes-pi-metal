@@ -85,6 +85,12 @@ cp -r snes-emulator/boot/* "$STAGING_DIR/"
 if [ -f "system_order.txt" ]; then
     cp system_order.txt "$STAGING_DIR/"
 fi
+if [ -f "osd_theme.txt" ]; then
+    cp osd_theme.txt "$STAGING_DIR/"
+fi
+if [ -f "osd_colors.txt" ]; then
+    cp osd_colors.txt "$STAGING_DIR/"
+fi
 
 # Create roms and bios directories
 mkdir -p "$STAGING_DIR/roms/snes"

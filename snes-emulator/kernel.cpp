@@ -14,6 +14,7 @@
 // framebuffer is RGB565. Expand green to 6-bit while packing to avoid tint shifts.
 #define COLOR15(red, green, blue) \
     ((((red) & 0x1F) << 11 | ((((green) & 0x1F) * 63 / 31) << 5) | ((blue) & 0x1F)))
+#define OSD_VERBOSE_REDRAW_LOG 0
 
 // Global shared state
 SharedState g_SharedState;
@@ -1270,13 +1271,21 @@ void CKernel::RunOrchestrator() {
                 }
             }
 
-            static u64 last_time = CTimer::GetClockTicks64();
-            u64 current_time = CTimer::GetClockTicks64();
-            s64 elapsed = current_time - last_time;
-            if (elapsed < frame_time) {
-                CTimer::SimpleusDelay(frame_time - elapsed);
+            static u64 next_frame_tick = 0;
+            u64 now = CTimer::GetClockTicks64();
+            if (next_frame_tick == 0) {
+                next_frame_tick = now + frame_time;
+            } else {
+                // Resync after long stalls or timing discontinuities.
+                s64 delta = (s64)now - (s64)next_frame_tick;
+                if (delta > frame_time * 4 || delta < -(frame_time * 4)) {
+                    next_frame_tick = now + frame_time;
+                }
             }
-            last_time = CTimer::GetClockTicks64();
+            if (now < next_frame_tick) {
+                CTimer::SimpleusDelay(next_frame_tick - now);
+            }
+            next_frame_tick += frame_time;
         }
     }
 
@@ -1482,7 +1491,9 @@ void CKernel::RunVideoDomain() {
 
                 int selected = g_SharedState.menu_selected_idx;
                 int num_lines = g_SharedState.menu_num_lines;
+#if OSD_VERBOSE_REDRAW_LOG
                 m_Logger.Write("video", LogNotice, "OSD Redraw started. num_lines=%d, selected=%d", num_lines, selected);
+#endif
 
                 // Draw menu elements onto OSD backbuffer to prevent flickering (pure black background)
                 DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, theme.screen_bg);
@@ -1534,6 +1545,7 @@ void CKernel::RunVideoDomain() {
                 int tab_start_x = x1 + ((x2 - x1) - tab_area_width) / 2;
                 int tab_y1 = y1 + 46;
                 int tab_y2 = y1 + 68;
+                int tab_gap = tab_y1 - (y1 + 41); // keep same gap from separators to tabs (top and bottom)
 
                 for (int t = 0; t < num_tabs; t++) {
                     int tx1 = tab_start_x + t * (tab_width + tab_spacing);
@@ -1561,8 +1573,9 @@ void CKernel::RunVideoDomain() {
                     DrawString(pBackBuffer, SCREEN_WIDTH, tab_name, text_x, y1 + 49, text_color, bg_color);
                 }
 
-                // Draw separator 2 (dark steel blue)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, theme.separator);
+                // Draw separator 2 with the same spacing used above the tabs
+                int sep2_y1 = tab_y2 + tab_gap;
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, sep2_y1, x2 - 20, sep2_y1 + 1, theme.separator);
 
                 if (num_lines == 0) {
                     if (active_tab == 1) {
@@ -1678,6 +1691,7 @@ void CKernel::RunVideoDomain() {
                 int read_idx = g_SharedState.emu_read_idx;
                 int game_h = g_SharedState.game_h[read_idx];
                 int start_line = g_SharedState.start_line[read_idx];
+                alignas(64) u16 scanline_buf[640];
  
                 if (game_h < 1) game_h = 224;
  
@@ -1702,7 +1716,6 @@ void CKernel::RunVideoDomain() {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
-                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
                                     u16 c1 = src[idx1[x]];
                                     u32 w = weight[x];
@@ -1710,20 +1723,19 @@ void CKernel::RunVideoDomain() {
                                         u16 c2 = src[idx2[x]];
                                         u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                         u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        line_buf[x] = rb | g;
+                                        scanline_buf[x] = rb | g;
                                     } else {
-                                        line_buf[x] = c1;
+                                        scanline_buf[x] = c1;
                                     }
                                 }
-                                memcpy(dest1, line_buf, 640 * sizeof(u16));
-                                memcpy(dest2, line_buf, 640 * sizeof(u16));
+                                memcpy(dest1, scanline_buf, 640 * sizeof(u16));
+                                memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                             }
                         } else {
                             // Case 3: 256x448/478 -> scale 2.5x horizontally and 1x vertically to 640x448/478 (Sharp Bilinear)
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
-                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
                                     u16 c1 = src[idx1[x]];
                                     u32 w = weight[x];
@@ -1731,12 +1743,12 @@ void CKernel::RunVideoDomain() {
                                         u16 c2 = src[idx2[x]];
                                         u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                         u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        line_buf[x] = rb | g;
+                                        scanline_buf[x] = rb | g;
                                     } else {
-                                        line_buf[x] = c1;
+                                        scanline_buf[x] = c1;
                                     }
                                 }
-                                memcpy(dest, line_buf, 640 * sizeof(u16));
+                                memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
                         }
                     } else { // game_w == 512
@@ -1750,7 +1762,6 @@ void CKernel::RunVideoDomain() {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
-                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
                                     u16 c1 = src[idx1[x]];
                                     u32 w = weight[x];
@@ -1758,20 +1769,19 @@ void CKernel::RunVideoDomain() {
                                         u16 c2 = src[idx2[x]];
                                         u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                         u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        line_buf[x] = rb | g;
+                                        scanline_buf[x] = rb | g;
                                     } else {
-                                        line_buf[x] = c1;
+                                        scanline_buf[x] = c1;
                                     }
                                 }
-                                memcpy(dest1, line_buf, 640 * sizeof(u16));
-                                memcpy(dest2, line_buf, 640 * sizeof(u16));
+                                memcpy(dest1, scanline_buf, 640 * sizeof(u16));
+                                memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                             }
                         } else {
                             // Case 4: 512x448/478 -> scale 1.25x horizontally and 1x vertically to 640x448/478 (Sharp Bilinear)
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
-                                u16 line_buf[640];
                                 for (int x = 0; x < 640; x++) {
                                     u16 c1 = src[idx1[x]];
                                     u32 w = weight[x];
@@ -1779,12 +1789,12 @@ void CKernel::RunVideoDomain() {
                                         u16 c2 = src[idx2[x]];
                                         u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                         u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        line_buf[x] = rb | g;
+                                        scanline_buf[x] = rb | g;
                                     } else {
-                                        line_buf[x] = c1;
+                                        scanline_buf[x] = c1;
                                     }
                                 }
-                                memcpy(dest, line_buf, 640 * sizeof(u16));
+                                memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
                         }
                     }
@@ -1802,7 +1812,6 @@ void CKernel::RunVideoDomain() {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                         u16 *dest2 = dest1 + nPitch;
-                        u16 line_buf[640];
                         for (int x = 0; x < 640; x++) {
                             u16 c1 = src[idx1[x]];
                             u32 w = weight[x];
@@ -1810,13 +1819,13 @@ void CKernel::RunVideoDomain() {
                                 u16 c2 = src[idx2[x]];
                                 u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                 u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                line_buf[x] = rb | g;
+                                scanline_buf[x] = rb | g;
                             } else {
-                                line_buf[x] = c1;
+                                scanline_buf[x] = c1;
                             }
                         }
-                        memcpy(dest1, line_buf, 640 * sizeof(u16));
-                        memcpy(dest2, line_buf, 640 * sizeof(u16));
+                        memcpy(dest1, scanline_buf, 640 * sizeof(u16));
+                        memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
                     // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio using a high-quality software Sharp Bilinear filter)
@@ -1881,7 +1890,6 @@ void CKernel::RunVideoDomain() {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y_offset + y) * game_w;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
                         u16 *dest2 = dest1 + nPitch;
-                        u16 line_buf[640];
                         for (int x = 0; x < 640; x++) {
                             u16 c1 = src[idx1[x]];
                             u32 w = weight[x];
@@ -1889,13 +1897,13 @@ void CKernel::RunVideoDomain() {
                                 u16 c2 = src[idx2[x]];
                                 u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                 u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                line_buf[x] = rb | g;
+                                scanline_buf[x] = rb | g;
                             } else {
-                                line_buf[x] = c1;
+                                scanline_buf[x] = c1;
                             }
                         }
-                        memcpy(dest1, line_buf, 640 * sizeof(u16));
-                        memcpy(dest2, line_buf, 640 * sizeof(u16));
+                        memcpy(dest1, scanline_buf, 640 * sizeof(u16));
+                        memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
                     // Master System video rendering in a 512-pitch frame buffer (active area starts at x offset 32).
@@ -1918,14 +1926,13 @@ void CKernel::RunVideoDomain() {
                     const u16 *idx2 = s_ScaleTableCache.idx2;
                     const u8 *weight = s_ScaleTableCache.weight;
 
-                    u16 line_buf[640];
                     int last_src_y = -1;
                     for (int y = 0; y < 480; y++) {
                         int src_y = (y * game_h) / 480;
                         u16 *dest = pBuf + y * nPitch;
 
                         if (src_y == last_src_y) {
-                            memcpy(dest, line_buf, 640 * sizeof(u16));
+                            memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             continue;
                         }
                         last_src_y = src_y;
@@ -1938,12 +1945,12 @@ void CKernel::RunVideoDomain() {
                                 u16 c2 = src[idx2[x]];
                                 u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                 u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                line_buf[x] = rb | g;
+                                scanline_buf[x] = rb | g;
                             } else {
-                                line_buf[x] = c1;
+                                scanline_buf[x] = c1;
                             }
                         }
-                        memcpy(dest, line_buf, 640 * sizeof(u16));
+                        memcpy(dest, scanline_buf, 640 * sizeof(u16));
                     }
                 } else {
                     // Mega Drive video rendering
@@ -1993,7 +2000,6 @@ void CKernel::RunVideoDomain() {
                             const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320 + 32;
                             u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                             u16 *dest2 = dest1 + nPitch;
-                            u16 line_buf[640];
                             for (int x = 0; x < 640; x++) {
                                 u16 c1 = src[idx1[x]];
                                 u32 w = weight[x];
@@ -2001,18 +2007,19 @@ void CKernel::RunVideoDomain() {
                                     u16 c2 = src[idx2[x]];
                                     u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
                                     u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                    line_buf[x] = rb | g;
+                                    scanline_buf[x] = rb | g;
                                 } else {
-                                    line_buf[x] = c1;
+                                    scanline_buf[x] = c1;
                                 }
                             }
-                            memcpy(dest1, line_buf, 640 * sizeof(u16));
-                            memcpy(dest2, line_buf, 640 * sizeof(u16));
+                            memcpy(dest1, scanline_buf, 640 * sizeof(u16));
+                            memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                         }
                     }
                 }
             } else {
-                CTimer::SimpleusDelay(20);
+                // Short adaptive wait to keep latency low without pegging the core.
+                CTimer::SimpleusDelay(5);
             }
         }
     }
@@ -2085,7 +2092,8 @@ void CKernel::RunAudioDomain() {
             unsigned read = g_SharedState.audio_ring_buffer.Read(local_buf, avail);
             pSoundDevice->Write(local_buf, read * 4); // each stereo sample is 4 bytes
         } else {
-            CTimer::SimpleusDelay(200); // Poll every 200us instead of 1ms to reduce latency under buffer starvation
+            // Audio starvation wait: keep short to reduce audible gaps while still yielding CPU.
+            CTimer::SimpleusDelay(100);
         }
     }
 

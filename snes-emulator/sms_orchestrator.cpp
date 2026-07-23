@@ -246,8 +246,13 @@ boolean CSMSOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 void CSMSOrchestrator::RunFrame() {
     if (!m_bRomLoaded) return;
 
+    unsigned wait_spins = 0;
     while (g_SharedState.video_frame_ready) {
-        CTimer::SimpleusDelay(100);
+        if (wait_spins < 200) {
+            wait_spins++;
+        } else {
+            CTimer::SimpleusDelay(10);
+        }
     }
 
     u16 pad1 = g_SharedState.pad1;

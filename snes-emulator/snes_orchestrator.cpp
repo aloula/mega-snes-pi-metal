@@ -354,8 +354,13 @@ void CSNESOrchestrator::RunFrame() {
     }
 
     // 2. Wait until video frame buffer is consumed by Core 1 (Video domain)
+    unsigned wait_spins = 0;
     while (g_SharedState.video_frame_ready) {
-        CTimer::SimpleusDelay(100);
+        if (wait_spins < 200) {
+            wait_spins++;
+        } else {
+            CTimer::SimpleusDelay(10);
+        }
     }
 
     // 3. Emulate 1 frame
