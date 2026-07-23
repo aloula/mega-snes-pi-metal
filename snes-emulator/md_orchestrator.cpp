@@ -112,11 +112,13 @@ static void ResetMDAudioAfterStateChange() {
 static void EmuSoundCallback(int len) {
     // len is in bytes. Interleaved stereo 16-bit PCM (4 bytes per sample)
     unsigned num_stereo_samples = len / 4;
+    if (num_stereo_samples > 4096) num_stereo_samples = 4096;
     if (s_nAudioMuteFrames > 0) {
         s_nAudioMuteFrames--;
-        memset(g_AudioTempBuf, 0, len);
+        memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
     }
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
+    memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
 }
 
 // plat_mmap stubs
@@ -314,6 +316,10 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     // Configure input ports as 6-button gamepads
     PicoSetInputDevice(0, PICO_INPUT_PAD_6BTN);
     PicoSetInputDevice(1, PICO_INPUT_PAD_6BTN);
+
+    // Rebind sound output buffer and callback for MD/MCD orchestrator
+    PicoIn.sndOut = g_AudioTempBuf;
+    PicoIn.writeSound = EmuSoundCallback;
 
     // Power on and reset
     PicoPower();

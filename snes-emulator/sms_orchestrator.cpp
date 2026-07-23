@@ -106,7 +106,9 @@ static void EmuSoundCallback(int len) {
         memset(g_AudioTempBuf, 0, len);
     }
     unsigned num_stereo_samples = len / 4;
+    if (num_stereo_samples > 4096) num_stereo_samples = 4096;
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
+    memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
 }
 
 CSMSOrchestrator::CSMSOrchestrator(FATFS *pFileSystem)
