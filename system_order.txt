@@ -13,8 +13,8 @@
 #
 # Lines starting with '#' are ignored.
 
+pce
+megadrive
 snes
 nes
 mastersystem
-pce
-megadrive

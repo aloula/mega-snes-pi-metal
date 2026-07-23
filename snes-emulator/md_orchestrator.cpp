@@ -103,6 +103,7 @@ static const char FromOrchestrator[] = "orchestrator";
 static s16 g_AudioTempBuf[44100 / 50 * 2];
 static u32 s_nAudioMuteFrames = 0;
 static void EmuSoundCallback(int len);
+static const unsigned kMDAudioTempStereoCapacity = sizeof(g_AudioTempBuf) / sizeof(g_AudioTempBuf[0]) / 2;
 
 static void ApplyMDPicoConfig() {
     PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
@@ -123,7 +124,9 @@ static void ResetMDAudioAfterStateChange() {
 static void EmuSoundCallback(int len) {
     // len is in bytes. Interleaved stereo 16-bit PCM (4 bytes per sample)
     unsigned num_stereo_samples = len / 4;
-    if (num_stereo_samples > 4096) num_stereo_samples = 4096;
+    if (num_stereo_samples > kMDAudioTempStereoCapacity) {
+        num_stereo_samples = kMDAudioTempStereoCapacity;
+    }
     if (s_nAudioMuteFrames > 0) {
         s_nAudioMuteFrames--;
         memset(g_AudioTempBuf, 0, num_stereo_samples * 4);

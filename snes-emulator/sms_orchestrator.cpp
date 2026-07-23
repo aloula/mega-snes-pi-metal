@@ -97,6 +97,7 @@ static const char FromOrchestrator[] = "sms_orchestrator";
 
 // Audio temp buffer for Picodrive output
 static s16 g_AudioTempBuf[44100 / 50 * 2];
+static const unsigned kSMSAudioTempStereoCapacity = sizeof(g_AudioTempBuf) / sizeof(g_AudioTempBuf[0]) / 2;
 
 static CSMSOrchestrator *s_pInstance = nullptr;
 static void EmuSoundCallback(int len);
@@ -111,11 +112,13 @@ static void ApplySMSPicoConfig() {
 
 // Sound callback
 static void EmuSoundCallback(int len) {
-    if (s_pInstance && s_pInstance->IsAudioMuted()) {
-        memset(g_AudioTempBuf, 0, len);
-    }
     unsigned num_stereo_samples = len / 4;
-    if (num_stereo_samples > 4096) num_stereo_samples = 4096;
+    if (num_stereo_samples > kSMSAudioTempStereoCapacity) {
+        num_stereo_samples = kSMSAudioTempStereoCapacity;
+    }
+    if (s_pInstance && s_pInstance->IsAudioMuted()) {
+        memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
+    }
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
     memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
 }

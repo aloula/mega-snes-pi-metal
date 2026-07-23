@@ -752,28 +752,34 @@ void CKernel::RunInputDomain() {
             break;
         }
 
-        boolean bUpdated = m_USBHCI.UpdatePlugAndPlay();
-        if (bUpdated) {
-            for (unsigned nDevice = 1; nDevice <= 2; nDevice++) {
-                CUSBGamePadDevice *pGamePad = (CUSBGamePadDevice *)m_DeviceNameService.GetDevice("gpad", nDevice, FALSE);
-                if (pGamePad != m_pGamePad[nDevice - 1]) {
-                    m_pGamePad[nDevice - 1] = pGamePad;
-                    if (pGamePad != nullptr) {
-                        m_Logger.Write("input", LogNotice, "GamePad %u connected!", nDevice);
-                        m_pGamePad[nDevice - 1]->RegisterStatusHandler(GamePadStatusHandler);
-                        m_pGamePad[nDevice - 1]->RegisterRemovedHandler(GamePadRemovedHandler, this);
-                    }
+        m_USBHCI.UpdatePlugAndPlay();
+
+        // Always scan current devices. Some boot-time attached gamepads may
+        // already be present before an update event is surfaced.
+        for (unsigned nDevice = 1; nDevice <= 2; nDevice++) {
+            // Different controllers can enumerate under different aliases
+            // depending on USB/Bluetooth mode and boot timing.
+            CUSBGamePadDevice *pGamePad = (CUSBGamePadDevice *)m_DeviceNameService.GetDevice("upad", nDevice, FALSE);
+            if (pGamePad == nullptr) {
+                pGamePad = (CUSBGamePadDevice *)m_DeviceNameService.GetDevice("gpad", nDevice, FALSE);
+            }
+            if (pGamePad != m_pGamePad[nDevice - 1]) {
+                m_pGamePad[nDevice - 1] = pGamePad;
+                if (pGamePad != nullptr) {
+                    m_Logger.Write("input", LogNotice, "GamePad %u connected!", nDevice);
+                    m_pGamePad[nDevice - 1]->RegisterStatusHandler(GamePadStatusHandler);
+                    m_pGamePad[nDevice - 1]->RegisterRemovedHandler(GamePadRemovedHandler, this);
                 }
             }
+        }
 
-            CUSBKeyboardDevice *pKeyboard = (CUSBKeyboardDevice *)m_DeviceNameService.GetDevice("ukbd1", FALSE);
-            if (pKeyboard != m_pKeyboard) {
-                m_pKeyboard = pKeyboard;
-                if (pKeyboard != nullptr) {
-                    m_Logger.Write("input", LogNotice, "Keyboard connected!");
-                    m_pKeyboard->RegisterKeyStatusHandlerRaw(KeyboardStatusHandlerRaw);
-                    m_pKeyboard->RegisterRemovedHandler(KeyboardRemovedHandler, this);
-                }
+        CUSBKeyboardDevice *pKeyboard = (CUSBKeyboardDevice *)m_DeviceNameService.GetDevice("ukbd1", FALSE);
+        if (pKeyboard != m_pKeyboard) {
+            m_pKeyboard = pKeyboard;
+            if (pKeyboard != nullptr) {
+                m_Logger.Write("input", LogNotice, "Keyboard connected!");
+                m_pKeyboard->RegisterKeyStatusHandlerRaw(KeyboardStatusHandlerRaw);
+                m_pKeyboard->RegisterRemovedHandler(KeyboardRemovedHandler, this);
             }
         }
 

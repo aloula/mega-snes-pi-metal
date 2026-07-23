@@ -1,0 +1,81 @@
+# MEGA-SNES Pi Metal - OSD Color Overrides
+#
+# Optional: override specific OSD colors after the base theme is loaded.
+# Place this file at SD:/osd_colors.txt (or SD:/roms/osd_colors.txt).
+#
+# Format:
+#   key = value
+#
+# Value formats:
+#   - RGB555 triplet: r,g,b     (0..31 each)
+#   - RGB888 triplet: r,g,b     (0..255 each)
+#   - Hex RGB888: #RRGGBB
+#   - Hex RGB555: 0x7FFF
+#
+# Common keys:
+#   background, panel_background, border, text, warning_text
+#
+# Advanced keys:
+#   screen_bg, panel_bg, panel_border, title_text, separator
+#   tab_active_bg, tab_active_border, tab_active_text
+#   tab_inactive_bg, tab_inactive_border, tab_inactive_text
+#   list_selected_text, list_text, list_selected_bg
+#   scroll_track, scroll_thumb, footer_text
+#
+# Example overrides (uncomment to use):
+# background = 0,0,0
+# panel_background = #101820
+# border = 8,12,16
+# text = 26,28,30
+#
+# ------------------------------------------------------------
+# Example 1: High Contrast Dark
+# ------------------------------------------------------------
+# background = #000000
+# panel_background = #0A0A0A
+# border = #D0D0D0
+# text = #F0F0F0
+# tab_active_bg = #202020
+# tab_inactive_bg = #111111
+# list_selected_bg = #303030
+# warning_text = #FF8080
+#
+# ------------------------------------------------------------
+# Example 2: Warm Amber Terminal
+# ------------------------------------------------------------
+background = #000000
+panel_background = #140C00
+border = #523002
+title_text = #362b1b
+separator = #5A3200
+
+tab_active_bg = #3A2200
+tab_active_border = #b99c70
+tab_active_text = #908e8c
+
+tab_inactive_bg = #211200
+tab_inactive_border = #7A4A14
+tab_inactive_text = #ddc6a8
+
+list_selected_text = #6a5d4a
+list_text = #aa8b64
+list_selected_bg = #4A2B00
+
+scroll_track = #2A1800
+scroll_thumb = #c2ad90
+
+footer_text = #9e9b97
+warning_text = #d2b58b
+#
+# ------------------------------------------------------------
+# Example 3: Ice Blue
+# ------------------------------------------------------------
+# background = #000000
+# panel_background = #050B12
+# border = #6FB6FF
+# text = #a8bbfc
+# tab_active_bg = #102438
+# tab_inactive_bg = #0A1622
+# list_selected_text = #E7F3FF
+# list_selected_bg = #16324A
+# separator = #2A4C6D

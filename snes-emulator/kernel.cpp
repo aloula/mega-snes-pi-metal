@@ -10,7 +10,10 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
-#define COLOR15(red, green, blue) (((red) & 0x1F) << 10 | ((green) & 0x1F) << 5 | ((blue) & 0x1F))
+// OSD colors are configured as 5-bit-per-channel values (0..31), but the
+// framebuffer is RGB565. Expand green to 6-bit while packing to avoid tint shifts.
+#define COLOR15(red, green, blue) \
+    ((((red) & 0x1F) << 11 | ((((green) & 0x1F) * 63 / 31) << 5) | ((blue) & 0x1F)))
 
 // Global shared state
 SharedState g_SharedState;
@@ -21,9 +24,452 @@ static u16 s_SplashBuf[640 * 480] __attribute__((aligned(64)));
 static CKernel *s_pThis = nullptr;
 static boolean s_Is3ButtonGame = TRUE;
 
+struct OSDThemeColors {
+    u16 screen_bg;
+    u16 panel_bg;
+    u16 panel_border;
+    u16 title_text;
+    u16 separator;
+    u16 tab_active_bg;
+    u16 tab_active_border;
+    u16 tab_active_text;
+    u16 tab_inactive_bg;
+    u16 tab_inactive_border;
+    u16 tab_inactive_text;
+    u16 list_selected_text;
+    u16 list_text;
+    u16 list_selected_bg;
+    u16 scroll_track;
+    u16 scroll_thumb;
+    u16 footer_text;
+    u16 warning_text;
+};
+
+static const OSDThemeColors s_OSDThemeDefault = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(2, 3, 5),      // panel_bg
+    COLOR15(8, 12, 16),    // panel_border
+    COLOR15(22, 24, 26),   // title_text
+    COLOR15(4, 6, 8),      // separator
+    COLOR15(4, 10, 15),    // tab_active_bg
+    COLOR15(10, 24, 28),   // tab_active_border
+    COLOR15(24, 28, 28),   // tab_active_text
+    COLOR15(2, 4, 6),      // tab_inactive_bg
+    COLOR15(3, 7, 10),     // tab_inactive_border
+    COLOR15(12, 14, 16),   // tab_inactive_text
+    COLOR15(12, 24, 28),   // list_selected_text
+    COLOR15(14, 16, 18),   // list_text
+    COLOR15(4, 6, 9),      // list_selected_bg
+    COLOR15(3, 4, 6),      // scroll_track
+    COLOR15(8, 12, 16),    // scroll_thumb
+    COLOR15(12, 14, 16),   // footer_text
+    COLOR15(24, 14, 10)    // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeGreenCRT = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(0, 1, 0),      // panel_bg
+    COLOR15(5, 22, 5),     // panel_border
+    COLOR15(16, 31, 16),   // title_text
+    COLOR15(2, 10, 2),     // separator
+    COLOR15(1, 7, 1),      // tab_active_bg
+    COLOR15(10, 30, 10),   // tab_active_border
+    COLOR15(18, 31, 18),   // tab_active_text
+    COLOR15(0, 3, 0),      // tab_inactive_bg
+    COLOR15(3, 12, 3),     // tab_inactive_border
+    COLOR15(10, 22, 10),   // tab_inactive_text
+    COLOR15(18, 31, 18),   // list_selected_text
+    COLOR15(10, 20, 10),   // list_text
+    COLOR15(0, 6, 0),      // list_selected_bg
+    COLOR15(0, 4, 0),      // scroll_track
+    COLOR15(6, 18, 6),     // scroll_thumb
+    COLOR15(10, 20, 10),   // footer_text
+    COLOR15(20, 31, 18)    // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeGrayscale = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(2, 2, 2),      // panel_bg
+    COLOR15(14, 14, 14),   // panel_border
+    COLOR15(27, 27, 27),   // title_text
+    COLOR15(8, 8, 8),      // separator
+    COLOR15(8, 8, 8),      // tab_active_bg
+    COLOR15(21, 21, 21),   // tab_active_border
+    COLOR15(30, 30, 30),   // tab_active_text
+    COLOR15(4, 4, 4),      // tab_inactive_bg
+    COLOR15(10, 10, 10),   // tab_inactive_border
+    COLOR15(17, 17, 17),   // tab_inactive_text
+    COLOR15(28, 28, 28),   // list_selected_text
+    COLOR15(18, 18, 18),   // list_text
+    COLOR15(7, 7, 7),      // list_selected_bg
+    COLOR15(4, 4, 4),      // scroll_track
+    COLOR15(12, 12, 12),   // scroll_thumb
+    COLOR15(16, 16, 16),   // footer_text
+    COLOR15(24, 24, 24)    // warning_text
+};
+
+static OSDThemeColors s_OSDThemeActive = s_OSDThemeDefault;
+static const OSDThemeColors *s_pOSDTheme = &s_OSDThemeActive;
+static boolean s_bUseCustomOSDColors = FALSE;
+
 static EmuMode s_SystemOrder[5] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD };
 static int s_NumSystems = 5;
 static int s_SystemOrderIdx = 0;
+
+static char *TrimToken(char *s) {
+    while (*s == ' ' || *s == '\t') s++;
+    char *end = s + strlen(s);
+    while (end > s && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) {
+        end--;
+    }
+    *end = '\0';
+    return s;
+}
+
+static boolean ParseSystemToken(const char *token, EmuMode *outMode) {
+    if (!token || !*token || !outMode) return FALSE;
+
+    if (strstr(token, "snes") || strstr(token, "super nintendo")) {
+        *outMode = EmuMode_SNES;
+        return TRUE;
+    }
+    if (strstr(token, "nes") || strstr(token, "famicom") || strstr(token, "nintendo")) {
+        *outMode = EmuMode_NES;
+        return TRUE;
+    }
+    if (strstr(token, "md") || strstr(token, "megadrive") || strstr(token, "mega drive") || strstr(token, "genesis")) {
+        *outMode = EmuMode_MD;
+        return TRUE;
+    }
+    if (strstr(token, "sms") || strstr(token, "mastersystem") || strstr(token, "master system")) {
+        *outMode = EmuMode_SMS;
+        return TRUE;
+    }
+    if (strstr(token, "pce") || strstr(token, "pcengine") || strstr(token, "pc engine") || strstr(token, "turbografx") || strstr(token, "tg16")) {
+        *outMode = EmuMode_PCE;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static boolean ParseThemeToken(const char *token, const OSDThemeColors **outTheme) {
+    if (!token || !*token || !outTheme) return FALSE;
+
+    if (strstr(token, "default") || strstr(token, "classic")) {
+        *outTheme = &s_OSDThemeDefault;
+        return TRUE;
+    }
+    if (strstr(token, "green") || strstr(token, "crt") || strstr(token, "phosphor")) {
+        *outTheme = &s_OSDThemeGreenCRT;
+        return TRUE;
+    }
+    if (strstr(token, "gray") || strstr(token, "grey") || strstr(token, "grayscale") || strstr(token, "mono")) {
+        *outTheme = &s_OSDThemeGrayscale;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static boolean ParseHexDigit(char c, unsigned *out) {
+    if (c >= '0' && c <= '9') {
+        *out = (unsigned)(c - '0');
+        return TRUE;
+    }
+    if (c >= 'a' && c <= 'f') {
+        *out = 10u + (unsigned)(c - 'a');
+        return TRUE;
+    }
+    if (c >= 'A' && c <= 'F') {
+        *out = 10u + (unsigned)(c - 'A');
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static boolean ParseOSDColorValue(const char *value, u16 *outColor) {
+    if (!value || !*value || !outColor) return FALSE;
+
+    // Accept #RRGGBB
+    if (value[0] == '#' && strlen(value) == 7) {
+        unsigned nibbles[6];
+        for (int i = 0; i < 6; i++) {
+            if (!ParseHexDigit(value[i + 1], &nibbles[i])) return FALSE;
+        }
+        unsigned r8 = (nibbles[0] << 4) | nibbles[1];
+        unsigned g8 = (nibbles[2] << 4) | nibbles[3];
+        unsigned b8 = (nibbles[4] << 4) | nibbles[5];
+        unsigned r5 = (r8 * 31 + 127) / 255;
+        unsigned g5 = (g8 * 31 + 127) / 255;
+        unsigned b5 = (b8 * 31 + 127) / 255;
+        *outColor = COLOR15((int)r5, (int)g5, (int)b5);
+        return TRUE;
+    }
+
+    // Accept 0x7FFF style RGB555 and convert to framebuffer RGB565.
+    if ((value[0] == '0') && (value[1] == 'x' || value[1] == 'X')) {
+        unsigned n = 0;
+        for (int i = 2; value[i] != '\0'; i++) {
+            unsigned d = 0;
+            if (!ParseHexDigit(value[i], &d)) return FALSE;
+            n = (n << 4) | d;
+        }
+        n &= 0x7FFF;
+        unsigned r5 = (n >> 10) & 0x1F;
+        unsigned g5 = (n >> 5) & 0x1F;
+        unsigned b5 = n & 0x1F;
+        *outColor = COLOR15((int)r5, (int)g5, (int)b5);
+        return TRUE;
+    }
+
+    // Accept decimal RGB triplet: r,g,b (0..31 or 0..255)
+    int r = 0, g = 0, b = 0;
+    if (sscanf(value, " %d , %d , %d ", &r, &g, &b) == 3) {
+        if (r < 0 || g < 0 || b < 0) return FALSE;
+        if (r <= 31 && g <= 31 && b <= 31) {
+            *outColor = COLOR15(r, g, b);
+            return TRUE;
+        }
+        if (r <= 255 && g <= 255 && b <= 255) {
+            int r5 = (r * 31 + 127) / 255;
+            int g5 = (g * 31 + 127) / 255;
+            int b5 = (b * 31 + 127) / 255;
+            *outColor = COLOR15(r5, g5, b5);
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
+static boolean ApplyOSDColorOverride(const char *key, u16 color) {
+    if (!key || !*key) return FALSE;
+
+    if (strcmp(key, "background") == 0 || strcmp(key, "screen_bg") == 0) {
+        s_OSDThemeActive.screen_bg = color;
+        return TRUE;
+    }
+    if (strcmp(key, "panel_background") == 0 || strcmp(key, "panel_bg") == 0 || strcmp(key, "menu_background") == 0) {
+        s_OSDThemeActive.panel_bg = color;
+        return TRUE;
+    }
+    if (strcmp(key, "border") == 0 || strcmp(key, "panel_border") == 0) {
+        s_OSDThemeActive.panel_border = color;
+        return TRUE;
+    }
+    if (strcmp(key, "title_text") == 0) {
+        s_OSDThemeActive.title_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "separator") == 0) {
+        s_OSDThemeActive.separator = color;
+        return TRUE;
+    }
+    if (strcmp(key, "tab_active_bg") == 0) {
+        s_OSDThemeActive.tab_active_bg = color;
+        return TRUE;
+    }
+    if (strcmp(key, "tab_active_border") == 0) {
+        s_OSDThemeActive.tab_active_border = color;
+        return TRUE;
+    }
+    if (strcmp(key, "tab_active_text") == 0) {
+        s_OSDThemeActive.tab_active_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "tab_inactive_bg") == 0) {
+        s_OSDThemeActive.tab_inactive_bg = color;
+        return TRUE;
+    }
+    if (strcmp(key, "tab_inactive_border") == 0) {
+        s_OSDThemeActive.tab_inactive_border = color;
+        return TRUE;
+    }
+    if (strcmp(key, "tab_inactive_text") == 0) {
+        s_OSDThemeActive.tab_inactive_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "list_selected_text") == 0) {
+        s_OSDThemeActive.list_selected_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "list_text") == 0) {
+        s_OSDThemeActive.list_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "list_selected_bg") == 0) {
+        s_OSDThemeActive.list_selected_bg = color;
+        return TRUE;
+    }
+    if (strcmp(key, "scroll_track") == 0) {
+        s_OSDThemeActive.scroll_track = color;
+        return TRUE;
+    }
+    if (strcmp(key, "scroll_thumb") == 0) {
+        s_OSDThemeActive.scroll_thumb = color;
+        return TRUE;
+    }
+    if (strcmp(key, "footer_text") == 0) {
+        s_OSDThemeActive.footer_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "warning_text") == 0) {
+        s_OSDThemeActive.warning_text = color;
+        return TRUE;
+    }
+    if (strcmp(key, "text") == 0) {
+        s_OSDThemeActive.title_text = color;
+        s_OSDThemeActive.tab_active_text = color;
+        s_OSDThemeActive.tab_inactive_text = color;
+        s_OSDThemeActive.list_selected_text = color;
+        s_OSDThemeActive.list_text = color;
+        s_OSDThemeActive.footer_text = color;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static void LoadOSDTheme(FATFS *pFileSystem) {
+    FIL file;
+    const char *configPaths[] = { "SD:/osd_theme.txt", "SD:/roms/osd_theme.txt", nullptr };
+    const char *foundPath = nullptr;
+
+    for (int i = 0; configPaths[i] != nullptr; i++) {
+        if (f_open(&file, configPaths[i], FA_READ) == FR_OK) {
+            foundPath = configPaths[i];
+            break;
+        }
+    }
+
+    s_bUseCustomOSDColors = FALSE;
+
+    if (!foundPath) {
+        s_OSDThemeActive = s_OSDThemeDefault;
+        return; // Keep default theme when config file is missing.
+    }
+
+    char line[128];
+    while (f_gets(line, sizeof(line), &file) != nullptr) {
+        char *p = line;
+        if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) {
+            p += 3;
+        }
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0' || *p == '#' || *p == '\r' || *p == '\n' || (*p == '/' && *(p + 1) == '/')) {
+            continue;
+        }
+
+        char lower[128];
+        int len = 0;
+        for (int i = 0; p[i] && p[i] != '\r' && p[i] != '\n' && p[i] != '#'; i++) {
+            char c = p[i];
+            if (c >= 'A' && c <= 'Z') c += 32;
+            lower[len++] = c;
+        }
+        lower[len] = '\0';
+
+        for (char *token = lower; token != nullptr && *token != '\0'; ) {
+            char *next = nullptr;
+            for (char *q = token; *q != '\0'; q++) {
+                if (*q == ',' || *q == ';' || *q == '|') {
+                    *q = '\0';
+                    next = q + 1;
+                    break;
+                }
+            }
+
+            char *trimmed = TrimToken(token);
+            if (strcmp(trimmed, "custom") == 0) {
+                // Custom uses default palette as base, then applies osd_colors.txt overrides.
+                s_OSDThemeActive = s_OSDThemeDefault;
+                s_bUseCustomOSDColors = TRUE;
+                f_close(&file);
+                return;
+            }
+            const OSDThemeColors *theme = nullptr;
+            if (ParseThemeToken(trimmed, &theme)) {
+                s_OSDThemeActive = *theme;
+                s_bUseCustomOSDColors = FALSE;
+                f_close(&file);
+                return;
+            }
+
+            token = next;
+        }
+    }
+
+    f_close(&file);
+    s_OSDThemeActive = s_OSDThemeDefault;
+    s_bUseCustomOSDColors = FALSE;
+}
+
+static void LoadOSDColorOverrides(FATFS *pFileSystem) {
+    FIL file;
+    const char *configPaths[] = { "SD:/osd_colors.txt", "SD:/roms/osd_colors.txt", nullptr };
+    const char *foundPath = nullptr;
+
+    for (int i = 0; configPaths[i] != nullptr; i++) {
+        if (f_open(&file, configPaths[i], FA_READ) == FR_OK) {
+            foundPath = configPaths[i];
+            break;
+        }
+    }
+
+    if (!foundPath) return;
+
+    char line[160];
+    while (f_gets(line, sizeof(line), &file) != nullptr) {
+        char *p = line;
+        if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) {
+            p += 3;
+        }
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0' || *p == '#' || *p == '\r' || *p == '\n' || (*p == '/' && *(p + 1) == '/')) {
+            continue;
+        }
+
+        char *sep = strchr(p, '=');
+        if (!sep) sep = strchr(p, ':');
+        if (!sep) continue;
+        *sep = '\0';
+
+        char *key = TrimToken(p);
+        char *value = TrimToken(sep + 1);
+
+        // Preserve #RRGGBB values; only strip inline comments for other formats.
+        if (value[0] == '#') {
+            if (strlen(value) > 7) {
+                value[7] = '\0';
+            }
+        } else {
+            for (int i = 0; value[i] != '\0'; i++) {
+                if (value[i] == '#') {
+                    value[i] = '\0';
+                    break;
+                }
+                if (value[i] == '/' && value[i + 1] == '/') {
+                    value[i] = '\0';
+                    break;
+                }
+            }
+        }
+        value = TrimToken(value);
+        if (*key == '\0' || *value == '\0') continue;
+
+        // Normalize key to lowercase.
+        for (int i = 0; key[i] != '\0'; i++) {
+            if (key[i] >= 'A' && key[i] <= 'Z') key[i] += ('a' - 'A');
+        }
+
+        u16 color = 0;
+        if (!ParseOSDColorValue(value, &color)) continue;
+        ApplyOSDColorOverride(key, color);
+    }
+
+    f_close(&file);
+}
 
 static void LoadSystemOrder(FATFS *pFileSystem) {
     FIL file;
@@ -45,6 +491,10 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
 
     while (f_gets(line, sizeof(line), &file) != nullptr && count < 5) {
         char *p = line;
+        // Skip UTF-8 BOM if present at start of line/file.
+        if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) {
+            p += 3;
+        }
         while (*p == ' ' || *p == '\t') p++;
 
         if (*p == '\0' || *p == '#' || *p == '\r' || *p == '\n' || (*p == '/' && *(p+1) == '/')) {
@@ -61,33 +511,38 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
         while (len > 0 && (lower[len-1] == ' ' || lower[len-1] == '\t')) len--;
         lower[len] = '\0';
 
-        if (len == 0) continue;
-
-        EmuMode mode;
-        if (strstr(lower, "snes") || strstr(lower, "super nintendo")) {
-            mode = EmuMode_SNES;
-        } else if (strstr(lower, "nes") || strstr(lower, "famicom") || strstr(lower, "nintendo")) {
-            mode = EmuMode_NES;
-        } else if (strstr(lower, "md") || strstr(lower, "megadrive") || strstr(lower, "mega drive") || strstr(lower, "genesis")) {
-            mode = EmuMode_MD;
-        } else if (strstr(lower, "sms") || strstr(lower, "mastersystem") || strstr(lower, "master system")) {
-            mode = EmuMode_SMS;
-        } else if (strstr(lower, "pce") || strstr(lower, "pcengine") || strstr(lower, "pc engine") || strstr(lower, "turbografx") || strstr(lower, "tg16")) {
-            mode = EmuMode_PCE;
-        } else {
+        if (len == 0) {
             continue;
         }
 
-        boolean alreadyAdded = FALSE;
-        for (int i = 0; i < count; i++) {
-            if (newOrder[i] == mode) {
-                alreadyAdded = TRUE;
-                break;
+        // Support one system per line and CSV/semicolon/pipe lists on a line.
+        for (char *token = lower; token != nullptr && *token != '\0' && count < 5; ) {
+            char *next = nullptr;
+            for (char *q = token; *q != '\0'; q++) {
+                if (*q == ',' || *q == ';' || *q == '|') {
+                    *q = '\0';
+                    next = q + 1;
+                    break;
+                }
             }
-        }
 
-        if (!alreadyAdded) {
-            newOrder[count++] = mode;
+            char *trimmed = TrimToken(token);
+            EmuMode mode;
+            if (ParseSystemToken(trimmed, &mode)) {
+                boolean alreadyAdded = FALSE;
+                for (int i = 0; i < count; i++) {
+                    if (newOrder[i] == mode) {
+                        alreadyAdded = TRUE;
+                        break;
+                    }
+                }
+
+                if (!alreadyAdded) {
+                    newOrder[count++] = mode;
+                }
+            }
+
+            token = next;
         }
     }
 
@@ -468,6 +923,10 @@ void CKernel::RunOrchestrator() {
     g_pFileSystem = &m_FileSystem;
 
     LoadSystemOrder(&m_FileSystem);
+    LoadOSDTheme(&m_FileSystem);
+    if (s_bUseCustomOSDColors) {
+        LoadOSDColorOverrides(&m_FileSystem);
+    }
     g_SharedState.active_emu_mode = s_SystemOrder[0];
 
     m_pOSDMenu = new COSDMenu(&m_FileSystem);
@@ -990,8 +1449,10 @@ void CKernel::RunVideoDomain() {
     static int s_PceSrcYOffset = 0;
     static int s_PceDrawH = 240;
     while (1) {
+        const OSDThemeColors &theme = *s_pOSDTheme;
+
         if (m_ShutdownMode != ShutdownNone) {
-            DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
+            DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, theme.screen_bg);
             
             // Draw a nice centered dark container (matching OSD colors)
             int bx1 = SCREEN_WIDTH / 2 - 180;
@@ -999,15 +1460,15 @@ void CKernel::RunVideoDomain() {
             int bx2 = SCREEN_WIDTH / 2 + 180;
             int by2 = SCREEN_HEIGHT / 2 + 50;
             
-            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 3, 5));
-            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(8, 12, 16), 2);
+            DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, theme.panel_bg);
+            DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, theme.panel_border, 2);
             
             const char* msg = (m_ShutdownMode == ShutdownHalt) ? "SHUTTING DOWN..." : "REBOOTING SYSTEM...";
             int msg_w = strlen(msg) * 8;
             int msg_x = bx1 + ((bx2 - bx1) - msg_w) / 2;
             int msg_y = by1 + 42;
             
-            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, COLOR15(24, 28, 28), COLOR15(2, 3, 5));
+            DrawString(pBackBuffer, SCREEN_WIDTH, msg, msg_x, msg_y, theme.tab_active_text, theme.panel_bg);
             
             CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
             CTimer::SimpleMsDelay(50);
@@ -1024,14 +1485,14 @@ void CKernel::RunVideoDomain() {
                 m_Logger.Write("video", LogNotice, "OSD Redraw started. num_lines=%d, selected=%d", num_lines, selected);
 
                 // Draw menu elements onto OSD backbuffer to prevent flickering (pure black background)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
+                DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, theme.screen_bg);
 
                 // Draw central card/container (cool dark slate-indigo background!)
                 int x1 = 40, y1 = 15, x2 = SCREEN_WIDTH - 40, y2 = SCREEN_HEIGHT - 15;
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(2, 3, 5));
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, theme.panel_bg);
                 
                 // Draw clean steel blue border
-                DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(8, 12, 16), 2);
+                DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, theme.panel_border, 2);
 
                 // Draw Title (soft cool white)
                 char title_str[64];
@@ -1048,16 +1509,16 @@ void CKernel::RunVideoDomain() {
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
-                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(22, 24, 26), 0);
+                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, theme.title_text, 0);
                 
                 if (num_lines > 0) {
                     char count_str[32];
                     snprintf(count_str, sizeof(count_str), "[%d/%d]", selected + 1, num_lines);
-                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, theme.title_text, theme.panel_bg);
                 }
                 
                 // Draw separator 1 (dark steel blue)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(4, 6, 8));
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, theme.separator);
 
                 // Draw tabs
                 int num_tabs = 8;
@@ -1080,13 +1541,13 @@ void CKernel::RunVideoDomain() {
                     
                     u16 bg_color, border_color, text_color;
                     if (t == active_tab) {
-                        bg_color = COLOR15(4, 10, 15);      // highlight card background (cool slate-blue)
-                        border_color = COLOR15(10, 24, 28); // cyan/teal border
-                        text_color = COLOR15(24, 28, 28);   // muted cool white
+                        bg_color = theme.tab_active_bg;
+                        border_color = theme.tab_active_border;
+                        text_color = theme.tab_active_text;
                     } else {
-                        bg_color = COLOR15(2, 4, 6);        // darker slate background
-                        border_color = COLOR15(3, 7, 10);   // dark teal/blue border
-                        text_color = COLOR15(12, 14, 16);   // muted gray/blue text
+                        bg_color = theme.tab_inactive_bg;
+                        border_color = theme.tab_inactive_border;
+                        text_color = theme.tab_inactive_text;
                     }
                     
                     // Draw tab box
@@ -1101,13 +1562,13 @@ void CKernel::RunVideoDomain() {
                 }
 
                 // Draw separator 2 (dark steel blue)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, COLOR15(4, 6, 8));
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 75, x2 - 20, y1 + 76, theme.separator);
 
                 if (num_lines == 0) {
                     if (active_tab == 1) {
-                        DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press Y on a game to favorite it.", 116, 180, COLOR15(22, 24, 26), 0);
+                        DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press Y on a game to favorite it.", 116, 180, theme.title_text, 0);
                     } else {
-                        DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, COLOR15(24, 14, 10), 0);
+                        DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, theme.warning_text, 0);
                     }
                 } else {
                     // List ROM files with centered viewport scrolling (mega-pi-metal style)
@@ -1125,11 +1586,11 @@ void CKernel::RunVideoDomain() {
                     for (int v = 0; v < view_size && (start_i + v) < num_lines; v++) {
                         int i = start_i + v;
                         int row_y = start_y + v * 20;
-                        u16 fg = (i == selected) ? COLOR15(12, 24, 28) : COLOR15(14, 16, 18);
+                        u16 fg = (i == selected) ? theme.list_selected_text : theme.list_text;
                         
                         if (i == selected) {
                             // Highlight selector bar (ends at x2 - 22 to not overlap scrollbar) (soft slate highlight)
-                            DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 10, row_y - 2, x2 - 22, row_y + 16, COLOR15(4, 6, 9));
+                            DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 10, row_y - 2, x2 - 22, row_y + 16, theme.list_selected_bg);
                         }
                         
                         DrawString(pBackBuffer, SCREEN_WIDTH, g_SharedState.menu_lines[i], x1 + 20, row_y, fg, 0);
@@ -1143,7 +1604,7 @@ void CKernel::RunVideoDomain() {
                         int track_h = view_size * 20 - 4;
                         
                         // Track (dark slate)
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, track_y, track_x + track_w, track_y + track_h, COLOR15(3, 4, 6));
+                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, track_y, track_x + track_w, track_y + track_h, theme.scroll_track);
                         
                         // Thumb (muted steel blue)
                         int thumb_h = (view_size * track_h) / num_lines;
@@ -1152,18 +1613,18 @@ void CKernel::RunVideoDomain() {
                         if (thumb_y + thumb_h > track_y + track_h) {
                             thumb_y = track_y + track_h - thumb_h;
                         }
-                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, thumb_y, track_x + track_w, thumb_y + thumb_h, COLOR15(8, 12, 16));
+                        DrawRect(pBackBuffer, SCREEN_WIDTH, track_x, thumb_y, track_x + track_w, thumb_y + thumb_h, theme.scroll_thumb);
                     }
                 }
 
                 // Draw separator before instructions (dark steel blue)
-                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, COLOR15(4, 6, 8));
+                DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, theme.separator);
 
                 // Center instructions footer inside the screen limits
                 const char *footer_text = "D-PAD:Nav | A/B:Start | L/R:System | Y/X:Fav | START+SEL:Reset";
                 int footer_w = strlen(footer_text) * 8;
                 int footer_x = (SCREEN_WIDTH - footer_w) / 2;
-                DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, COLOR15(12, 14, 16), 0);
+                DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, theme.footer_text, 0);
 
                 if (g_SharedState.rom_loading) {
                     // Draw a beautiful centered loading box overlay on top of the menu
@@ -1173,15 +1634,15 @@ void CKernel::RunVideoDomain() {
                     int by2 = by1 + 70;
                     
                     // Box background (very dark slate/indigo)
-                    DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(2, 3, 5));
+                    DrawRect(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, theme.panel_bg);
                     // Accent border (steel blue)
-                    DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, COLOR15(8, 12, 16), 2);
+                    DrawBox(pBackBuffer, SCREEN_WIDTH, bx1, by1, bx2, by2, theme.panel_border, 2);
                     
                     const char *loading_msg = "LOADING GAME, PLEASE WAIT...";
                     int msg_w = strlen(loading_msg) * 8;
                     int msg_x = bx1 + (280 - msg_w) / 2;
                     int msg_y = by1 + (70 - 16) / 2;
-                    DrawString(pBackBuffer, SCREEN_WIDTH, loading_msg, msg_x, msg_y, COLOR15(24, 28, 28), COLOR15(2, 3, 5));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, loading_msg, msg_x, msg_y, theme.tab_active_text, theme.panel_bg);
                 }
 
                 // Copy fully rendered backbuffer to the active framebuffer in a single fast operation
@@ -1637,16 +2098,41 @@ void CKernel::RunInputDomain() {
     while (1) {
         m_USBHCI.UpdatePlugAndPlay();
 
-        // Detect and register gamepads
-        for (unsigned nDevice = 1; nDevice <= 2; nDevice++) {
-            if (m_pGamePad[nDevice-1] == nullptr) {
-                m_pGamePad[nDevice-1] = (CUSBGamePadDevice *)
-                    m_DeviceNameService.GetDevice("upad", nDevice, FALSE);
-                
-                if (m_pGamePad[nDevice-1] != nullptr) {
-                    m_pGamePad[nDevice-1]->RegisterRemovedHandler(GamePadRemovedHandler, this);
-                    m_pGamePad[nDevice-1]->RegisterStatusHandler(GamePadStatusHandler);
-                    m_Logger.Write("input", LogNotice, "USB Gamepad %u Connected", nDevice);
+        // Detect and register gamepads. Reconcile slots every cycle because
+        // some controllers (e.g. SN30 Pro) can re-enumerate after boot.
+        CUSBGamePadDevice *detectedPads[2] = {nullptr, nullptr};
+        unsigned detectedPorts[2] = {0, 0};
+        const char *aliases[2] = {"upad", "gpad"};
+        for (unsigned nDevice = 1; nDevice <= 8; nDevice++) {
+            for (unsigned alias = 0; alias < 2; alias++) {
+                CUSBGamePadDevice *pGamePad = (CUSBGamePadDevice *)
+                    m_DeviceNameService.GetDevice(aliases[alias], nDevice, FALSE);
+                if (pGamePad == nullptr || pGamePad == detectedPads[0] || pGamePad == detectedPads[1]) {
+                    continue;
+                }
+
+                unsigned hubPort = pGamePad->GetDevice()->GetHubPortNumber();
+                if ((detectedPorts[0] != 0 && detectedPorts[0] == hubPort) ||
+                    (detectedPorts[1] != 0 && detectedPorts[1] == hubPort)) {
+                    continue;
+                }
+
+                if (detectedPads[0] == nullptr) {
+                    detectedPads[0] = pGamePad;
+                    detectedPorts[0] = hubPort;
+                } else if (detectedPads[1] == nullptr) {
+                    detectedPads[1] = pGamePad;
+                    detectedPorts[1] = hubPort;
+                }
+            }
+        }
+        for (unsigned slot = 0; slot < 2; slot++) {
+            if (detectedPads[slot] != m_pGamePad[slot]) {
+                m_pGamePad[slot] = detectedPads[slot];
+                if (m_pGamePad[slot] != nullptr) {
+                    m_pGamePad[slot]->RegisterRemovedHandler(GamePadRemovedHandler, this);
+                    m_pGamePad[slot]->RegisterStatusHandler(GamePadStatusHandler);
+                    m_Logger.Write("input", LogNotice, "USB Gamepad %u Connected", slot + 1);
                 }
             }
         }
@@ -1781,6 +2267,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     static u16 last_pad2 = 0xFFFF;
 
     boolean use_dev0_as_pad1 = TRUE;
+    boolean single_gamepad_connected = FALSE;
 
     if (s_pThis != nullptr) {
         if (s_pThis->m_pGamePad[0] != nullptr && s_pThis->m_pGamePad[1] != nullptr) {
@@ -1791,7 +2278,24 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
             }
         } else if (s_pThis->m_pGamePad[0] == nullptr && s_pThis->m_pGamePad[1] != nullptr) {
             use_dev0_as_pad1 = FALSE;
+            single_gamepad_connected = TRUE;
+        } else if (s_pThis->m_pGamePad[0] != nullptr && s_pThis->m_pGamePad[1] == nullptr) {
+            single_gamepad_connected = TRUE;
         }
+    }
+
+    if (single_gamepad_connected) {
+        if (pad != last_pad1) {
+            last_pad1 = pad;
+            g_SharedState.pad1 = pad;
+            DataMemBarrier();
+        }
+        if (pad != last_pad2) {
+            last_pad2 = pad;
+            g_SharedState.pad2 = pad;
+            DataMemBarrier();
+        }
+        return;
     }
 
     boolean is_pad1 = (nDeviceIndex == 0) ? use_dev0_as_pad1 : !use_dev0_as_pad1;
