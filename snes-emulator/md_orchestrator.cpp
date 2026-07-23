@@ -197,6 +197,16 @@ static int my_strcasecmp(const char *s1, const char *s2) {
     return (unsigned char)*s1 - (unsigned char)*s2;
 }
 
+static const char *FindExistingBiosPath(const char *primary, const char *alt1, const char *alt2, const char *alt3, const char *alt4) {
+    FILINFO fno;
+    if (f_stat(primary, &fno) == FR_OK) return primary;
+    if (alt1 && f_stat(alt1, &fno) == FR_OK) return alt1;
+    if (alt2 && f_stat(alt2, &fno) == FR_OK) return alt2;
+    if (alt3 && f_stat(alt3, &fno) == FR_OK) return alt3;
+    if (alt4 && f_stat(alt4, &fno) == FR_OK) return alt4;
+    return primary;
+}
+
 static const char *GetBiosFilename(int *region, const char *cd_fname) {
     static char bios_path[256];
     int reg = *region;
@@ -238,11 +248,29 @@ static const char *GetBiosFilename(int *region, const char *cd_fname) {
     
     // Check region: 4 = US, 8 = EU, others (1, 2) = JP
     if (reg == 4) {
-        snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_U.bin");
+        snprintf(bios_path, sizeof(bios_path), "%s", FindExistingBiosPath(
+            "SD:/bios/bios_CD_U.bin",
+            "SD:/bios/us_scd2_9303.bin",
+            "SD:/bios/us_scd1_9210.bin",
+            "SD:/bios/mcd2_us.bin",
+            "SD:/bios/bios_CD_U.iso"
+        ));
     } else if (reg == 8) {
-        snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_E.bin");
+        snprintf(bios_path, sizeof(bios_path), "%s", FindExistingBiosPath(
+            "SD:/bios/bios_CD_E.bin",
+            "SD:/bios/eu_mcd2_9306.bin",
+            "SD:/bios/eu_mcd1_9210.bin",
+            "SD:/bios/mcd2_eu.bin",
+            "SD:/bios/bios_CD_E.iso"
+        ));
     } else {
-        snprintf(bios_path, sizeof(bios_path), "SD:/bios/bios_CD_J.bin");
+        snprintf(bios_path, sizeof(bios_path), "%s", FindExistingBiosPath(
+            "SD:/bios/bios_CD_J.bin",
+            "SD:/bios/jp_mcd1_9112.bin",
+            "SD:/bios/jp_mcd2_9212.bin",
+            "SD:/bios/mcd2_jp.bin",
+            "SD:/bios/bios_CD_J.iso"
+        ));
     }
     
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Sega CD BIOS requested for region %d, returning path: %s", reg, bios_path);
