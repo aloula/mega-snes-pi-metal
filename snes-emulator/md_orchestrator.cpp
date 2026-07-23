@@ -102,6 +102,17 @@ static const char FromOrchestrator[] = "orchestrator";
 // Audio temp buffer for Picodrive output
 static s16 g_AudioTempBuf[44100 / 50 * 2];
 static u32 s_nAudioMuteFrames = 0;
+static void EmuSoundCallback(int len);
+
+static void ApplyMDPicoConfig() {
+    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
+                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX |
+                 POPT_ACC_SPRITES;
+    PicoIn.sndRate = 44100;
+    PicoIn.sndOut = g_AudioTempBuf;
+    PicoIn.writeSound = EmuSoundCallback;
+    PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+}
 
 static void ResetMDAudioAfterStateChange() {
     g_SharedState.audio_ring_buffer.Init();
@@ -172,13 +183,7 @@ boolean CMDOrchestrator::Initialize() {
         return FALSE;
     }
 
-    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
-                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX | POPT_EN_MCD_RAMCART |
-                 POPT_ACC_SPRITES;
-    PicoIn.sndRate = 44100;
-    PicoIn.sndOut = g_AudioTempBuf;
-    PicoIn.writeSound = EmuSoundCallback;
-    PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+    ApplyMDPicoConfig();
 
     PicoInit();
     return TRUE;
@@ -282,6 +287,9 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     // Reset hardware architecture mode flags so PAHW_SMS is not leftover
     PicoIn.AHW = 0;
+    // PicoIn is global/shared in PicoDrive, so restore MD/Mega CD feature flags
+    // in case another orchestrator (e.g. SMS) changed them.
+    ApplyMDPicoConfig();
 
     boolean is_cd = FALSE;
     const char *pDot = strrchr(pRomName, '.');
@@ -347,10 +355,6 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     // Configure input ports as 6-button gamepads
     PicoSetInputDevice(0, PICO_INPUT_PAD_6BTN);
     PicoSetInputDevice(1, PICO_INPUT_PAD_6BTN);
-
-    // Rebind sound output buffer and callback for MD/MCD orchestrator
-    PicoIn.sndOut = g_AudioTempBuf;
-    PicoIn.writeSound = EmuSoundCallback;
 
     // Power on and reset
     PicoPower();

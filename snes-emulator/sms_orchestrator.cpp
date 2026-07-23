@@ -99,6 +99,15 @@ static const char FromOrchestrator[] = "sms_orchestrator";
 static s16 g_AudioTempBuf[44100 / 50 * 2];
 
 static CSMSOrchestrator *s_pInstance = nullptr;
+static void EmuSoundCallback(int len);
+
+static void ApplySMSPicoConfig() {
+    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_EN_YM2413 | POPT_ACC_SPRITES;
+    PicoIn.sndRate = 44100;
+    PicoIn.sndOut = g_AudioTempBuf;
+    PicoIn.writeSound = EmuSoundCallback;
+    PicoIn.autoRgnOrder = 0x184;
+}
 
 // Sound callback
 static void EmuSoundCallback(int len) {
@@ -149,11 +158,7 @@ boolean CSMSOrchestrator::Initialize() {
         return FALSE;
     }
 
-    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_EN_YM2413 | POPT_ACC_SPRITES;
-    PicoIn.sndRate = 44100;
-    PicoIn.sndOut = g_AudioTempBuf;
-    PicoIn.writeSound = EmuSoundCallback;
-    PicoIn.autoRgnOrder = 0x184;
+    ApplySMSPicoConfig();
 
     PicoInit();
     return TRUE;
@@ -164,6 +169,9 @@ boolean CSMSOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     // Reset hardware architecture mode flags
     PicoIn.AHW = 0;
+    // PicoIn is global/shared in PicoDrive, so restore SMS feature flags
+    // in case another orchestrator (e.g. MD/Mega CD) changed them.
+    ApplySMSPicoConfig();
 
     if (nRomSize > ROM_BUFFER_SIZE) {
         CLogger::Get()->Write(FromOrchestrator, LogError, "ROM size too big: %u > %u", nRomSize, ROM_BUFFER_SIZE);

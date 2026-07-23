@@ -102,6 +102,15 @@ static const char FromOrchestrator[] = "orchestrator";
 // Audio temp buffer for Picodrive output
 static s16 g_AudioTempBuf[44100 / 50 * 2];
 static CEmuOrchestrator *s_pInstance = nullptr;
+static void EmuSoundCallback(int len);
+
+static void ApplySMSPicoConfig() {
+    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_EN_YM2413 | POPT_ACC_SPRITES;
+    PicoIn.sndRate = 44100;
+    PicoIn.sndOut = g_AudioTempBuf;
+    PicoIn.writeSound = EmuSoundCallback;
+    PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+}
 
 // Sound callback
 static void EmuSoundCallback(int len) {
@@ -110,7 +119,9 @@ static void EmuSoundCallback(int len) {
         memset(g_AudioTempBuf, 0, len);
     }
     unsigned num_stereo_samples = len / 4;
+    if (num_stereo_samples > 4096) num_stereo_samples = 4096;
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
+    memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
 }
 
 // lprintf implementation
@@ -184,11 +195,7 @@ boolean CEmuOrchestrator::Initialize() {
         return FALSE;
     }
 
-    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_EN_YM2413 | POPT_ACC_SPRITES;
-    PicoIn.sndRate = 44100;
-    PicoIn.sndOut = g_AudioTempBuf;
-    PicoIn.writeSound = EmuSoundCallback;
-    PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+    ApplySMSPicoConfig();
 
     PicoInit();
     return TRUE;
@@ -199,6 +206,8 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     // Reset hardware architecture mode flags
     PicoIn.AHW = 0;
+    // Restore SMS config before media load in case PicoIn was altered.
+    ApplySMSPicoConfig();
 
     // Ensure ROM size is within bounds
     if (nRomSize > ROM_BUFFER_SIZE) {

@@ -101,6 +101,16 @@ static const char FromOrchestrator[] = "orchestrator";
 
 // Audio temp buffer for Picodrive output
 static s16 g_AudioTempBuf[44100 / 50 * 2];
+static void EmuSoundCallback(int len);
+
+static void ApplyMDPicoConfig() {
+    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
+                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX | POPT_ACC_SPRITES;
+    PicoIn.sndRate = 44100;
+    PicoIn.sndOut = g_AudioTempBuf;
+    PicoIn.writeSound = EmuSoundCallback;
+    PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+}
 
 // Sound callback
 static void EmuSoundCallback(int len) {
@@ -175,13 +185,7 @@ boolean CEmuOrchestrator::Initialize() {
         return FALSE;
     }
 
-    PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
-                 POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX | POPT_EN_MCD_RAMCART |
-                 POPT_ACC_SPRITES;
-    PicoIn.sndRate = 44100;
-    PicoIn.sndOut = g_AudioTempBuf;
-    PicoIn.writeSound = EmuSoundCallback;
-    PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+    ApplyMDPicoConfig();
 
     PicoInit();
     return TRUE;
@@ -285,6 +289,8 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     // Reset hardware architecture mode flags
     PicoIn.AHW = 0;
+    // Restore MD/Mega CD config before media detection/load in case PicoIn was altered.
+    ApplyMDPicoConfig();
 
     boolean is_cd = FALSE;
     const char *pDot = strrchr(pRomName, '.');

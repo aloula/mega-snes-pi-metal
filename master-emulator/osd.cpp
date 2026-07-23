@@ -3,7 +3,6 @@
 #include <circle/logger.h>
 #include <string.h>
 #include <stdio.h>
-#include <algorithm>
 
 static int my_strcasecmp(const char *s1, const char *s2) {
     while (*s1 && *s2) {
@@ -15,7 +14,47 @@ static int my_strcasecmp(const char *s1, const char *s2) {
         s1++;
         s2++;
     }
+
     return (unsigned char)*s1 - (unsigned char)*s2;
+}
+
+struct RomEntry {
+    char file[128];
+    unsigned size;
+};
+
+static int CompareRomEntries(const void *a, const void *b) {
+    const RomEntry *ea = (const RomEntry *)a;
+    const RomEntry *eb = (const RomEntry *)b;
+    const char *name_a = strchr(ea->file, '/');
+    name_a = name_a ? name_a + 1 : ea->file;
+    const char *name_b = strchr(eb->file, '/');
+    name_b = name_b ? name_b + 1 : eb->file;
+    return my_strcasecmp(name_a, name_b);
+}
+
+static void SwapRomEntries(RomEntry &a, RomEntry &b) {
+    RomEntry tmp = a;
+    a = b;
+    b = tmp;
+}
+
+static void SortRomEntries(RomEntry *entries, int left, int right) {
+    int i = left;
+    int j = right;
+    RomEntry pivot = entries[(left + right) >> 1];
+
+    while (i <= j) {
+        while (CompareRomEntries(&entries[i], &pivot) < 0) i++;
+        while (CompareRomEntries(&entries[j], &pivot) > 0) j--;
+        if (i <= j) {
+            SwapRomEntries(entries[i], entries[j]);
+            i++;
+            j--;
+        }
+    }
+    if (left < j) SortRomEntries(entries, left, j);
+    if (i < right) SortRomEntries(entries, i, right);
 }
 
 COSDMenu::COSDMenu(FATFS *pFileSystem)
@@ -87,28 +126,14 @@ void COSDMenu::ScanRoms() {
     scan_dir("SD:/roms/mastersystem", "mastersystem/");
     scan_dir("SD:/roms/sms", "sms/");
 
-    // Sort ROMs alphabetically on the base filename (excluding prefix) using fast O(N log N) std::sort
+    // Sort ROMs alphabetically on the base filename (excluding prefix)
     if (m_RomCount > 1) {
-        struct RomEntry {
-            char file[128];
-            unsigned size;
-        };
-
         RomEntry *entries = new RomEntry[m_RomCount];
         for (int i = 0; i < m_RomCount; i++) {
             strcpy(entries[i].file, m_RomFiles[i]);
             entries[i].size = m_RomSizes[i];
         }
-
-        std::sort(entries, entries + m_RomCount, [](const RomEntry &a, const RomEntry &b) {
-            const char *name_a = strchr(a.file, '/');
-            name_a = name_a ? name_a + 1 : a.file;
-
-            const char *name_b = strchr(b.file, '/');
-            name_b = name_b ? name_b + 1 : b.file;
-
-            return my_strcasecmp(name_a, name_b) < 0;
-        });
+        SortRomEntries(entries, 0, m_RomCount - 1);
 
         for (int i = 0; i < m_RomCount; i++) {
             strcpy(m_RomFiles[i], entries[i].file);

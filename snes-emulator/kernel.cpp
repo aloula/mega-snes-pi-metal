@@ -1732,7 +1732,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         if (pState->buttons & GamePadButtonY)     pad |= (1 << 5);           // SMS Button 2
         if (pState->buttons & (GamePadButtonLT | GamePadButtonLB)) pad |= (1 << 8); // L shoulder
         if (pState->buttons & (GamePadButtonRT | GamePadButtonRB)) pad |= (1 << 9); // R shoulder
-        if (pState->buttons & GamePadButtonStart) pad |= (1 << 4) | (1 << 7); // SMS Button 1 + Pause
+        if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);           // SMS Pause
         if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11);          // Select
     } else {
         if (s_Is3ButtonGame) {
@@ -1849,7 +1849,7 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
             if (key == 0x1B) pad |= (1 << 5); // X -> SMS Button 2
             if (key == 0x06) pad |= (1 << 4); // C -> SMS Button 1
             if (key == 0x19) pad |= (1 << 5); // V -> SMS Button 2
-            if (key == 0x28) pad |= (1 << 4) | (1 << 7); // Enter -> SMS Button 1 + Pause
+            if (key == 0x28) pad |= (1 << 7); // Enter -> SMS Pause
             if (key == 0x2C) pad |= (1 << 11); // Space -> Select
         } else {
             if (key == 0x1D) pad |= (1 << 6); // Z -> A

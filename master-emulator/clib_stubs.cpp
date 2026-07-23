@@ -25,6 +25,7 @@ extern "C" {
 
 static char dummy_reent[1024];
 struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
+long strtol(const char *nptr, char **endptr, int base);
 
 char *strdup(const char *s) {
     if (s == nullptr) return nullptr;

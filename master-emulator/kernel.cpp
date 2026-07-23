@@ -815,7 +815,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         if (pState->buttons & GamePadButtonY)     pad |= (1 << 5);           // SMS Button 2
         if (pState->buttons & (GamePadButtonLT | GamePadButtonLB)) pad |= (1 << 8); // L shoulder
         if (pState->buttons & (GamePadButtonRT | GamePadButtonRB)) pad |= (1 << 9); // R shoulder
-        if (pState->buttons & GamePadButtonStart) pad |= (1 << 4) | (1 << 7); // SMS Button 1 + Pause
+        if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);           // SMS Pause
         if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11);          // Select
     }
 

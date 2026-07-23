@@ -25,6 +25,7 @@ extern "C" {
 
 static char dummy_reent[1024];
 struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
+long strtol(const char *nptr, char **endptr, int base);
 
 char *strdup(const char *s) {
     if (s == nullptr) return nullptr;
@@ -569,7 +570,9 @@ void qsort(void *base, size_t num, size_t size, int (*compar)(const void *, cons
 
 // Picodrive SMS & 32x stubs
 void Pico32xPrepare(void) {}
+#ifdef NO_SMS
 void PicoPrepareMS(void) {}
+#endif
 #ifndef _ASM_MEMORY_C
 unsigned int PicoRead8_32x(unsigned int a) { return 0; }
 unsigned int PicoRead16_32x(unsigned int a) { return 0; }
@@ -622,6 +625,10 @@ int puts(const char *s) {
     extern void lprintf(const char *fmt, ...);
     lprintf("%s\n", s);
     return 1;
+}
+
+int putchar(int c) {
+    return c;
 }
 
 } // extern "C"

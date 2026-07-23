@@ -51,12 +51,18 @@ with open("snes-emulator/boot/Splash_Screen.raw16", "wb") as f:
         echo -e "${RED}Warning: Neither 'convert_splash.py' dependency (Pillow) nor 'convert' (ImageMagick) is functional. Skipping splash screen generation.${NC}"
     fi
 fi
-# 3. Clean snes-emulator build files
-echo -e "${BLUE}Cleaning previous build in snes-emulator...${NC}"
+# 3. Clean previous build files
+echo -e "${BLUE}Cleaning previous builds...${NC}"
 make -C snes-emulator clean
+make -C mega-emulator clean
+make -C master-emulator clean
 
-# 4. Build snes-emulator
-echo -e "${BLUE}Compiling snes-emulator...${NC}"
+# 4. Build all emulator targets for consistency, then package snes-emulator image
+echo -e "${BLUE}Compiling master-emulator...${NC}"
+make -C master-emulator -j$(nproc)
+echo -e "${BLUE}Compiling mega-emulator...${NC}"
+make -C mega-emulator -j$(nproc)
+echo -e "${BLUE}Compiling snes-emulator (release image target)...${NC}"
 make -C snes-emulator -j$(nproc)
 
 # 5. Copy the compiled kernel image to the boot directory and verify it exists

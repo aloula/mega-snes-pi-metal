@@ -15,6 +15,7 @@ OBJS	= main.o kernel.o osd.o emu_orchestrator.o clib_stubs.o \
 	  ../picodrive/pico/draw2.o \
 	  ../picodrive/pico/draw.o \
 	  ../picodrive/pico/mode4.o \
+	  ../picodrive/pico/sms.o \
 	  ../picodrive/pico/misc.o \
 	  ../picodrive/pico/eeprom.o \
 	  ../picodrive/pico/patch.o \
@@ -97,7 +98,7 @@ OBJS	= main.o kernel.o osd.o emu_orchestrator.o clib_stubs.o \
 MEGAPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 
 # Additional C compiler flags for Picodrive core
-DEFS     = -D_USE_DRZ80 -DEMU_C68K -D_ASM_DRAW_C -D_ASM_MEMORY_C -D_ASM_YM2612_C -D_ASM_MISC_C -D_ASM_CD_MEMORY_C -DNO_32X -DNO_SMS -DUSE_LIBCHDR -DZ7_ST -DEL_LOGMASK=0xc0000000 -DMEGAPI_VERSION="\"$(MEGAPI_VERSION)\""
+DEFS     = -D_USE_DRZ80 -DEMU_C68K -D_ASM_DRAW_C -D_ASM_MEMORY_C -D_ASM_YM2612_C -D_ASM_MISC_C -D_ASM_CD_MEMORY_C -DNO_32X -DUSE_LIBCHDR -DZ7_ST -DEL_LOGMASK=0xc0000000 -DMEGAPI_VERSION="\"$(MEGAPI_VERSION)\""
 INCS     = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon \
            -I../picodrive/pico/cd/libchdr/include \
            -I../picodrive/pico/cd/libchdr/deps/lzma-24.05/include \
