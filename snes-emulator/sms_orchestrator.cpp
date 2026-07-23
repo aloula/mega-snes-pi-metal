@@ -162,6 +162,9 @@ boolean CSMSOrchestrator::Initialize() {
 boolean CSMSOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loading SMS ROM: %s (size %u)", pRomName, nRomSize);
 
+    // Reset hardware architecture mode flags
+    PicoIn.AHW = 0;
+
     if (nRomSize > ROM_BUFFER_SIZE) {
         CLogger::Get()->Write(FromOrchestrator, LogError, "ROM size too big: %u > %u", nRomSize, ROM_BUFFER_SIZE);
         return FALSE;

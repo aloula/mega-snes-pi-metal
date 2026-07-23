@@ -255,6 +255,9 @@ static const char *GetBiosFilename(int *region, const char *cd_fname) {
 boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loading ROM: %s (size %u)", pRomName, nRomSize);
 
+    // Reset hardware architecture mode flags
+    PicoIn.AHW = 0;
+
     boolean is_cd = FALSE;
     const char *pDot = strrchr(pRomName, '.');
     if (pDot != nullptr) {
