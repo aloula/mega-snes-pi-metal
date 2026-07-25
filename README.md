@@ -28,6 +28,7 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
 * **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**).
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES, YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
+* **Screensaver & Audio Mute**: Automatically dims the screen by 50% and mutes audio output after controller inactivity. Pressing any controller button immediately restores full brightness and audio. Configurable via `cmdline.txt`.
 
 ---
 
@@ -37,6 +38,7 @@ To load games and BIOS files, organize your SD card root directories as follows:
 
 ```
 SD:/
+ ├── cmdline.txt             (Boot parameters including screensaver timeout)
  ├── system_order.txt        (Optional text file to customize console order and default boot system)
  ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, custom)
  ├── osd_colors.txt          (Optional text file to override OSD element colors: background, border, text, etc.)
@@ -54,6 +56,9 @@ SD:/
       ├── pce/               (PC Engine / PCE CD files: .pce, .cue, .chd)
       └── favorites.txt      (Auto-generated file tracking favorite games)
 ```
+
+> [!TIP]
+> **Configuring Screensaver Timeout**: Add or edit `screensaver=<seconds>` in `cmdline.txt` on the SD card root (e.g. `screensaver=60` for 60 seconds, `screensaver=120` for 2 minutes, or `screensaver=0` to disable the screensaver completely).
 
 > [!TIP]
 > **Customizing System Order**: Create or edit `system_order.txt` on the SD card root to set your preferred system cycling order for **L** / **R** shoulder buttons. The first system in the list will automatically become the default boot system on startup (e.g., `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).

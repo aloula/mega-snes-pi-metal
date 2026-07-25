@@ -28,6 +28,7 @@ Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **Snes9x**, **PicoDrive
 * **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado).
 * **Áudio de Alta Fidelidade**: Reamostragem e interpolação de áudio autênticas do hardware (áudio Gaussiano para SNES, áudio FM YM2413 para SMS).
 * **Escalonamento de Tela**: Escalonamento nearest-neighbor para jogos Sega e escalonamento de proporção linear/Gaussiano para jogos SNES.
+* **Protetor de Tela (Screensaver) e Mute de Áudio**: Escurece a tela em 50% e silencia a saída de áudio automaticamente após inatividade do controle. Ao pressionar qualquer botão do controle, o brilho total e o áudio são restaurados instantaneamente. Configurável via `cmdline.txt`.
 
 ---
 
@@ -37,6 +38,7 @@ Para carregar os jogos e arquivos de BIOS, organize os diretórios na raiz do se
 
 ```
 SD:/
+ ├── cmdline.txt             (Parâmetros de boot, incluindo tempo limite do protetor de tela)
  ├── system_order.txt        (Arquivo de texto opcional para personalizar a ordem dos consoles e o sistema padrão no boot)
  ├── osd_theme.txt           (Arquivo de texto opcional para escolher o tema do OSD: default, green, grayscale, custom)
  ├── osd_colors.txt          (Arquivo de texto opcional para sobrescrever cores do OSD: fundo, borda, texto etc.)
@@ -54,6 +56,9 @@ SD:/
       ├── pce/               (Arquivos do PC Engine / PCE CD: .pce, .cue, .chd)
       └── favorites.txt      (Arquivo gerado automaticamente rastreando jogos favoritos)
 ```
+
+> [!TIP]
+> **Configurando o Tempo do Protetor de Tela**: Adicione ou edite `screensaver=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `screensaver=60` para 60 segundos, `screensaver=120` para 2 minutos, ou `screensaver=0` para desativar o protetor de tela completamente).
 
 > [!TIP]
 > **Personalização da Ordem dos Sistemas**: Crie ou edite o arquivo `system_order.txt` na raiz do cartão SD para definir a ordem preferida de alternância dos consoles pelos botões superiores **L** / **R**. O primeiro sistema listado no arquivo se tornará automaticamente o console inicial padrão ao ligar o Pi (ex.: `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).

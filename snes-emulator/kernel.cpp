@@ -1333,27 +1333,38 @@ static inline u16 BlendRGB565(u16 c1, u16 c2, u32 w2) {
     return (u16)(rb | g);
 }
 
-static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
-    if (nPitch == SCREEN_WIDTH) {
-        memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
-    } else {
-        for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
-            memcpy(pBuf + y * nPitch, pBackBuffer + y * SCREEN_WIDTH, SCREEN_WIDTH * sizeof(u16));
-        }
+static inline void DimScanline50(u16 *buf, int count = 640) {
+    u64 *p64 = (u64 *)buf;
+    int count64 = count / 4;
+    for (int i = 0; i < count64; i++) {
+        p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
     }
-    if (g_SharedState.screensaver_active) {
+}
+
+static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
+    if (!g_SharedState.screensaver_active) {
         if (nPitch == SCREEN_WIDTH) {
-            u64 *p64 = (u64 *)pBuf;
+            memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
+        } else {
+            for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
+                memcpy(pBuf + y * nPitch, pBackBuffer + y * SCREEN_WIDTH, SCREEN_WIDTH * sizeof(u16));
+            }
+        }
+    } else {
+        if (nPitch == SCREEN_WIDTH) {
+            const u64 *src64 = (const u64 *)pBackBuffer;
+            u64 *dst64 = (u64 *)pBuf;
             size_t count64 = (SCREEN_WIDTH * SCREEN_HEIGHT) / 4;
             for (size_t i = 0; i < count64; i++) {
-                p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+                dst64[i] = (src64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
             }
         } else {
             for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
-                u64 *p64 = (u64 *)(pBuf + y * nPitch);
+                const u64 *src64 = (const u64 *)(pBackBuffer + y * SCREEN_WIDTH);
+                u64 *dst64 = (u64 *)(pBuf + y * nPitch);
                 size_t count64 = SCREEN_WIDTH / 4;
                 for (size_t i = 0; i < count64; i++) {
-                    p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+                    dst64[i] = (src64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
                 }
             }
         }
@@ -1483,8 +1494,12 @@ void CKernel::RunVideoDomain() {
     static int s_PceDrawH = 240;
     while (1) {
         // Screensaver logic:
-        // 1. If controller is UNTOUCHED for 60s -> enable screensaver (dim screen by 50%).
-        // 2. If user presses a button / touches controller -> disable screensaver & reset 60s period.
+        // 1. Configured via cmdline.txt: screensaver=<seconds> (default: 60, 0 to disable).
+        // 2. If controller is UNTOUCHED for <seconds> -> enable screensaver (dim screen by 50% & mute audio).
+        // 3. If user presses a button / touches controller -> disable screensaver & reset period.
+        int ss_sec = m_Options.GetAppOptionSignedDecimal("screensaver", 60);
+        u64 ss_timeout_us = (ss_sec > 0) ? ((u64)ss_sec * 1000000ULL) : 0ULL;
+
         u64 now = CTimer::GetClockTicks64();
         if (g_SharedState.last_input_time == 0) {
             g_SharedState.last_input_time = now;
@@ -1510,7 +1525,7 @@ void CKernel::RunVideoDomain() {
                 }
             }
         } else {
-            if (!g_SharedState.screensaver_active && (now - g_SharedState.last_input_time >= 60000000ULL)) {
+            if (ss_timeout_us > 0 && !g_SharedState.screensaver_active && (now - g_SharedState.last_input_time >= ss_timeout_us)) {
                 g_SharedState.screensaver_active = TRUE;
                 if (g_SharedState.in_menu) {
                     g_SharedState.menu_needs_redraw = TRUE;
@@ -1777,6 +1792,7 @@ void CKernel::RunVideoDomain() {
                                 for (int x = 0; x < 640; x++) {
                                     scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
+                                if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                                 memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                             }
@@ -1788,6 +1804,7 @@ void CKernel::RunVideoDomain() {
                                 for (int x = 0; x < 640; x++) {
                                     scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
+                                if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
                         }
@@ -1805,6 +1822,7 @@ void CKernel::RunVideoDomain() {
                                 for (int x = 0; x < 640; x++) {
                                     scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
+                                if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                                 memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                             }
@@ -1816,6 +1834,7 @@ void CKernel::RunVideoDomain() {
                                 for (int x = 0; x < 640; x++) {
                                     scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
+                                if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
                         }
@@ -1837,6 +1856,7 @@ void CKernel::RunVideoDomain() {
                         for (int x = 0; x < 640; x++) {
                             scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                         }
+                        if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                         memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                         memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                     }
@@ -1906,6 +1926,7 @@ void CKernel::RunVideoDomain() {
                         for (int x = 0; x < 640; x++) {
                             scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                         }
+                        if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                         memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                         memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                     }
@@ -1945,6 +1966,7 @@ void CKernel::RunVideoDomain() {
                         for (int x = 0; x < 640; x++) {
                             scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                         }
+                        if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                         memcpy(dest, scanline_buf, 640 * sizeof(u16));
                     }
                 } else {
@@ -1976,6 +1998,9 @@ void CKernel::RunVideoDomain() {
                                 u32 p1_32 = (p1 << 16) | p1;
                                 u32 p2_32 = (p2 << 16) | p2;
                                 u64 color64 = ((u64)p2_32 << 32) | p1_32;
+                                if (g_SharedState.screensaver_active) {
+                                    color64 = (color64 >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+                                }
 
                                 dest64_1[x] = color64;
                                 dest64_2[x] = color64;
@@ -1995,25 +2020,9 @@ void CKernel::RunVideoDomain() {
                             for (int x = 0; x < 640; x++) {
                                 scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                             }
+                            if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                             memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                             memcpy(dest2, scanline_buf, 640 * sizeof(u16));
-                        }
-                    }
-                }
-                if (g_SharedState.screensaver_active) {
-                    if (nPitch == SCREEN_WIDTH) {
-                        u64 *p64 = (u64 *)pBuf;
-                        size_t count64 = (SCREEN_WIDTH * SCREEN_HEIGHT) / 4;
-                        for (size_t i = 0; i < count64; i++) {
-                            p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
-                        }
-                    } else {
-                        for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
-                            u64 *p64 = (u64 *)(pBuf + y * nPitch);
-                            size_t count64 = SCREEN_WIDTH / 4;
-                            for (size_t i = 0; i < count64; i++) {
-                                p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
-                            }
                         }
                     }
                 }
