@@ -439,6 +439,23 @@ static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
             memcpy(pBuf + y * nPitch, pBackBuffer + y * SCREEN_WIDTH, SCREEN_WIDTH * sizeof(u16));
         }
     }
+    if (g_SharedState.screensaver_active) {
+        if (nPitch == SCREEN_WIDTH) {
+            u64 *p64 = (u64 *)pBuf;
+            size_t count64 = (SCREEN_WIDTH * SCREEN_HEIGHT) / 4;
+            for (size_t i = 0; i < count64; i++) {
+                p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+            }
+        } else {
+            for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
+                u64 *p64 = (u64 *)(pBuf + y * nPitch);
+                size_t count64 = SCREEN_WIDTH / 4;
+                for (size_t i = 0; i < count64; i++) {
+                    p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+                }
+            }
+        }
+    }
 }
 
 void CKernel::RunVideoDomain() {
@@ -465,6 +482,41 @@ void CKernel::RunVideoDomain() {
 
     boolean was_in_menu = TRUE;
     while (1) {
+        // Screensaver logic:
+        // 1. If controller is UNTOUCHED for 60s -> enable screensaver (dim screen by 50%).
+        // 2. If user presses a button / touches controller -> disable screensaver & reset 60s period.
+        u64 now = CTimer::GetClockTicks64();
+        if (g_SharedState.last_input_time == 0) {
+            g_SharedState.last_input_time = now;
+        }
+
+        u16 pad1 = g_SharedState.pad1;
+        u16 pad2 = g_SharedState.pad2;
+        static u16 s_last_check_pad1 = 0;
+        static u16 s_last_check_pad2 = 0;
+
+        boolean input_touched = (pad1 != 0 || pad2 != 0 || pad1 != s_last_check_pad1 || pad2 != s_last_check_pad2 ||
+                                 g_SharedState.escape_pressed || g_SharedState.save_state_requested ||
+                                 g_SharedState.load_state_requested || g_SharedState.rewind_requested);
+
+        if (input_touched) {
+            g_SharedState.last_input_time = now;
+            s_last_check_pad1 = pad1;
+            s_last_check_pad2 = pad2;
+            if (g_SharedState.screensaver_active) {
+                g_SharedState.screensaver_active = FALSE;
+                if (g_SharedState.in_menu) {
+                    g_SharedState.menu_needs_redraw = TRUE;
+                }
+            }
+        } else {
+            if (!g_SharedState.screensaver_active && (now - g_SharedState.last_input_time >= 60000000ULL)) {
+                g_SharedState.screensaver_active = TRUE;
+                if (g_SharedState.in_menu) {
+                    g_SharedState.menu_needs_redraw = TRUE;
+                }
+            }
+        }
         if (m_ShutdownMode != ShutdownNone) {
             DrawRect(pBackBuffer, SCREEN_WIDTH, 0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, COLOR15(0, 0, 0));
             int box_w = 400, box_h = 120;
@@ -659,6 +711,23 @@ void CKernel::RunVideoDomain() {
                     }
 
                     memcpy(dst_row, line_buf, 640 * sizeof(u16));
+                }
+                if (g_SharedState.screensaver_active) {
+                    if (nPitch == SCREEN_WIDTH) {
+                        u64 *p64 = (u64 *)pBuf;
+                        size_t count64 = (SCREEN_WIDTH * SCREEN_HEIGHT) / 4;
+                        for (size_t i = 0; i < count64; i++) {
+                            p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+                        }
+                    } else {
+                        for (unsigned y = 0; y < SCREEN_HEIGHT; y++) {
+                            u64 *p64 = (u64 *)(pBuf + y * nPitch);
+                            size_t count64 = SCREEN_WIDTH / 4;
+                            for (size_t i = 0; i < count64; i++) {
+                                p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
+                            }
+                        }
+                    }
                 }
             }
             CTimer::SimpleusDelay(100);

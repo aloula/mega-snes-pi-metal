@@ -23,6 +23,8 @@ struct SharedState {
     volatile boolean load_state_requested __attribute__((aligned(64)));
     volatile boolean rewind_requested __attribute__((aligned(64)));
     volatile boolean rom_loading __attribute__((aligned(64)));
+    volatile u64 last_input_time __attribute__((aligned(64)));
+    volatile boolean screensaver_active __attribute__((aligned(64)));
 
     volatile boolean in_menu __attribute__((aligned(64)));
     volatile boolean menu_needs_redraw __attribute__((aligned(64)));
