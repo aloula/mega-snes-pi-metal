@@ -227,16 +227,13 @@ static int write_chunk(unsigned char name, int len, void *data, void *file)
 
 static int state_save(void *file)
 {
+  static unsigned char s_state_save_buf[CHUNK_LIMIT_W];
   char sbuff[32] = "Saving.. ";
   unsigned char buff[0x60], buff_z80[Z80_STATE_SIZE];
-  void *buf2 = NULL;
+  void *buf2 = s_state_save_buf;
   int ver = 0x0191; // not really used..
   int retval = -1;
   int len;
-
-  buf2 = malloc(CHUNK_LIMIT_W);
-  if (buf2 == NULL)
-    return -1;
 
   areaWrite("PicoSEXT", 1, 8, file);
   areaWrite(&ver, 1, 4, file);
@@ -376,8 +373,6 @@ static int state_save(void *file)
   retval = 0;
 
 out:
-  if (buf2 != NULL)
-    free(buf2);
   return retval;
 }
 
@@ -432,13 +427,12 @@ static int state_load(void *file)
   int ver, has_32x = 0, has_iov2 = 0;
   int len, len_vdp = 0;
 
+  static unsigned char s_state_load_buf[CHUNK_LIMIT_R];
   memset(buff_m68k, 0, sizeof(buff_m68k));
   memset(buff_s68k, 0, sizeof(buff_s68k));
   memset(buff_z80, 0, sizeof(buff_z80));
 
-  buf = malloc(CHUNK_LIMIT_R);
-  if (buf == NULL)
-    return -1;
+  buf = s_state_load_buf;
 
   g_read_offs = 0;
   CHECKED_READ(8, header);
@@ -655,7 +649,6 @@ readend:
   retval = 0;
 
 out:
-  free(buf);
   return retval;
 }
 

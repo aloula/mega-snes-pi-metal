@@ -39,7 +39,7 @@ static boolean strcontains(const char *haystack, const char *needle) {
     return FALSE;
 }
 
-static boolean is6ButtonGame(const char *pRomName) {
+boolean is6ButtonGame(const char *pRomName) {
     if (!pRomName) return FALSE;
     char name[256];
     int len = 0;
@@ -814,9 +814,6 @@ void CKernel::RunVideoDomain() {
             // Scale and draw game frame
             if (g_SharedState.video_frame_ready) {
                 DataMemBarrier();
-                g_SharedState.video_frame_ready = FALSE;
- 
-                // Wait for vertical sync before drawing directly to the hardware framebuffer to prevent tearing
                 pFB->WaitForVerticalSync();
 
                 if (was_in_menu) {
@@ -837,19 +834,17 @@ void CKernel::RunVideoDomain() {
                 int start_line = g_SharedState.start_line[read_idx];
  
                 if (game_h < 1) game_h = 224;
-                if (game_h > 320) game_h = 320;
-                if (start_line + game_h > 320) {
-                    game_h = 320 - start_line;
-                }
+                if (game_h > 240) game_h = 240;
                 if (game_h < 1) {
                     start_line = 0;
                     game_h = 224;
                 }
- 
+
                 int scale_h = game_h * 2;
- 
+
                 int start_y = (SCREEN_HEIGHT - scale_h) / 2;
- 
+                if (start_y < 0) start_y = 0;
+
                 // Upscale to full 4:3 (640x448) based on game mode width
                 int game_w = g_SharedState.game_w[read_idx];
                 if (game_w != 256) {
@@ -900,6 +895,8 @@ void CKernel::RunVideoDomain() {
                         memcpy(dest2, line_buf, 640 * sizeof(u16));
                     }
                 }
+                DataMemBarrier();
+                g_SharedState.video_frame_ready = FALSE;
             } else {
                 CTimer::SimpleusDelay(20);
             }

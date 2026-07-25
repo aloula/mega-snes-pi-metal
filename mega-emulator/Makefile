@@ -106,10 +106,11 @@ INCS     = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/
            -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
 OPTIMIZE = -O3 -ffast-math -fomit-frame-pointer -ftree-vectorize -funroll-loops -fno-strict-aliasing
+ARCH_FLAGS = -mcpu=cortex-a53 -mfpu=neon-fp-armv8 -mfloat-abi=hard
 
-CFLAGS   += $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2 -mcpu=cortex-a53
-CPPFLAGS += $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions -mcpu=cortex-a53
-AFLAGS   += $(INCS) $(DEFS)
+CFLAGS   += $(ARCH_FLAGS) $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2
+CPPFLAGS += $(ARCH_FLAGS) $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions
+AFLAGS   += $(ARCH_FLAGS) $(INCS) $(DEFS)
 
 LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \
 	  $(CIRCLEHOME)/addon/SDCard/libsdcard.a \
@@ -121,6 +122,9 @@ LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \
 	  $(CIRCLEHOME)/lib/libcircle.a
 
 include $(CIRCLEHOME)/Rules.mk
+
+../picodrive/%.o: CFLAGS += -w
+../picodrive/%.o: CPPFLAGS += -w
 
 # Custom assembler rule for lowercase .s files (Cyclone, etc.)
 %.o: %.s

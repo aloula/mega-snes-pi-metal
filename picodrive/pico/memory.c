@@ -995,9 +995,9 @@ u32 PicoRead8_io(u32 a)
       // bit8 seems to be readable in this range
       if (!(a & 1)) {
         d &= ~0x01;
-        // Z80 ahead of 68K only if in BUSREQ, BUSACK only after 68K reached Z80
-        d |= (z80_cycles_from_68k() < Pico.t.z80c_cnt);
-        d |= (Pico.m.z80Run | Pico.m.z80_reset) & 1;
+        if (Pico.m.z80Run || Pico.m.z80_reset) {
+          d |= 1;
+        }
         elprintf(EL_BUSREQ, "get_zrun: %02x [%u] @%06x", d, SekCyclesDone(), SekPc);
       }
     }
@@ -1026,8 +1026,9 @@ u32 PicoRead16_io(u32 a)
 
     if ((a & 0xff00) == 0x1100) { // z80 busreq
       d &= ~0x0100;
-      d |= (z80_cycles_from_68k() < Pico.t.z80c_cnt) << 8;
-      d |= ((Pico.m.z80Run | Pico.m.z80_reset) & 1) << 8;
+      if (Pico.m.z80Run || Pico.m.z80_reset) {
+        d |= 0x0100;
+      }
       elprintf(EL_BUSREQ, "get_zrun: %04x [%u] @%06x", d, SekCyclesDone(), SekPc);
     }
     goto end;
@@ -1177,7 +1178,7 @@ PICO_INTERNAL void PicoMemSetup(void)
   }
 
   // Common case of on-cart (save) RAM, usually at 0x200000-...
-  if ((Pico.sv.flags & SRF_ENABLED) && Pico.sv.data != NULL) {
+  if ((Pico.sv.flags & SRF_ENABLED) && Pico.sv.data != NULL && ((Pico.sv.flags & SRF_EEPROM) || Pico.romsize <= Pico.sv.start)) {
     sstart = Pico.sv.start & ~mask;
     rs = Pico.sv.end - sstart;
     rs = (rs + mask) & ~mask;
@@ -1477,15 +1478,16 @@ static u32 ym2612_read_local_z80(unsigned short a)
   int xcycles = z80_cyclesDone() << 8;
 
   ym2612_update_status(xcycles);
+  ym2612.OPN.ST.status &= ~0x80; // Clear BUSY bit 7 to prevent polling spin locks
 
   if ((a&0x3) == 0 || !(PicoIn.opt & POPT_FM_YM2612)) {
     elprintf(EL_YMTIMER, "timer z80 read %i, sched %i, %i @ %i|%i",
       ym2612.OPN.ST.status, Pico.t.timer_a_next_oflow >> 8,
       Pico.t.timer_b_next_oflow >> 8, xcycles >> 8, (xcycles >> 8) / 228);
     Pico.t.ym2612_decay = xcycles + (OSC_NTSC/15/5<<8); // Q8 for convenience
-    return ym2612.OPN.ST.status_latch = ym2612.OPN.ST.status;
+    return ym2612.OPN.ST.status_latch = (ym2612.OPN.ST.status & ~0x80);
   } else if (xcycles < Pico.t.ym2612_decay)
-    return ym2612.OPN.ST.status_latch;
+    return ym2612.OPN.ST.status_latch & ~0x80;
   else
     return 0;
 }
@@ -1495,15 +1497,16 @@ static u32 ym2612_read_local_68k(u32 a)
   int xcycles = z80_cycles_from_68k() << 8;
 
   ym2612_update_status(xcycles);
+  ym2612.OPN.ST.status &= ~0x80; // Clear BUSY bit 7 to prevent polling spin locks
 
   if ((a&0x3) == 0 || !(PicoIn.opt & POPT_FM_YM2612)) {
     elprintf(EL_YMTIMER, "timer 68k read %i, sched %i, %i @ %i|%i",
       ym2612.OPN.ST.status, Pico.t.timer_a_next_oflow >> 8,
       Pico.t.timer_b_next_oflow >> 8, xcycles >> 8, (xcycles >> 8) / 228);
     Pico.t.ym2612_decay = xcycles + (OSC_NTSC/15/5<<8); // Q8 for convenience
-    return ym2612.OPN.ST.status_latch = ym2612.OPN.ST.status;
+    return ym2612.OPN.ST.status_latch = (ym2612.OPN.ST.status & ~0x80);
   } else if (xcycles < Pico.t.ym2612_decay)
-    return ym2612.OPN.ST.status_latch;
+    return ym2612.OPN.ST.status_latch & ~0x80;
   else
     return 0;
 }

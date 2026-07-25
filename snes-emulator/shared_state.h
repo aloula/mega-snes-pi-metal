@@ -34,12 +34,12 @@ struct SharedState {
 
     // Double-buffered emulator frame buffer (512x480, RGB555) to support SNES resolutions up to high-res interlace
     u16 emu_frame_buffer[2][512 * 480] __attribute__((aligned(64)));
-    volatile int emu_write_idx;
-    volatile int emu_read_idx;
+    volatile int emu_write_idx __attribute__((aligned(64)));
+    volatile int emu_read_idx __attribute__((aligned(64)));
     volatile boolean video_frame_ready __attribute__((aligned(64)));
-    volatile int start_line[2];
-    volatile int game_w[2];
-    volatile int game_h[2];
+    volatile int start_line[2] __attribute__((aligned(64)));
+    volatile int game_w[2] __attribute__((aligned(64)));
+    volatile int game_h[2] __attribute__((aligned(64)));
 
     // Audio ring buffer
     AudioRingBuffer audio_ring_buffer __attribute__((aligned(64)));

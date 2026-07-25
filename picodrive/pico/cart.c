@@ -1343,9 +1343,17 @@ static void PicoCartDetect(const char *carthw_cfg)
     // some games may have bad headers, like S&K and Sonic3
     // note: majority games use 0x200000 as starting address, but there are some which
     // use something else (0x300000 by HardBall '95). Luckily they have good headers.
-    Pico.sv.start = 0x200000;
-    Pico.sv.end   = 0x203FFF;
-    Pico.sv.flags |= SRF_ENABLED;
+    if (Pico.romsize <= 0x200000 &&
+        (memcmp(Pico.rom + 0x120, "SONIC THE HEDGEHOG 3", 20) == 0 ||
+         memcmp(Pico.rom + 0x120, "SONIC & KNUCKLES", 16) == 0)) {
+      Pico.sv.start = 0x200000;
+      Pico.sv.end   = 0x203FFF;
+      Pico.sv.flags |= SRF_ENABLED;
+    } else {
+      Pico.sv.start = 0;
+      Pico.sv.end   = 0;
+      Pico.sv.flags &= ~SRF_ENABLED;
+    }
   }
 
   // set EEPROM defaults, in case it gets detected

@@ -200,11 +200,12 @@ INCS     = -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu \
            -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
 OPTIMIZE = -O3 -ffast-math -fomit-frame-pointer -ftree-vectorize -funroll-loops -fno-strict-aliasing
+ARCH_FLAGS = -mcpu=cortex-a53 -mfpu=neon-fp-armv8 -mfloat-abi=hard
 
-CFLAGS   += $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2 -mcpu=cortex-a53
-CPPFLAGS += $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions -mcpu=cortex-a53
+CFLAGS   += $(ARCH_FLAGS) $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2
+CPPFLAGS += $(ARCH_FLAGS) $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions
 LDFLAGS  += --allow-multiple-definition --defsym=end=_end
-AFLAGS   += $(INCS) $(DEFS)
+AFLAGS   += $(ARCH_FLAGS) $(INCS) $(DEFS)
 
 LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \
 	  $(CIRCLEHOME)/addon/SDCard/libsdcard.a \
@@ -223,12 +224,12 @@ include $(CIRCLEHOME)/Rules.mk
 # (1) Picodrive files must search their own unzip first.
 # (2) Snes9x files must search their own memory.h / port headers first.
 ../picodrive/%.o: INCS = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -I../picodrive/pico/cd/libchdr/include -I../picodrive/pico/cd/libchdr/deps/lzma-24.05/include -I../picodrive/pico/cd/libchdr/deps/zstd-1.5.6/lib -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon
-../picodrive/%.o: CFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib
-../picodrive/%.o: CPPFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib
+../picodrive/%.o: CFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -w
+../picodrive/%.o: CPPFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib -w
 
 ../snes9x/%.o: INCS = -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-../snes9x/%.o: CFLAGS += -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu
-../snes9x/%.o: CPPFLAGS += -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu
+../snes9x/%.o: CFLAGS += -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -w
+../snes9x/%.o: CPPFLAGS += -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -w
 
 snes_orchestrator.o: INCS = -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 snes_orchestrator.o: CFLAGS += -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu
@@ -239,16 +240,16 @@ md_orchestrator.o: CFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/c
 md_orchestrator.o: CPPFLAGS += -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/pico/sound -I../picodrive/zlib
 
 ../nestopia/%.o: INCS = -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-../nestopia/%.o: CFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI
-../nestopia/%.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive
+../nestopia/%.o: CFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -w
+../nestopia/%.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive -w
 
 nes_orchestrator.o: INCS = -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 nes_orchestrator.o: CFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI
-nes_orchestrator.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive
+nes_orchestrator.o: CPPFLAGS += -I../nestopia/source -I../nestopia/source/core -I../nestopia/source/core/api -DNST_NO_ZLIB -DNST_NO_HQ2X -DNST_NO_SCALEX -DNST_NO_2XSAI -fexceptions -fpermissive -Wno-unused-local-typedefs -Wno-attributes -Wno-switch -Wno-narrowing
 
 ../beetle-pce-fast-libretro/%.o: INCS = -I../beetle-pce-fast-libretro -I../beetle-pce-fast-libretro/mednafen -I../beetle-pce-fast-libretro/mednafen/include -I../beetle-pce-fast-libretro/mednafen/hw_sound -I../beetle-pce-fast-libretro/mednafen/hw_cpu -I../beetle-pce-fast-libretro/mednafen/hw_misc -I../beetle-pce-fast-libretro/libretro-common/include -I../picodrive/pico/cd/libchdr/include -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-../beetle-pce-fast-libretro/%.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
-../beetle-pce-fast-libretro/%.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
+../beetle-pce-fast-libretro/%.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM -w
+../beetle-pce-fast-libretro/%.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DNST_NO_ZLIB -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM -w
 
 pce_orchestrator.o: INCS = -I../beetle-pce-fast-libretro -I../beetle-pce-fast-libretro/mednafen -I../beetle-pce-fast-libretro/mednafen/include -I../beetle-pce-fast-libretro/mednafen/hw_sound -I../beetle-pce-fast-libretro/mednafen/hw_cpu -I../beetle-pce-fast-libretro/mednafen/hw_misc -I../beetle-pce-fast-libretro/libretro-common/include -I../picodrive/pico/cd/libchdr/include -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 pce_orchestrator.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM

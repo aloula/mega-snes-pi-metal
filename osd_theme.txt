@@ -2,12 +2,12 @@
 #
 # Choose the OSD color theme used by menu, loading and shutdown overlays.
 # Valid values (case-insensitive):
-#   default    -> current dark blue style
+#   default    -> base slate blue theme
 #   green      -> old computer CRT-style green phosphor
 #   grayscale  -> monochrome grayscale
-#   custom     -> use colors from osd_colors.txt
+#   custom     -> use cool OLED color presets from osd_colors.txt
 #
 # You can write one value per line, or comma/semicolon/pipe-separated.
 # First valid value found is applied.
 
-grayscale
+custom

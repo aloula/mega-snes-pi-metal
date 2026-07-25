@@ -21,13 +21,21 @@
 #ifdef __GNUC__
 #define NOINLINE    __attribute__((noinline))
 #define ALIGNED(n)  __attribute__((aligned(n)))
+#ifndef unlikely
 #define unlikely(x) __builtin_expect((x), 0)
+#endif
+#ifndef likely
 #define likely(x)   __builtin_expect(!!(x), 1)
+#endif
 #else
 #define NOINLINE
 #define ALIGNED(n)
+#ifndef unlikely
 #define unlikely(x) (x)
+#endif
+#ifndef likely
 #define likely(x) (x)
+#endif
 #endif
 
 #ifdef _MSC_VER

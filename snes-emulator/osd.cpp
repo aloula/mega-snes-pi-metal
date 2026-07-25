@@ -1,3 +1,4 @@
+#pragma GCC diagnostic ignored "-Wformat-truncation"
 #include "osd.h"
 #include <circle/string.h>
 #include <circle/logger.h>

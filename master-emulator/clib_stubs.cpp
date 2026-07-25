@@ -1,3 +1,5 @@
+#pragma GCC diagnostic ignored "-Wnonnull-compare"
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
 #include <circle/timer.h>
 #include <circle/string.h>
 #include <circle/alloc.h>
@@ -629,5 +631,12 @@ int puts(const char *s) {
     lprintf("%s\n", s);
     return 1;
 }
+
+int _close(int fd) { return -1; }
+int _fstat(int fd, void *st) { return -1; }
+int _isatty(int fd) { return 0; }
+int _lseek(int fd, int ptr, int dir) { return 0; }
+int _read(int fd, void *ptr, int len) { return -1; }
+int _write(int fd, const void *ptr, int len) { return -1; }
 
 } // extern "C"

@@ -131,7 +131,10 @@ extern m68ki_cpu_core PicoCpuMM68k, PicoCpuMS68k;
 
 // burn cycles while not in SekRun() and while in
 #define SekCyclesBurn(c)    Pico.t.m68c_cnt += c
-#define SekCyclesBurnRun(c) SekCyclesLeft -= c
+#define SekCyclesBurnRun(c) do { \
+  SekCyclesLeft -= (c); \
+  if (SekCyclesLeft < 0) SekCyclesLeft = 0; \
+} while(0)
 
 // note: sometimes may extend timeslice to delay an irq
 #define SekEndRun(after) if (SekCyclesLeft > (after)) { \

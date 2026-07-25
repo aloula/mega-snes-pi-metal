@@ -50,6 +50,38 @@ protected:
     }
 };
 
+// Custom stream buffer to write directly into preallocated memory buffer without heap allocation
+struct omembuf : std::streambuf {
+    omembuf(char* begin, size_t capacity) {
+        this->setp(begin, begin + capacity);
+    }
+
+    size_t size() const {
+        return pptr() - pbase();
+    }
+
+protected:
+    pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which = std::ios_base::out) override {
+        char* target = nullptr;
+        if (dir == std::ios_base::beg) {
+            target = pbase() + off;
+        } else if (dir == std::ios_base::cur) {
+            target = pptr() + off;
+        } else if (dir == std::ios_base::end) {
+            target = epptr() + off;
+        }
+        if (target < pbase() || target > epptr()) {
+            return pos_type(off_type(-1));
+        }
+        pbump(target - pptr());
+        return pos_type(target - pbase());
+    }
+
+    pos_type seekpos(pos_type pos, std::ios_base::openmode which = std::ios_base::out) override {
+        return seekoff(off_type(pos), std::ios_base::beg, which);
+    }
+};
+
 CNESOrchestrator::CNESOrchestrator(FATFS *pFileSystem)
     : m_pFileSystem(pFileSystem),
       m_pRomBuffer(nullptr),
@@ -392,18 +424,17 @@ void CNESOrchestrator::CaptureRewindState()
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
-            std::stringstream ss;
+            omembuf sbuf((char*)m_pRewindBuffers[m_nRewindWriteIdx], NES_REWIND_SLOT_CAPACITY);
+            std::ostream ss(&sbuf);
             Nes::Api::Machine machine(*m_pEmulator);
             Nes::Result ret = machine.SaveState(ss, Nes::Api::Machine::NO_COMPRESSION);
             if (ret == Nes::RESULT_OK || ret == Nes::RESULT_NOP) {
-                std::string state = ss.str();
-                size_t state_size = state.size();
+                size_t state_size = sbuf.size();
                 if (state_size == 0 || state_size > NES_REWIND_SLOT_CAPACITY) {
                     CLogger::Get()->Write("orchestrator", LogError, "NES rewind capture size out of bounds: %u bytes", (unsigned)state_size);
                     return;
                 }
 
-                memcpy(m_pRewindBuffers[m_nRewindWriteIdx], state.data(), state_size);
                 m_nRewindStateSizes[m_nRewindWriteIdx] = state_size;
                 m_nStateSize = state_size;
 
@@ -471,7 +502,7 @@ void CNESOrchestrator::ResetAudioAfterStateChange()
 
 bool CNESOrchestrator::VideoLockCallback(void* userData, Nes::Core::Video::Output& output)
 {
-    CNESOrchestrator* pSelf = (CNESOrchestrator*)userData;
+    (void)userData;
     int idx = g_SharedState.emu_write_idx;
     output.pixels = g_SharedState.emu_frame_buffer[idx];
     output.pitch = 512 * sizeof(u16); // Nestopia writes to a buffer with pitch of 512 shorts (we support SNES up to 512x480)
@@ -480,7 +511,8 @@ bool CNESOrchestrator::VideoLockCallback(void* userData, Nes::Core::Video::Outpu
 
 void CNESOrchestrator::VideoUnlockCallback(void* userData, Nes::Core::Video::Output& output)
 {
-    CNESOrchestrator* pSelf = (CNESOrchestrator*)userData;
+    (void)userData;
+    (void)output;
     int idx = g_SharedState.emu_write_idx;
     g_SharedState.game_w[idx] = 256;
     g_SharedState.game_h[idx] = 240;
@@ -519,7 +551,7 @@ void CNESOrchestrator::SoundUnlockCallback(void* userData, Nes::Core::Sound::Out
 
 bool CNESOrchestrator::InputPollCallback(void* userData, Nes::Core::Input::Controllers::Pad& pad, unsigned port)
 {
-    CNESOrchestrator* pSelf = (CNESOrchestrator*)userData;
+    (void)userData;
     u16 raw_pad = 0;
     if (port == 0) {
         raw_pad = g_SharedState.pad1;

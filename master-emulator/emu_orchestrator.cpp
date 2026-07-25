@@ -57,7 +57,7 @@ static size_t state_write(void *p, size_t size, size_t nmemb, void *file)
    return bsize;
 }
 
-static size_t state_skip(void *p, size_t size, size_t nmemb, void *file)
+static __attribute__((unused)) size_t state_skip(void *p, size_t size, size_t nmemb, void *file)
 {
    struct savestate_state *state = (struct savestate_state *)file;
    size_t bsize = size * nmemb;

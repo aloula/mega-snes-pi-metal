@@ -1,81 +1,190 @@
-# MEGA-SNES Pi Metal - OSD Color Overrides
+# MEGA-SNES Pi Metal - OSD Color Overrides (OLED Optimized Cool Themes)
 #
 # Optional: override specific OSD colors after the base theme is loaded.
 # Place this file at SD:/osd_colors.txt (or SD:/roms/osd_colors.txt).
+# To enable these overrides, set 'custom' in SD:/osd_theme.txt.
 #
-# Format:
-#   key = value
+# OLED TV Optimization Notes:
+#   - Outer background (screen_bg / background) is set to pure black (#000000)
+#     so OLED pixels turn completely off (0% power burn-in, infinite contrast ratio).
+#   - Container panels use ultra-dark cool tints (#04091A, #060F17, #0C061A, #021210).
+#   - All text and active highlights use high-contrast cool-toned spectrums
+#     (Cyan, Sapphire, Electric Violet, Mint, Glacier Ice, Metallic Steel).
 #
-# Value formats:
-#   - RGB555 triplet: r,g,b     (0..31 each)
-#   - RGB888 triplet: r,g,b     (0..255 each)
+# Value formats supported:
 #   - Hex RGB888: #RRGGBB
-#   - Hex RGB555: 0x7FFF
+#   - RGB888 triplet: r,g,b (0..255 each)
+#   - RGB555 triplet: r,g,b (0..31 each)
 #
-# Common keys:
-#   background, panel_background, border, text, warning_text
-#
-# Advanced keys:
-#   screen_bg, panel_bg, panel_border, title_text, separator
-#   tab_active_bg, tab_active_border, tab_active_text
-#   tab_inactive_bg, tab_inactive_border, tab_inactive_text
-#   list_selected_text, list_text, list_selected_bg
-#   scroll_track, scroll_thumb, footer_text
-#
-# Example overrides (uncomment to use):
-# background = 0,0,0
-# panel_background = #101820
-# border = 8,12,16
-# text = 26,28,30
-#
-# ------------------------------------------------------------
-# Example 1: High Contrast Dark
-# ------------------------------------------------------------
-# background = #000000
-# panel_background = #0A0A0A
-# border = #D0D0D0
-# text = #F0F0F0
-# tab_active_bg = #202020
-# tab_inactive_bg = #111111
-# list_selected_bg = #303030
-# warning_text = #FF8080
-#
-# ------------------------------------------------------------
-# Example 2: Warm Amber Terminal
-# ------------------------------------------------------------
-background = #000000
-panel_background = #140C00
-border = #523002
-title_text = #362b1b
-separator = #5A3200
 
-tab_active_bg = #3A2200
-tab_active_border = #b99c70
-tab_active_text = #908e8c
+# ------------------------------------------------------------
+# ACTIVE PRESET: Preset 1 - Cyberpunk Neon Cyan (OLED Night Drive)
+# ------------------------------------------------------------
+# background          = #000000
+# panel_background    = #060F17
+# border              = #00E5FF
+# title_text          = #E0F7FA
+# separator           = #005B7F
 
-tab_inactive_bg = #211200
-tab_inactive_border = #7A4A14
-tab_inactive_text = #ddc6a8
+# tab_active_bg       = #003B52
+# tab_active_border   = #00E5FF
+# tab_active_text     = #FFFFFF
 
-list_selected_text = #6a5d4a
-list_text = #aa8b64
-list_selected_bg = #4A2B00
+# tab_inactive_bg     = #031D28
+# tab_inactive_border = #007799
+# tab_inactive_text   = #80DEEA
 
-scroll_track = #2A1800
-scroll_thumb = #c2ad90
+# list_selected_text  = #FFFFFF
+# list_text           = #B2EBF2
+# list_selected_bg    = #0B2B40
 
-footer_text = #9e9b97
-warning_text = #d2b58b
+# scroll_track        = #041622
+# scroll_thumb        = #00B0FF
+
+# footer_text         = #80DEEA
+# warning_text        = #80E9FF
+
+
+# ------------------------------------------------------------
+# Preset 2: Royal Sapphire & Deep Cobalt (OLED Deep Blue)
+# (Uncomment lines below to activate this preset)
+# ------------------------------------------------------------
+# background          = #000000
+# panel_background    = #04091A
+# border              = #2979FF
+# title_text          = #EEF4FF
+# separator           = #1546A0
 #
+# tab_active_bg       = #153B8A
+# tab_active_border   = #448AFF
+# tab_active_text     = #FFFFFF
+#
+# tab_inactive_bg     = #0A1C44
+# tab_inactive_border = #1C54B2
+# tab_inactive_text   = #93B8FF
+#
+# list_selected_text  = #FFFFFF
+# list_text           = #C2D7FF
+# list_selected_bg    = #102852
+#
+# scroll_track        = #06112E
+# scroll_thumb        = #2979FF
+#
+# footer_text         = #93B8FF
+# warning_text        = #80B0FF
+
+
 # ------------------------------------------------------------
-# Example 3: Ice Blue
+# Preset 3: Electric Violet & Indigo Glow (OLED Synth-Cool)
+# (Uncomment lines below to activate this preset)
 # ------------------------------------------------------------
-# background = #000000
-# panel_background = #050B12
-# border = #6FB6FF
-# text = #a8bbfc
-# tab_active_bg = #102438
-# tab_inactive_bg = #0A1622
-# list_selected_text = #E7F3FF
-# list_selected_bg = #16324A
-# separator = #2A4C6D
+# background          = #000000
+# panel_background    = #0C061A
+# border              = #A855F7
+# title_text          = #F5EEFF
+# separator           = #581C87
+#
+# tab_active_bg       = #4C1D95
+# tab_active_border   = #C084FC
+# tab_active_text     = #FFFFFF
+#
+# tab_inactive_bg     = #261040
+# tab_inactive_border = #7E22CE
+# tab_inactive_text   = #D8B4FE
+#
+# list_selected_text  = #FFFFFF
+# list_text           = #E9D5FF
+# list_selected_bg    = #28124A
+#
+# scroll_track        = #120726
+# scroll_thumb        = #A855F7
+#
+# footer_text         = #D8B4FE
+# warning_text        = #F472B6
+
+
+# ------------------------------------------------------------
+# Preset 4: Polar Mint & Frost Teal (OLED Arctic Frost)
+# (Uncomment lines below to activate this preset)
+# ------------------------------------------------------------
+# background          = #000000
+# panel_background    = #031412
+# border              = #10B981
+# title_text          = #E6FFFA
+# separator           = #047857
+#
+# tab_active_bg       = #064E3B
+# tab_active_border   = #34D399
+# tab_active_text     = #FFFFFF
+#
+# tab_inactive_bg     = #022C24
+# tab_inactive_border = #059669
+# tab_inactive_text   = #A7F3D0
+#
+# list_selected_text  = #FFFFFF
+# list_text           = #C1F2DC
+# list_selected_bg    = #073B35
+#
+# scroll_track        = #021C18
+# scroll_thumb        = #10B981
+#
+# footer_text         = #A7F3D0
+# warning_text        = #6EE7B7
+
+
+# ------------------------------------------------------------
+# Preset 5: Glacier Ice & Steel Blue (OLED Ice Peak)
+# (Uncomment lines below to activate this preset)
+# ------------------------------------------------------------
+# background          = #000000
+# panel_background    = #09121D
+# border              = #38BDF8
+# title_text          = #F0F9FF
+# separator           = #0369A1
+#
+# tab_active_bg       = #0C4A6E
+# tab_active_border   = #7DD3FC
+# tab_active_text     = #FFFFFF
+#
+# tab_inactive_bg     = #07273C
+# tab_inactive_border = #0284C7
+# tab_inactive_text   = #BAE6FD
+#
+# list_selected_text  = #FFFFFF
+# list_text           = #E0F2FE
+# list_selected_bg    = #162E44
+#
+# scroll_track        = #0B1929
+# scroll_thumb        = #38BDF8
+#
+# footer_text         = #BAE6FD
+# warning_text        = #7DD3FC
+
+
+# ------------------------------------------------------------
+# Preset 6: Ultra-Monochrome Cool Slate (OLED Stealth Black)
+# (Uncomment lines below to activate this preset)
+# ------------------------------------------------------------
+background          = #000000
+panel_background    = #0B0E14
+border              = #64748B
+title_text          = #d2dbe4
+separator           = #334155
+
+tab_active_bg       = #1E293B
+tab_active_border   = #94A3B8
+tab_active_text     = #efefef
+
+tab_inactive_bg     = #0F172A
+tab_inactive_border = #475569
+tab_inactive_text   = #CBD5E1
+
+list_selected_text  = #f7f7f7
+list_text           = #E2E8F0
+list_selected_bg    = #1A2332
+
+scroll_track        = #080B10
+scroll_thumb        = #64748B
+
+footer_text         = #94A3B8
+warning_text        = #CBD5E1

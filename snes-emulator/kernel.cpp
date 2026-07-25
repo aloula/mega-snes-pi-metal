@@ -586,7 +586,7 @@ static boolean strcontains(const char *haystack, const char *needle) {
     return FALSE;
 }
 
-static boolean is6ButtonGame(const char *pRomName) {
+boolean is6ButtonGame(const char *pRomName) {
     if (!pRomName) return FALSE;
     char name[256];
     int len = 0;
@@ -1326,6 +1326,13 @@ static void UpdateScaleTable(int src_w) {
     }
 }
 
+static inline u16 BlendRGB565(u16 c1, u16 c2, u32 w2) {
+    u32 w1 = 32 - w2;
+    u32 rb = (((c1 & 0xF81F) * w1 + (c2 & 0xF81F) * w2) >> 5) & 0xF81F;
+    u32 g  = (((c1 & 0x07E0) * w1 + (c2 & 0x07E0) * w2) >> 5) & 0x07E0;
+    return (u16)(rb | g);
+}
+
 static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
     if (nPitch == SCREEN_WIDTH) {
         memcpy(pBuf, pBackBuffer, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u16));
@@ -1666,9 +1673,7 @@ void CKernel::RunVideoDomain() {
         } else {
             // Scale and draw game frame
             if (g_SharedState.video_frame_ready) {
-                g_SharedState.video_frame_ready = FALSE;
- 
-                // Wait for vertical sync before drawing directly to the hardware framebuffer to prevent tearing
+                // Wait for vertical sync before drawing directly to the hardware framebuffer to prevent tearing and flickering
                 pFB->WaitForVerticalSync();
 
                 if (was_in_menu) {
@@ -1717,16 +1722,7 @@ void CKernel::RunVideoDomain() {
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
                                 for (int x = 0; x < 640; x++) {
-                                    u16 c1 = src[idx1[x]];
-                                    u32 w = weight[x];
-                                    if (w > 0) {
-                                        u16 c2 = src[idx2[x]];
-                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        scanline_buf[x] = rb | g;
-                                    } else {
-                                        scanline_buf[x] = c1;
-                                    }
+                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
                                 memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                                 memcpy(dest2, scanline_buf, 640 * sizeof(u16));
@@ -1737,16 +1733,7 @@ void CKernel::RunVideoDomain() {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
                                 for (int x = 0; x < 640; x++) {
-                                    u16 c1 = src[idx1[x]];
-                                    u32 w = weight[x];
-                                    if (w > 0) {
-                                        u16 c2 = src[idx2[x]];
-                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        scanline_buf[x] = rb | g;
-                                    } else {
-                                        scanline_buf[x] = c1;
-                                    }
+                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
                                 memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
@@ -1763,16 +1750,7 @@ void CKernel::RunVideoDomain() {
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
                                 for (int x = 0; x < 640; x++) {
-                                    u16 c1 = src[idx1[x]];
-                                    u32 w = weight[x];
-                                    if (w > 0) {
-                                        u16 c2 = src[idx2[x]];
-                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        scanline_buf[x] = rb | g;
-                                    } else {
-                                        scanline_buf[x] = c1;
-                                    }
+                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
                                 memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                                 memcpy(dest2, scanline_buf, 640 * sizeof(u16));
@@ -1783,16 +1761,7 @@ void CKernel::RunVideoDomain() {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
                                 for (int x = 0; x < 640; x++) {
-                                    u16 c1 = src[idx1[x]];
-                                    u32 w = weight[x];
-                                    if (w > 0) {
-                                        u16 c2 = src[idx2[x]];
-                                        u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                        u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                        scanline_buf[x] = rb | g;
-                                    } else {
-                                        scanline_buf[x] = c1;
-                                    }
+                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                                 }
                                 memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
@@ -1813,16 +1782,7 @@ void CKernel::RunVideoDomain() {
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                         u16 *dest2 = dest1 + nPitch;
                         for (int x = 0; x < 640; x++) {
-                            u16 c1 = src[idx1[x]];
-                            u32 w = weight[x];
-                            if (w > 0) {
-                                u16 c2 = src[idx2[x]];
-                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                scanline_buf[x] = rb | g;
-                            } else {
-                                scanline_buf[x] = c1;
-                            }
+                            scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                         }
                         memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                         memcpy(dest2, scanline_buf, 640 * sizeof(u16));
@@ -1891,16 +1851,7 @@ void CKernel::RunVideoDomain() {
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
                         u16 *dest2 = dest1 + nPitch;
                         for (int x = 0; x < 640; x++) {
-                            u16 c1 = src[idx1[x]];
-                            u32 w = weight[x];
-                            if (w > 0) {
-                                u16 c2 = src[idx2[x]];
-                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                scanline_buf[x] = rb | g;
-                            } else {
-                                scanline_buf[x] = c1;
-                            }
+                            scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                         }
                         memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                         memcpy(dest2, scanline_buf, 640 * sizeof(u16));
@@ -1939,25 +1890,13 @@ void CKernel::RunVideoDomain() {
 
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y) * 512 + 32;
                         for (int x = 0; x < 640; x++) {
-                            u16 c1 = src[idx1[x]];
-                            u32 w = weight[x];
-                            if (w > 0) {
-                                u16 c2 = src[idx2[x]];
-                                u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                scanline_buf[x] = rb | g;
-                            } else {
-                                scanline_buf[x] = c1;
-                            }
+                            scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                         }
                         memcpy(dest, scanline_buf, 640 * sizeof(u16));
                     }
                 } else {
                     // Mega Drive video rendering
-                    if (game_h > 320) game_h = 320;
-                    if (start_line + game_h > 320) {
-                        game_h = 320 - start_line;
-                    }
+                    if (game_h > 240) game_h = 240;
                     if (game_h < 1) {
                         start_line = 0;
                         game_h = 224;
@@ -2001,22 +1940,15 @@ void CKernel::RunVideoDomain() {
                             u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                             u16 *dest2 = dest1 + nPitch;
                             for (int x = 0; x < 640; x++) {
-                                u16 c1 = src[idx1[x]];
-                                u32 w = weight[x];
-                                if (w > 0) {
-                                    u16 c2 = src[idx2[x]];
-                                    u32 rb = (((c1 & 0xF81F) * (32 - w) + (c2 & 0xF81F) * w) >> 5) & 0xF81F;
-                                    u32 g  = (((c1 & 0x07E0) * (32 - w) + (c2 & 0x07E0) * w) >> 5) & 0x07E0;
-                                    scanline_buf[x] = rb | g;
-                                } else {
-                                    scanline_buf[x] = c1;
-                                }
+                                scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
                             }
                             memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                             memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                         }
                     }
                 }
+                DataMemBarrier();
+                g_SharedState.video_frame_ready = FALSE;
             } else {
                 // Short adaptive wait to keep latency low without pegging the core.
                 CTimer::SimpleusDelay(5);
@@ -2298,9 +2230,9 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
             g_SharedState.pad1 = pad;
             DataMemBarrier();
         }
-        if (pad != last_pad2) {
-            last_pad2 = pad;
-            g_SharedState.pad2 = pad;
+        if (g_SharedState.pad2 != 0) {
+            last_pad2 = 0;
+            g_SharedState.pad2 = 0;
             DataMemBarrier();
         }
         return;

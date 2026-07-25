@@ -99,16 +99,16 @@ unsigned int p32x_event_times[1] = {0};
 
 static const char FromOrchestrator[] = "orchestrator";
 
-// Audio temp buffer for Picodrive output
-static s16 g_AudioTempBuf[44100 / 50 * 2];
+// Audio temp buffer for Picodrive output (64KB buffer)
+static s16 g_AudioTempBuf[32768];
 static u32 s_nAudioMuteFrames = 0;
 static void EmuSoundCallback(int len);
-static const unsigned kMDAudioTempStereoCapacity = sizeof(g_AudioTempBuf) / sizeof(g_AudioTempBuf[0]) / 2;
 
 static void ApplyMDPicoConfig() {
     PicoIn.opt = POPT_EN_FM | POPT_EN_PSG | POPT_EN_Z80 | POPT_EN_STEREO | POPT_FM_YM2612 |
                  POPT_EN_MCD_PCM | POPT_EN_MCD_CDDA | POPT_EN_MCD_GFX |
-                 POPT_ACC_SPRITES;
+                 POPT_ACC_SPRITES | POPT_DIS_IDLE_DET;
+    PicoIn.skipFrame = 0;
     PicoIn.sndRate = 44100;
     PicoIn.sndOut = g_AudioTempBuf;
     PicoIn.writeSound = EmuSoundCallback;
@@ -122,17 +122,20 @@ static void ResetMDAudioAfterStateChange() {
 
 // Sound callback
 static void EmuSoundCallback(int len) {
-    // len is in bytes. Interleaved stereo 16-bit PCM (4 bytes per sample)
-    unsigned num_stereo_samples = len / 4;
-    if (num_stereo_samples > kMDAudioTempStereoCapacity) {
-        num_stereo_samples = kMDAudioTempStereoCapacity;
+    if (len <= 0) return;
+    unsigned num_bytes = (unsigned)len;
+    if (num_bytes > sizeof(g_AudioTempBuf)) {
+        num_bytes = sizeof(g_AudioTempBuf);
     }
+    unsigned num_stereo_samples = num_bytes / 4;
+    if (num_stereo_samples == 0) return;
+
     if (s_nAudioMuteFrames > 0) {
         s_nAudioMuteFrames--;
-        memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
+        memset(g_AudioTempBuf, 0, num_bytes);
     }
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
-    memset(g_AudioTempBuf, 0, num_stereo_samples * 4);
+    memset(g_AudioTempBuf, 0, num_bytes);
 }
 
 // plat_mmap stubs
@@ -352,12 +355,17 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Configuring emulator draw formats, controls, and power...");
     
+    // Re-apply Pico config after PicoLoadMedia to ensure quirks remain active
+    ApplyMDPicoConfig();
+
     // Set draw format
     PicoDrawSetOutFormat(PDF_RGB555, 0);
 
-    // Configure input ports as 6-button gamepads
-    PicoSetInputDevice(0, PICO_INPUT_PAD_6BTN);
-    PicoSetInputDevice(1, PICO_INPUT_PAD_6BTN);
+    // Configure input ports as 3-button or 6-button gamepads based on game requirements
+    extern boolean is6ButtonGame(const char *pRomName);
+    enum input_device dev_type = is6ButtonGame(pRomName) ? PICO_INPUT_PAD_6BTN : PICO_INPUT_PAD_3BTN;
+    PicoSetInputDevice(0, dev_type);
+    PicoSetInputDevice(1, dev_type);
 
     // Power on and reset
     PicoPower();
@@ -400,7 +408,8 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     temp_state.pos = 0;
     int size_ret = PicoStateFP(&temp_state, 1, nullptr, state_skip, nullptr, state_fseek);
     if (size_ret == 0 && temp_state.pos > 0) {
-        m_nStateSize = temp_state.pos;
+        m_nStateSize = temp_state.pos + 262144; // Add 256KB safety margin for dynamic runtime state growth
+        if (m_nStateSize < 512 * 1024) m_nStateSize = 512 * 1024;
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "PicoDrive state size detected: %u bytes", m_nStateSize);
     } else {
         m_nStateSize = 512 * 1024; // Fallback to 512KB
@@ -455,6 +464,12 @@ void CMDOrchestrator::RunFrame() {
 
     // Run emulator frame
     PicoFrame();
+
+    // Query active VDP width and height after frame execution
+    int is_32col = (Pico.est.rendstatus & PDRAW_32_COLS) || !(Pico.video.reg[12] & 1);
+    g_SharedState.game_w[idx] = is_32col ? 256 : 320;
+    g_SharedState.game_h[idx] = (Pico.video.reg[1] & 8) ? 240 : 224;
+    g_SharedState.start_line[idx] = (Pico.video.reg[1] & 8) ? 0 : 8;
 
     // Capture rewind state if 1 second elapsed
     CaptureRewindState();
@@ -526,6 +541,9 @@ boolean CMDOrchestrator::IsPAL() const {
 void CMDOrchestrator::CaptureRewindState() {
     if (!m_bRomLoaded || m_nStateSize == 0) return;
 
+    // Skip rewind capture while screen display is blanked (e.g. during stage transitions / loading)
+    if (!(Pico.video.reg[1] & 0x40)) return;
+
     m_nRewindFrameCounter++;
     u32 framesPerSec = IsPAL() ? 50 : 60;
     if (m_nRewindFrameCounter >= framesPerSec) {
@@ -544,8 +562,6 @@ void CMDOrchestrator::CaptureRewindState() {
                 if (m_nRewindCount < 6) {
                     m_nRewindCount++;
                 }
-            } else {
-                CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to capture rewind state! error=%d", ret);
             }
         }
     }
