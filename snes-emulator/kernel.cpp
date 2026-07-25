@@ -2092,6 +2092,9 @@ void CKernel::RunAudioDomain() {
         if (avail > 0) {
             if (avail > 1024) avail = 1024;
             unsigned read = g_SharedState.audio_ring_buffer.Read(local_buf, avail);
+            if (g_SharedState.screensaver_active) {
+                memset(local_buf, 0, read * 4);
+            }
             pSoundDevice->Write(local_buf, read * 4); // each stereo sample is 4 bytes
         } else {
             // Audio starvation wait: keep short to reduce audible gaps while still yielding CPU.
