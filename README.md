@@ -40,7 +40,7 @@ To load games and BIOS files, organize your SD card root directories as follows:
 SD:/
  ├── cmdline.txt             (Boot parameters including screensaver timeout)
  ├── system_order.txt        (Optional text file to customize console order and default boot system)
- ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, custom)
+ ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, custom, all)
  ├── osd_colors.txt          (Optional text file to override OSD element colors: background, border, text, etc.)
  ├── bios/
  │    ├── bios_CD_U.bin      (Sega CD - US Region BIOS)
@@ -64,7 +64,7 @@ SD:/
 > **Customizing System Order**: Create or edit `system_order.txt` on the SD card root to set your preferred system cycling order for **L** / **R** shoulder buttons. The first system in the list will automatically become the default boot system on startup (e.g., `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]
-> **Customizing OSD Theme**: Create or edit `osd_theme.txt` on the SD card root and set one of these values: `default`, `green` (old-computer CRT style), `grayscale`, or `custom`.
+> **Customizing OSD Theme**: Create or edit `osd_theme.txt` on the SD card root and set one of these values: `default`, `green` (old-computer CRT style), `grayscale`, `custom`, or `all` (cycles through default, green, and grayscale on every power cycle).
 
 > [!TIP]
 > **Customizing OSD Colors**: Set `osd_theme.txt` to `custom`, then create or edit `osd_colors.txt` on the SD card root using `key=value` lines (example: `background=#000000`, `border=8,12,16`, `text=26,28,30`). The repository includes multiple ready-to-copy palettes in `osd_colors.txt` (High Contrast Dark, Warm Amber Terminal, Ice Blue).

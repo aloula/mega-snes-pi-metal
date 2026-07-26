@@ -332,6 +332,56 @@ static boolean ApplyOSDColorOverride(const char *key, u16 color) {
     return FALSE;
 }
 
+static void HandleCycleTheme(FATFS *pFileSystem) {
+    FIL file;
+    int currentIdx = 0;
+    const char *statePaths[] = { "SD:/osd_theme_state.txt", "SD:/roms/osd_theme_state.txt", nullptr };
+    const char *stateReadPath = nullptr;
+
+    for (int i = 0; statePaths[i] != nullptr; i++) {
+        if (f_open(&file, statePaths[i], FA_READ) == FR_OK) {
+            stateReadPath = statePaths[i];
+            char buf[32];
+            UINT bytesRead = 0;
+            if (f_read(&file, buf, sizeof(buf) - 1, &bytesRead) == FR_OK && bytesRead > 0) {
+                buf[bytesRead] = '\0';
+                int val = -1;
+                if (sscanf(buf, "%d", &val) == 1 && val >= 0 && val < 3) {
+                    currentIdx = val;
+                }
+            }
+            f_close(&file);
+            break;
+        }
+    }
+
+    switch (currentIdx) {
+        case 0:
+            s_OSDThemeActive = s_OSDThemeDefault;
+            break;
+        case 1:
+            s_OSDThemeActive = s_OSDThemeGreenCRT;
+            break;
+        case 2:
+            s_OSDThemeActive = s_OSDThemeGrayscale;
+            break;
+        default:
+            s_OSDThemeActive = s_OSDThemeDefault;
+            break;
+    }
+    s_bUseCustomOSDColors = FALSE;
+
+    int nextIdx = (currentIdx + 1) % 3;
+    const char *writePath = stateReadPath ? stateReadPath : "SD:/osd_theme_state.txt";
+    if (f_open(&file, writePath, FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
+        char buf[16];
+        int len = snprintf(buf, sizeof(buf), "%d\n", nextIdx);
+        UINT bytesWritten = 0;
+        f_write(&file, buf, (UINT)len, &bytesWritten);
+        f_close(&file);
+    }
+}
+
 static void LoadOSDTheme(FATFS *pFileSystem) {
     FIL file;
     const char *configPaths[] = { "SD:/osd_theme.txt", "SD:/roms/osd_theme.txt", nullptr };
@@ -387,6 +437,14 @@ static void LoadOSDTheme(FATFS *pFileSystem) {
                 s_OSDThemeActive = s_OSDThemeDefault;
                 s_bUseCustomOSDColors = TRUE;
                 f_close(&file);
+                return;
+            }
+            if (strcmp(trimmed, "all") == 0 || strcmp(trimmed, "all_colors") == 0 ||
+                strcmp(trimmed, "all-colors") == 0 || strcmp(trimmed, "allcolors") == 0 ||
+                strcmp(trimmed, "cycle") == 0 || strcmp(trimmed, "rotate") == 0 ||
+                strcmp(trimmed, "all_themes") == 0 || strcmp(trimmed, "all-themes") == 0) {
+                f_close(&file);
+                HandleCycleTheme(pFileSystem);
                 return;
             }
             const OSDThemeColors *theme = nullptr;

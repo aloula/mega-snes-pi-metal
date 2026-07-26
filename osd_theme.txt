@@ -6,6 +6,7 @@
 #   green      -> old computer CRT-style green phosphor
 #   grayscale  -> monochrome grayscale
 #   custom     -> use cool OLED color presets from osd_colors.txt
+#   all        -> cycle through all themes (default, green, grayscale) on every power cycle
 #
 # You can write one value per line, or comma/semicolon/pipe-separated.
 # First valid value found is applied.

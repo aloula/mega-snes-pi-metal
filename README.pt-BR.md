@@ -40,7 +40,7 @@ Para carregar os jogos e arquivos de BIOS, organize os diretórios na raiz do se
 SD:/
  ├── cmdline.txt             (Parâmetros de boot, incluindo tempo limite do protetor de tela)
  ├── system_order.txt        (Arquivo de texto opcional para personalizar a ordem dos consoles e o sistema padrão no boot)
- ├── osd_theme.txt           (Arquivo de texto opcional para escolher o tema do OSD: default, green, grayscale, custom)
+ ├── osd_theme.txt           (Arquivo de texto opcional para escolher o tema do OSD: default, green, grayscale, custom, all)
  ├── osd_colors.txt          (Arquivo de texto opcional para sobrescrever cores do OSD: fundo, borda, texto etc.)
  ├── bios/
  │    ├── bios_CD_U.bin      (BIOS do Sega CD - Região EUA)
@@ -64,7 +64,7 @@ SD:/
 > **Personalização da Ordem dos Sistemas**: Crie ou edite o arquivo `system_order.txt` na raiz do cartão SD para definir a ordem preferida de alternância dos consoles pelos botões superiores **L** / **R**. O primeiro sistema listado no arquivo se tornará automaticamente o console inicial padrão ao ligar o Pi (ex.: `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]
-> **Personalização do Tema do OSD**: Crie ou edite o arquivo `osd_theme.txt` na raiz do cartão SD e defina um destes valores: `default`, `green` (estilo CRT de computador antigo), `grayscale` ou `custom`.
+> **Personalização do Tema do OSD**: Crie ou edite o arquivo `osd_theme.txt` na raiz do cartão SD e defina um destes valores: `default`, `green` (estilo CRT de computador antigo), `grayscale`, `custom` ou `all` (alterna entre default, green e grayscale a cada ciclo de energia/inicialização).
 
 > [!TIP]
 > **Personalização de Cores do OSD**: Defina `osd_theme.txt` como `custom` e então crie ou edite `osd_colors.txt` na raiz do cartão SD usando linhas `chave=valor` (exemplo: `background=#000000`, `border=8,12,16`, `text=26,28,30`). O repositório já inclui paletas prontas para copiar em `osd_colors.txt` (High Contrast Dark, Warm Amber Terminal, Ice Blue).
