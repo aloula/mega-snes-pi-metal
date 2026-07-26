@@ -1476,12 +1476,8 @@ void CKernel::RunVideoDomain() {
                 // Synchronize data cache for Core 1 to see the raw DMA bytes cleanly
                 CleanAndInvalidateDataCacheRange((u32)s_SplashBuf, bytesToRead);
 
-                // Keep some safe space at the bottom to avoid TV overscan cutting the footer.
-                const int splash_safe_bottom = 12;
+                // Vertically center splash image on screen
                 int start_y = (SCREEN_HEIGHT - img_h) / 2;
-                if (start_y + img_h > SCREEN_HEIGHT - splash_safe_bottom) {
-                    start_y = (SCREEN_HEIGHT - splash_safe_bottom) - img_h;
-                }
                 int src_y_offset = 0;
                 if (start_y < 0) {
                     src_y_offset = -start_y;
