@@ -576,14 +576,13 @@ void CMDOrchestrator::CaptureRewindState() {
 void CMDOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    // The oldest state is index 0 if not full, or m_nRewindWriteIdx if full (exactly 5s ago)
-    int loadIdx = (m_nRewindCount == 6) ? m_nRewindWriteIdx : 0;
-    size_t loadSize = m_nRewindStateSizes[loadIdx];
+    int prevIdx = (m_nRewindWriteIdx + 6 - 1) % 6;
+    size_t loadSize = m_nRewindStateSizes[prevIdx];
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD state... loading index %d (size %u)", loadIdx, (unsigned)loadSize);
-    if (m_pRewindBuffers[loadIdx] != nullptr && loadSize > 0) {
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD/SegaCD state... loading index %d (size %u)", prevIdx, (unsigned)loadSize);
+    if (m_pRewindBuffers[prevIdx] != nullptr && loadSize > 0) {
         struct savestate_state state = { 0 };
-        state.load_buf = (const char *)m_pRewindBuffers[loadIdx];
+        state.load_buf = (const char *)m_pRewindBuffers[prevIdx];
         state.save_buf = nullptr;
         state.size = loadSize;
         state.pos = 0;
@@ -591,12 +590,8 @@ void CMDOrchestrator::RewindState() {
         int ret = PicoStateFP(&state, 0, state_read, nullptr, state_eof, state_fseek);
         if (ret == 0) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
-            // Reset rewind buffers to clean slate with current loaded state
-            m_nRewindWriteIdx = 0;
-            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], loadSize);
-            m_nRewindStateSizes[0] = loadSize;
-            m_nRewindWriteIdx = 1;
-            m_nRewindCount = 1;
+            m_nRewindWriteIdx = prevIdx;
+            m_nRewindCount--;
             m_nRewindFrameCounter = 0;
             ResetMDAudioAfterStateChange();
         } else {

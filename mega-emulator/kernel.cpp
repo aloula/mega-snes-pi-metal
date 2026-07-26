@@ -1170,20 +1170,45 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         g_SharedState.escape_pressed = TRUE;
     }
 
-    // SELECT + D-pad / Shoulder combos for state save/load/rewind
-    if (pState->buttons & GamePadButtonSelect) {
+    // SELECT + D-pad / Shoulder combos for state save/load/rewind (edge-triggered)
+    static boolean s_bRewindComboPressed = FALSE;
+    static boolean s_bSaveComboPressed = FALSE;
+    static boolean s_bLoadComboPressed = FALSE;
+
+    if (pState->buttons & (GamePadButtonSelect | GamePadButtonMinus)) {
         if (pad & (1 << 0)) { // D-pad Up -> Rewind state
-            g_SharedState.rewind_requested = TRUE;
+            if (!s_bRewindComboPressed) {
+                s_bRewindComboPressed = TRUE;
+                g_SharedState.rewind_requested = TRUE;
+            }
             pad = 0; // Mask inputs when combo is held
+        } else {
+            s_bRewindComboPressed = FALSE;
         }
+
         if ((pad & (1 << 2)) || (pState->buttons & (GamePadButtonLB | GamePadButtonLT))) { // D-pad Left or L Shoulder -> Save state
-            g_SharedState.save_state_requested = TRUE;
+            if (!s_bSaveComboPressed) {
+                s_bSaveComboPressed = TRUE;
+                g_SharedState.save_state_requested = TRUE;
+            }
             pad = 0; // Mask inputs when combo is held
+        } else {
+            s_bSaveComboPressed = FALSE;
         }
+
         if ((pad & (1 << 3)) || (pState->buttons & (GamePadButtonRB | GamePadButtonRT))) { // D-pad Right or R Shoulder -> Load state
-            g_SharedState.load_state_requested = TRUE;
+            if (!s_bLoadComboPressed) {
+                s_bLoadComboPressed = TRUE;
+                g_SharedState.load_state_requested = TRUE;
+            }
             pad = 0; // Mask inputs when combo is held
+        } else {
+            s_bLoadComboPressed = FALSE;
         }
+    } else {
+        s_bRewindComboPressed = FALSE;
+        s_bSaveComboPressed = FALSE;
+        s_bLoadComboPressed = FALSE;
     }
 
     static u16 last_pad1 = 0xFFFF;
