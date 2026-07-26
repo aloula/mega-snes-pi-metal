@@ -106,10 +106,10 @@ INCS     = -I../picodrive -I../picodrive/pico -I../picodrive/cpu -I../picodrive/
            -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
 OPTIMIZE = -O3 -ffast-math -fomit-frame-pointer -ftree-vectorize -funroll-loops -fno-strict-aliasing
-ARCH_FLAGS = -mcpu=cortex-a53 -mfpu=neon-fp-armv8 -mfloat-abi=hard
+ARCH_FLAGS = -mcpu=cortex-a76 -mfpu=neon-fp-armv8 -mfloat-abi=hard
 
-CFLAGS   += $(ARCH_FLAGS) $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2
-CPPFLAGS += $(ARCH_FLAGS) $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions
+CFLAGS   += $(OPTIMIZE) $(ARCH_FLAGS) $(INCS) $(DEFS) -Wno-unused-result -Wno-write-strings -falign-functions=2
+CPPFLAGS += $(OPTIMIZE) $(ARCH_FLAGS) $(INCS) $(DEFS) -falign-functions=2 -std=gnu++14 -fno-rtti -fno-exceptions
 AFLAGS   += $(ARCH_FLAGS) $(INCS) $(DEFS)
 
 LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \

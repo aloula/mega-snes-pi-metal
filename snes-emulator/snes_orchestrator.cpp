@@ -384,7 +384,7 @@ void CSNESOrchestrator::RunFrame() {
     while (avail > 0) {
         int chunk = avail;
         if (chunk > 2048) chunk = 2048;
-        static s16 local_audio_buf[2048];
+        s16 local_audio_buf[2048];
         S9xMixSamples((uint8 *)local_audio_buf, chunk);
         if (mute_active) {
             memset(local_audio_buf, 0, chunk * sizeof(s16));
