@@ -125,7 +125,6 @@ static void EmuSoundCallback(int len) {
     if (num_stereo_samples == 0) return;
 
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
-    memset(g_AudioTempBuf, 0, num_bytes);
 }
 
 // lprintf implementation

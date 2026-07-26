@@ -874,7 +874,6 @@ void CKernel::RunVideoDomain() {
                 CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
             }
             pFB->WaitForVerticalSync();
-            CTimer::SimpleMsDelay(16);
         } else {
             // Scale and draw game frame
             if (g_SharedState.video_frame_ready) {
