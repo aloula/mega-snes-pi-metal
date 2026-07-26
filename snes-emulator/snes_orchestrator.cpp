@@ -156,7 +156,7 @@ CSNESOrchestrator::CSNESOrchestrator(FATFS *pFileSystem)
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
     m_nAudioMuteFrames = 0;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 6; i++) {
         m_pRewindBuffers[i] = nullptr;
     }
 }
@@ -165,7 +165,7 @@ CSNESOrchestrator::~CSNESOrchestrator() {
     if (m_pRomBuffer) {
         delete[] m_pRomBuffer;
     }
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 6; i++) {
         if (m_pRewindBuffers[i] != nullptr) {
             delete[] m_pRewindBuffers[i];
             m_pRewindBuffers[i] = nullptr;
@@ -286,7 +286,7 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "LoadROM successfully completed!");
 
     // Free existing rewind buffers if any
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 6; i++) {
         if (m_pRewindBuffers[i] != nullptr) {
             delete[] m_pRewindBuffers[i];
             m_pRewindBuffers[i] = nullptr;
@@ -295,15 +295,14 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     m_nRewindWriteIdx = 0;
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
-    m_nStateSize = 0;
     m_nAudioMuteFrames = 0;
 
     m_nStateSize = S9xFreezeSize();
     if (m_nStateSize == 0) m_nStateSize = 512 * 1024;
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Snes9x state size detected: %u bytes", m_nStateSize);
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (10 slots of %u bytes)", m_nStateSize);
-    for (int i = 0; i < 10; i++) {
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
+    for (int i = 0; i < 6; i++) {
         m_pRewindBuffers[i] = new u8[m_nStateSize];
     }
 
@@ -447,13 +446,14 @@ void CSNESOrchestrator::CaptureRewindState() {
     if (!m_bRomLoaded || m_nStateSize == 0) return;
 
     m_nRewindFrameCounter++;
-    if (m_nRewindFrameCounter >= 30) {
+    u32 framesPerSec = IsPAL() ? 50 : 60;
+    if (m_nRewindFrameCounter >= framesPerSec) {
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
             S9xFreezeGameMem(m_pRewindBuffers[m_nRewindWriteIdx], m_nStateSize);
-            m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 10;
-            if (m_nRewindCount < 10) {
+            m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 6;
+            if (m_nRewindCount < 6) {
                 m_nRewindCount++;
             }
         }
@@ -463,15 +463,17 @@ void CSNESOrchestrator::CaptureRewindState() {
 void CSNESOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    int loadIdx = (m_nRewindWriteIdx + 10 - 1) % 10;
+    // Jump 5 seconds back (oldest state in 6-slot buffer)
+    int loadIdx = (m_nRewindCount == 6) ? m_nRewindWriteIdx : 0;
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding SNES state... loading index %d", loadIdx);
     if (m_pRewindBuffers[loadIdx] != nullptr) {
         int ret = S9xUnfreezeGameMem(m_pRewindBuffers[loadIdx], m_nStateSize);
         if (ret == 1 || ret == TRUE) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
-            m_nRewindWriteIdx = loadIdx;
-            m_nRewindCount--;
+            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], m_nStateSize);
+            m_nRewindWriteIdx = 1;
+            m_nRewindCount = 1;
             m_nRewindFrameCounter = 0;
             ResetAudioAfterStateChange();
         } else {

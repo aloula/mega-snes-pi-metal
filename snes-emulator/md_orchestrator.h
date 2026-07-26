@@ -26,9 +26,9 @@ private:
     boolean m_bRomLoaded;
     char m_CurrentRomName[128];
 
-    // 5 seconds state buffer (10 slots, captured twice per second)
-    u8 *m_pRewindBuffers[10];
-    size_t m_nRewindStateSizes[10];
+    // 5 seconds state buffer (6 slots, captured once per second)
+    u8 *m_pRewindBuffers[6];
+    size_t m_nRewindStateSizes[6];
     int m_nRewindWriteIdx;
     int m_nRewindCount;
     u32 m_nRewindFrameCounter;
