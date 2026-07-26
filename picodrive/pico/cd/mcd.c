@@ -10,6 +10,7 @@
 #include "../pico_int.h"
 #include "../sound/ym2612.h"
 #include "megasd.h"
+#include "cdd.h"
 
 extern unsigned char formatted_bram[4*0x10];
 
@@ -448,6 +449,15 @@ void pcd_state_loaded(void)
   unsigned int cycles;
 
   pcd_state_loaded_mem();
+
+  // Re-bind or nullify CDDA stream pointer on state load to prevent stale pointer crashes
+  if (Pico_mcd) {
+    if (cdd.status == CD_PLAY && cdd.index >= 0 && cdd.index < cdd.toc.last && (cdd.toc.tracks[cdd.index].type & CT_AUDIO)) {
+      Pico_mcd->cdda_stream = cdd.toc.tracks[cdd.index].fd;
+    } else {
+      Pico_mcd->cdda_stream = NULL;
+    }
+  }
 
   memset(Pico_mcd->pcm_mixbuf, 0, sizeof(Pico_mcd->pcm_mixbuf));
   Pico_mcd->pcm_mixbuf_dirty = 0;

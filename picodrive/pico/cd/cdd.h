@@ -38,6 +38,9 @@
 #ifndef _HW_CDD_
 #define _HW_CDD_
 
+#include "../pico_types.h"
+#include "genplus_macros.h"
+
 #ifdef USE_LIBTREMOR
 #include "tremor/ivorbisfile.h"
 #endif
