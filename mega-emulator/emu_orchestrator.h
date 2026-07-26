@@ -28,6 +28,7 @@ private:
 
     // 5 seconds state buffer (6 slots, captured once per second)
     u8 *m_pRewindBuffers[6];
+    size_t m_nRewindStateSizes[6];
     int m_nRewindWriteIdx;
     int m_nRewindCount;
     u32 m_nRewindFrameCounter;
