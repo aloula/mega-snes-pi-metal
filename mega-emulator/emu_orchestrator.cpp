@@ -539,9 +539,6 @@ boolean CEmuOrchestrator::IsPAL() const {
 void CEmuOrchestrator::CaptureRewindState() {
     if (!m_bRomLoaded || m_nStateSize == 0) return;
 
-    // Skip rewind capture while screen display is blanked (e.g. during stage transitions / loading)
-    if (!(Pico.video.reg[1] & 0x40)) return;
-
     m_nRewindFrameCounter++;
     if (m_nRewindFrameCounter >= 30) { // Capture snapshot every 0.5s (30 frames at 60 FPS)
         m_nRewindFrameCounter = 0;
@@ -570,13 +567,13 @@ void CEmuOrchestrator::CaptureRewindState() {
 void CEmuOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    int prevIdx = (m_nRewindWriteIdx + 10 - 1) % 10;
-    size_t loadSize = m_nRewindStateSizes[prevIdx];
+    int loadIdx = (m_nRewindWriteIdx + 10 - 1) % 10;
+    size_t loadSize = m_nRewindStateSizes[loadIdx];
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD/SegaCD state... loading index %d (size %u)", prevIdx, (unsigned)loadSize);
-    if (m_pRewindBuffers[prevIdx] != nullptr && loadSize > 0) {
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD/SegaCD state... loading index %d (size %u)", loadIdx, (unsigned)loadSize);
+    if (m_pRewindBuffers[loadIdx] != nullptr && loadSize > 0) {
         struct savestate_state state = { 0 };
-        state.load_buf = (const char *)m_pRewindBuffers[prevIdx];
+        state.load_buf = (const char *)m_pRewindBuffers[loadIdx];
         state.save_buf = nullptr;
         state.size = loadSize;
         state.pos = 0;
@@ -584,10 +581,8 @@ void CEmuOrchestrator::RewindState() {
         int ret = PicoStateFP(&state, 0, state_read, nullptr, state_eof, state_fseek);
         if (ret == 0) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
-            m_nRewindWriteIdx = prevIdx;
-            if (m_nRewindCount > 1) {
-                m_nRewindCount--;
-            }
+            m_nRewindWriteIdx = loadIdx;
+            m_nRewindCount--;
             m_nRewindFrameCounter = 0;
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);

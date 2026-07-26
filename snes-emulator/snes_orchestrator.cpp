@@ -298,16 +298,9 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     m_nStateSize = 0;
     m_nAudioMuteFrames = 0;
 
-    // Detect state size using S9xFreezeGameMem dry run (size = 0)
-    uint32 temp_size = 0;
-    S9xFreezeGameMem(nullptr, temp_size);
-    if (temp_size > 0) {
-        m_nStateSize = temp_size;
-        CLogger::Get()->Write(FromOrchestrator, LogNotice, "Snes9x state size detected: %u bytes", m_nStateSize);
-    } else {
-        m_nStateSize = 512 * 1024; // Fallback to 512KB
-        CLogger::Get()->Write(FromOrchestrator, LogWarning, "Snes9x state size detection failed, using fallback: %u bytes", m_nStateSize);
-    }
+    m_nStateSize = S9xFreezeSize();
+    if (m_nStateSize == 0) m_nStateSize = 512 * 1024;
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Snes9x state size detected: %u bytes", m_nStateSize);
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (10 slots of %u bytes)", m_nStateSize);
     for (int i = 0; i < 10; i++) {
@@ -470,17 +463,15 @@ void CSNESOrchestrator::CaptureRewindState() {
 void CSNESOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    int prevIdx = (m_nRewindWriteIdx + 10 - 1) % 10;
+    int loadIdx = (m_nRewindWriteIdx + 10 - 1) % 10;
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding SNES state... loading index %d", prevIdx);
-    if (m_pRewindBuffers[prevIdx] != nullptr) {
-        int ret = S9xUnfreezeGameMem(m_pRewindBuffers[prevIdx], m_nStateSize);
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding SNES state... loading index %d", loadIdx);
+    if (m_pRewindBuffers[loadIdx] != nullptr) {
+        int ret = S9xUnfreezeGameMem(m_pRewindBuffers[loadIdx], m_nStateSize);
         if (ret == 1 || ret == TRUE) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
-            m_nRewindWriteIdx = prevIdx;
-            if (m_nRewindCount > 1) {
-                m_nRewindCount--;
-            }
+            m_nRewindWriteIdx = loadIdx;
+            m_nRewindCount--;
             m_nRewindFrameCounter = 0;
             ResetAudioAfterStateChange();
         } else {
