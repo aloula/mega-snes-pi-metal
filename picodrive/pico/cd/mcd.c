@@ -450,10 +450,10 @@ void pcd_state_loaded(void)
 
   pcd_state_loaded_mem();
 
-  // Re-bind or nullify CDDA stream pointer on state load to prevent stale pointer crashes
+  // Re-bind or nullify CDDA stream pointer on state load to resume CD audio properly
   if (Pico_mcd) {
     if (cdd.status == CD_PLAY && cdd.index >= 0 && cdd.index < cdd.toc.last && (cdd.toc.tracks[cdd.index].type & CT_AUDIO)) {
-      Pico_mcd->cdda_stream = cdd.toc.tracks[cdd.index].fd;
+      cdd_play_audio(cdd.index, cdd.lba);
     } else {
       Pico_mcd->cdda_stream = NULL;
     }
