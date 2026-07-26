@@ -550,8 +550,6 @@ void CKernel::RunOrchestrator() {
             if (g_SharedState.rewind_requested) {
                 g_SharedState.rewind_requested = FALSE;
                 m_pEmuOrchestrator->RewindState();
-                // Blink the activity LED 1 time quickly to confirm rewind
-                m_ActLED.Blink(1, 50, 50);
             }
 
             // Lock to 60/50 FPS (using microsecond precision ticks depending on active ROM region)
@@ -1170,20 +1168,21 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
         g_SharedState.escape_pressed = TRUE;
     }
 
-    // SELECT + D-pad / Shoulder combos for state save/load/rewind (edge-triggered)
-    static boolean s_bRewindComboPressed = FALSE;
+    // SELECT + D-pad / Shoulder combos for state save/load/rewind
+    static u64 s_nLastRewindTicks = 0;
     static boolean s_bSaveComboPressed = FALSE;
     static boolean s_bLoadComboPressed = FALSE;
 
     if (pState->buttons & (GamePadButtonSelect | GamePadButtonMinus)) {
-        if (pad & (1 << 0)) { // D-pad Up -> Rewind state
-            if (!s_bRewindComboPressed) {
-                s_bRewindComboPressed = TRUE;
+        if (pad & (1 << 0)) { // D-pad Up -> Rewind state (repeats every 150ms while held)
+            u64 now = CTimer::GetClockTicks64();
+            if (now - s_nLastRewindTicks >= 150000) {
+                s_nLastRewindTicks = now;
                 g_SharedState.rewind_requested = TRUE;
             }
             pad = 0; // Mask inputs when combo is held
         } else {
-            s_bRewindComboPressed = FALSE;
+            s_nLastRewindTicks = 0;
         }
 
         if ((pad & (1 << 2)) || (pState->buttons & (GamePadButtonLB | GamePadButtonLT))) { // D-pad Left or L Shoulder -> Save state
@@ -1206,7 +1205,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
             s_bLoadComboPressed = FALSE;
         }
     } else {
-        s_bRewindComboPressed = FALSE;
+        s_nLastRewindTicks = 0;
         s_bSaveComboPressed = FALSE;
         s_bLoadComboPressed = FALSE;
     }

@@ -170,7 +170,7 @@ CEmuOrchestrator::CEmuOrchestrator(FATFS *pFileSystem)
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nStateSize = 0;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 10; i++) {
         m_pRewindBuffers[i] = nullptr;
         m_nRewindStateSizes[i] = 0;
     }
@@ -180,7 +180,7 @@ CEmuOrchestrator::~CEmuOrchestrator() {
     if (m_pRomBuffer) {
         delete[] m_pRomBuffer;
     }
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 10; i++) {
         if (m_pRewindBuffers[i] != nullptr) {
             delete[] m_pRewindBuffers[i];
             m_pRewindBuffers[i] = nullptr;
@@ -393,7 +393,7 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Emulator power-on and reset completed!");
 
     // Free existing rewind buffers if any
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 10; i++) {
         if (m_pRewindBuffers[i] != nullptr) {
             delete[] m_pRewindBuffers[i];
             m_pRewindBuffers[i] = nullptr;
@@ -422,8 +422,8 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
         CLogger::Get()->Write(FromOrchestrator, LogWarning, "PicoDrive state size detection failed, using fallback: %u bytes", m_nStateSize);
     }
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
-    for (int i = 0; i < 6; i++) {
+    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (10 slots of %u bytes)", m_nStateSize);
+    for (int i = 0; i < 10; i++) {
         m_pRewindBuffers[i] = new u8[m_nStateSize];
     }
 
@@ -543,8 +543,7 @@ void CEmuOrchestrator::CaptureRewindState() {
     if (!(Pico.video.reg[1] & 0x40)) return;
 
     m_nRewindFrameCounter++;
-    u32 framesPerSec = IsPAL() ? 50 : 60;
-    if (m_nRewindFrameCounter >= framesPerSec) {
+    if (m_nRewindFrameCounter >= 30) { // Capture snapshot every 0.5s (30 frames at 60 FPS)
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
@@ -557,8 +556,8 @@ void CEmuOrchestrator::CaptureRewindState() {
             int ret = PicoStateFP(&state, 1, nullptr, state_write, nullptr, state_fseek);
             if (ret == 0 && state.pos > 0) {
                 m_nRewindStateSizes[m_nRewindWriteIdx] = state.pos;
-                m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 6;
-                if (m_nRewindCount < 6) {
+                m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 10;
+                if (m_nRewindCount < 10) {
                     m_nRewindCount++;
                 }
             } else {
@@ -571,7 +570,7 @@ void CEmuOrchestrator::CaptureRewindState() {
 void CEmuOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    int prevIdx = (m_nRewindWriteIdx + 6 - 1) % 6;
+    int prevIdx = (m_nRewindWriteIdx + 10 - 1) % 10;
     size_t loadSize = m_nRewindStateSizes[prevIdx];
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD/SegaCD state... loading index %d (size %u)", prevIdx, (unsigned)loadSize);
@@ -586,7 +585,9 @@ void CEmuOrchestrator::RewindState() {
         if (ret == 0) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
             m_nRewindWriteIdx = prevIdx;
-            m_nRewindCount--;
+            if (m_nRewindCount > 1) {
+                m_nRewindCount--;
+            }
             m_nRewindFrameCounter = 0;
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);
