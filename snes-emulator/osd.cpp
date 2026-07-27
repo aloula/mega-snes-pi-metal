@@ -87,13 +87,111 @@ COSDMenu::COSDMenu(FATFS *pFileSystem)
 
 COSDMenu::~COSDMenu() {}
 
+struct RomCacheHeader {
+    char magic[8]; // "ROMLIB1\0"
+    u32 count;
+};
+
+struct RomCacheEntry {
+    char file[128];
+    u32 size;
+    int system;
+};
+
 boolean COSDMenu::Initialize() {
-    ScanRoms();
+    if (!LoadLibraryCache()) {
+        CLogger::Get()->Write("OSD", LogNotice, "ROM library cache not found or invalid. Scanning SD card directories...");
+        ScanRoms();
+        SaveLibraryCache();
+    }
     FilterSystemRoms();
     CalculateTabLabels();
     BuildFilteredList();
     Update();
     return TRUE;
+}
+
+boolean COSDMenu::LoadLibraryCache() {
+    FIL file;
+    FRESULT res = f_open(&file, "SD:/roms/library.cache", FA_READ);
+    if (res != FR_OK) {
+        return FALSE;
+    }
+
+    RomCacheHeader header;
+    UINT bytesRead = 0;
+    res = f_read(&file, &header, sizeof(header), &bytesRead);
+    if (res != FR_OK || bytesRead != sizeof(header) || strncmp(header.magic, "ROMLIB1\0", 8) != 0) {
+        f_close(&file);
+        return FALSE;
+    }
+
+    if (header.count > MAX_ROMS) {
+        header.count = MAX_ROMS;
+    }
+
+    m_RomCount = header.count;
+    for (int i = 0; i < m_RomCount; i++) {
+        RomCacheEntry entry;
+        res = f_read(&file, &entry, sizeof(entry), &bytesRead);
+        if (res != FR_OK || bytesRead != sizeof(entry)) {
+            m_RomCount = i;
+            break;
+        }
+        strncpy(m_RomFiles[i], entry.file, sizeof(m_RomFiles[i]) - 1);
+        m_RomFiles[i][sizeof(m_RomFiles[i]) - 1] = '\0';
+        m_RomSizes[i] = entry.size;
+        m_RomSystems[i] = (RomSystem)entry.system;
+        m_RomFavorites[i] = FALSE;
+    }
+
+    f_close(&file);
+    CLogger::Get()->Write("OSD", LogNotice, "Loaded %d ROMs from library cache (SD:/roms/library.cache)", m_RomCount);
+    LoadFavorites();
+    return TRUE;
+}
+
+void COSDMenu::SaveLibraryCache() {
+    FIL file;
+    FRESULT res = f_open(&file, "SD:/roms/library.cache", FA_WRITE | FA_CREATE_ALWAYS);
+    if (res != FR_OK) {
+        CLogger::Get()->Write("OSD", LogError, "Failed to open library.cache for writing: %d", res);
+        return;
+    }
+
+    RomCacheHeader header;
+    memset(&header, 0, sizeof(header));
+    memcpy(header.magic, "ROMLIB1\0", 8);
+    header.count = m_RomCount;
+
+    UINT written = 0;
+    f_write(&file, &header, sizeof(header), &written);
+
+    for (int i = 0; i < m_RomCount; i++) {
+        RomCacheEntry entry;
+        memset(&entry, 0, sizeof(entry));
+        strncpy(entry.file, m_RomFiles[i], sizeof(entry.file) - 1);
+        entry.file[sizeof(entry.file) - 1] = '\0';
+        entry.size = m_RomSizes[i];
+        entry.system = (int)m_RomSystems[i];
+        f_write(&file, &entry, sizeof(entry), &written);
+    }
+
+    f_close(&file);
+    CLogger::Get()->Write("OSD", LogNotice, "Saved %d ROMs to library cache (SD:/roms/library.cache)", m_RomCount);
+}
+
+void COSDMenu::RebuildLibrary() {
+    CLogger::Get()->Write("OSD", LogNotice, "Rebuilding ROM library cache...");
+    f_unlink("SD:/roms/library.cache");
+    ScanRoms();
+    SaveLibraryCache();
+    FilterSystemRoms();
+    CalculateTabLabels();
+    m_ActiveTab = 0;
+    m_SelectedIndex = 0;
+    BuildFilteredList();
+    Update();
 }
 
 void COSDMenu::OnEmuModeChanged() {

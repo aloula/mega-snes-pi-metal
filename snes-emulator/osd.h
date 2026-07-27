@@ -23,8 +23,11 @@ public:
     void FavoriteCurrent();
     void UnfavoriteCurrent();
     void OnEmuModeChanged();
+    void RebuildLibrary();
 
 private:
+    boolean LoadLibraryCache();
+    void SaveLibraryCache();
     void ScanRoms();
     void FilterSystemRoms();
     void BuildFilteredList();
