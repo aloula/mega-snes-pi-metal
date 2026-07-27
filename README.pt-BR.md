@@ -83,8 +83,11 @@ O emulador suporta gamepads padrão XInput nativamente (como o **Gamesir Nova Li
 * **Botões A / B**: Iniciar / selecionar o jogo em destaque.
 * **Botão Y**: Adicionar aos Favoritos (prefixo `*`).
 * **Botão X**: Remover dos Favoritos (Desfavoritar).
-* **Botões L / R**: Alternar o modo do emulador (**SNES** $\leftrightarrow$ **NES** $\leftrightarrow$ **Master System** $\leftrightarrow$ **Mega Drive** $\leftrightarrow$ **PC Engine**).
+* **SELECT + X**: Forçar revarredura dos diretórios de ROMs no cartão SD e recriar o arquivo `library.cache`.
 * **START + SELECT**: Reinicia ou sai do jogo atual para retornar ao menu OSD.
+
+> [!TIP]
+> **Cache da Biblioteca de ROMs (Boot Rápido)**: Ao inicializar, o sistema carrega a lista de ROMs diretamente do cache em `SD:/roms/library.cache` em menos de 2ms. Caso adicione ou remova ROMs no cartão SD, pressione **SELECT + X** no menu OSD (ou apague o arquivo `SD:/roms/library.cache` no computador) para realizar uma nova varredura completa nos diretórios.
 
 ---
 

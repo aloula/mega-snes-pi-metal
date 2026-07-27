@@ -1765,7 +1765,7 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y2 - 28, x2 - 20, y2 - 27, theme.separator);
 
                 // Center instructions footer inside the screen limits
-                const char *footer_text = "D-PAD:Nav | A/B:Start | L/R:Sys | Y/X:Fav | SEL+X:Rescan | ST+SEL:Reset";
+                const char *footer_text = "D-PAD:Nav | A/B:Start | L/R:System | Y/X:Fav | START+SEL:Reset";
                 int footer_w = strlen(footer_text) * 8;
                 int footer_x = (SCREEN_WIDTH - footer_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, footer_text, footer_x, y2 - 20, theme.footer_text, 0);

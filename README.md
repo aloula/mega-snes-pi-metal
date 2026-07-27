@@ -83,8 +83,11 @@ The emulator supports standard XInput gamepads out-of-the-box (like the **Gamesi
 * **A / B Buttons**: Start / select highlighted game.
 * **Y Button**: Add to Favorites (`*` prefix).
 * **X Button**: Remove from Favorites (Unfavorite).
-* **L / R Shoulder Buttons**: Cycle emulator mode (**SNES** $\leftrightarrow$ **NES** $\leftrightarrow$ **Master System** $\leftrightarrow$ **Mega Drive** $\leftrightarrow$ **PC Engine**).
+* **SELECT + X**: Force rescan SD card ROM directories & rebuild `library.cache`.
 * **START + SELECT**: Resets or exits the current game to return to the OSD menu.
+
+> [!TIP]
+> **Fast Boot ROM Library Cache**: On startup, the system loads the cached ROM list directly from `SD:/roms/library.cache` in under 2ms. If you add or remove ROM files on your SD card, press **SELECT + X** in the OSD menu (or delete `SD:/roms/library.cache` on your PC) to perform a full directory rescan and rebuild the cache.
 
 ---
 
