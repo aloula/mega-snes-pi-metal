@@ -310646,7 +310646,7 @@ Disassembly of section .text:
   12d488:	0a000004 	beq	12d4a0 <GetCurrentStack+0x40>
   12d48c:	e59d1000 	ldr	r1, [sp]
   12d490:	e3a02902 	mov	r2, #32768	@ 0x8000
-  12d494:	e34020c2 	movt	r2, #194	@ 0xc2
+  12d494:	e3402182 	movt	r2, #386	@ 0x182
   12d498:	e1510002 	cmp	r1, r2
   12d49c:	0a000004 	beq	12d4b4 <GetCurrentStack+0x54>
   12d4a0:	e8950003 	ldm	r5, {r0, r1}
@@ -310671,7 +310671,7 @@ Disassembly of section .text:
   12d4ec:	e28dd00c 	add	sp, sp, #12
   12d4f0:	e8bd8030 	pop	{r4, r5, pc}
   12d4f4:	e320f000 	nop	{0}
-  12d4f8:	00c28000 	.word	0x00c28000
+  12d4f8:	01828000 	.word	0x01828000
   12d4fc:	00020000 	.word	0x00020000
 
 0012d500 <CScheduler::ListTasks(CDevice*)>:

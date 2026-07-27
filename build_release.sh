@@ -51,6 +51,13 @@ with open("snes-emulator/boot/Splash_Screen.raw16", "wb") as f:
         echo -e "${RED}Warning: Neither 'convert_splash.py' dependency (Pillow) nor 'convert' (ImageMagick) is functional. Skipping splash screen generation.${NC}"
     fi
 fi
+
+# 2b. Ensure Circle configuration exists (generated on fresh clones)
+if [ ! -f "circle/Config.mk" ]; then
+    echo -e "${BLUE}Configuring Circle environment (KERNEL_MAX_SIZE=24MB)...${NC}"
+    (cd circle && ./configure -r 3 --prefix arm-none-eabi- --multicore --kernel-max-size 24 -f)
+fi
+
 # 3. Clean previous build files
 echo -e "${BLUE}Cleaning previous builds...${NC}"
 make -C snes-emulator clean
