@@ -61,6 +61,9 @@ SD:/
 > **Configurando o Tempo do Protetor de Tela**: Adicione ou edite `screensaver=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `screensaver=60` para 60 segundos, `screensaver=120` para 2 minutos, ou `screensaver=0` para desativar o protetor de tela completamente).
 
 > [!TIP]
+> **Configurando a Duração da Tela de Splash**: Adicione ou edite `splash=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `splash=4` para 4 segundos, `splash=2` para 2 segundos, ou `splash=0` para desativar e não exibir a tela de splash no boot).
+
+> [!TIP]
 > **Personalização da Ordem dos Sistemas**: Crie ou edite o arquivo `system_order.txt` na raiz do cartão SD para definir a ordem preferida de alternância dos consoles pelos botões superiores **L** / **R**. O primeiro sistema listado no arquivo se tornará automaticamente o console inicial padrão ao ligar o Pi (ex.: `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]

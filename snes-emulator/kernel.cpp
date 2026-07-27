@@ -1463,9 +1463,15 @@ void CKernel::RunVideoDomain() {
         CTimer::SimpleMsDelay(10);
     }
 
-    // Load and display splash screen
-    FIL splashFile;
-    if (f_open(&splashFile, "SD:/Splash_Screen.raw16", FA_READ) == FR_OK) {
+    // Load and display splash screen if configured in cmdline.txt (default: 4 seconds; 0 to disable)
+    int splash_sec = m_Options.GetAppOptionSignedDecimal("splash", -1);
+    if (splash_sec < 0) {
+        splash_sec = m_Options.GetAppOptionSignedDecimal("splash_time", 4);
+    }
+
+    if (splash_sec > 0) {
+        FIL splashFile;
+        if (f_open(&splashFile, "SD:/Splash_Screen.raw16", FA_READ) == FR_OK) {
         u64 fileSize = f_size(&splashFile);
         int img_h = fileSize / (640 * sizeof(u16));
         if (img_h > 480) img_h = 480;
@@ -1513,13 +1519,15 @@ void CKernel::RunVideoDomain() {
                     CTimer::SimpleMsDelay(20);
                 }
 
-                // 2. Solid Display (2 seconds)
-                // Copy the original splash image at full brightness to pBackBuffer
+                // 2. Solid Display (hold duration based on splash_sec, default 2 seconds)
+                int hold_ms = (splash_sec > 2) ? ((splash_sec - 2) * 1000) : 0;
                 for (int y = 0; y < draw_h; y++) {
                     memcpy(pBackBuffer + (start_y + y) * SCREEN_WIDTH, s_SplashBuf + (src_y_offset + y) * 640, 640 * sizeof(u16));
                 }
                 CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
-                CTimer::SimpleMsDelay(2000);
+                if (hold_ms > 0) {
+                    CTimer::SimpleMsDelay(hold_ms);
+                }
 
                 // 3. Fade-out (1 second, 50 steps of 20ms)
                 for (int step = 50; step >= 0; step--) {
@@ -1539,10 +1547,9 @@ void CKernel::RunVideoDomain() {
                     CTimer::SimpleMsDelay(20);
                 }
             }
-        } else {
-            f_close(&splashFile);
         }
     }
+}
 
     boolean was_in_menu = TRUE;
     static int s_PceLayoutMode = -1; // -1: Undetected, 0: 240-line, 1: Centered 224, 2: Top-aligned 224

@@ -61,6 +61,9 @@ SD:/
 > **Configuring Screensaver Timeout**: Add or edit `screensaver=<seconds>` in `cmdline.txt` on the SD card root (e.g. `screensaver=60` for 60 seconds, `screensaver=120` for 2 minutes, or `screensaver=0` to disable the screensaver completely).
 
 > [!TIP]
+> **Configuring Splash Screen Duration**: Add or edit `splash=<seconds>` in `cmdline.txt` on the SD card root (e.g. `splash=4` for 4 seconds, `splash=2` for 2 seconds, or `splash=0` to completely skip the splash screen on boot).
+
+> [!TIP]
 > **Customizing System Order**: Create or edit `system_order.txt` on the SD card root to set your preferred system cycling order for **L** / **R** shoulder buttons. The first system in the list will automatically become the default boot system on startup (e.g., `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]
