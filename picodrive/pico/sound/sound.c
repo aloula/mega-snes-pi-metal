@@ -412,7 +412,8 @@ static void cdda_raw_update(s32 *buffer, int length, int stereo)
     Pico_mcd->m.cdda_lba_offset -= 2352/4;
 
   ret = pm_read_audio(cdda_out_buffer, cdda_bytes, Pico_mcd->cdda_stream);
-  if (ret < cdda_bytes) {
+  if (ret <= 0 || (size_t)ret < (size_t)cdda_bytes) {
+    if (ret < 0) ret = 0;
     memset((char *)cdda_out_buffer + ret, 0, cdda_bytes - ret);
     Pico_mcd->cdda_stream = NULL;
   }

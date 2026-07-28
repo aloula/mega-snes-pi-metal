@@ -2332,20 +2332,19 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     }
 
     // SELECT + D-pad / Shoulder combos for state save/load/rewind
-    static u64 s_nLastRewindTicks = 0;
+    static boolean s_bRewindComboPressed = FALSE;
     static boolean s_bSaveComboPressed = FALSE;
     static boolean s_bLoadComboPressed = FALSE;
 
     if (pState->buttons & (GamePadButtonSelect | GamePadButtonMinus)) {
-        if (pad & (1 << 0)) { // D-pad Up -> Rewind state (repeats every 150ms while held)
-            u64 now = CTimer::GetClockTicks64();
-            if (now - s_nLastRewindTicks >= 150000) {
-                s_nLastRewindTicks = now;
+        if (pad & (1 << 0)) { // D-pad Up -> Rewind state (5-second jump back, one-shot per press)
+            if (!s_bRewindComboPressed) {
+                s_bRewindComboPressed = TRUE;
                 g_SharedState.rewind_requested = TRUE;
             }
             pad = 0; // Mask inputs when combo is held
         } else {
-            s_nLastRewindTicks = 0;
+            s_bRewindComboPressed = FALSE;
         }
 
         if ((pad & (1 << 2)) || (pState->buttons & (GamePadButtonLB | GamePadButtonLT))) { // D-pad Left or L Shoulder -> Save state
@@ -2368,7 +2367,7 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
             s_bLoadComboPressed = FALSE;
         }
     } else {
-        s_nLastRewindTicks = 0;
+        s_bRewindComboPressed = FALSE;
         s_bSaveComboPressed = FALSE;
         s_bLoadComboPressed = FALSE;
     }
@@ -2477,9 +2476,36 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
         }
 
         if (key == 0x29) escape = TRUE; // Escape -> return to menu
-        if (key == 0x3E) g_SharedState.save_state_requested = TRUE; // F5 -> save state
-        if (key == 0x3F) g_SharedState.rewind_requested = TRUE;     // F6 -> rewind state
-        if (key == 0x41) g_SharedState.load_state_requested = TRUE; // F8 -> load state
+        static boolean s_bF5Pressed = FALSE;
+        static boolean s_bF6Pressed = FALSE;
+        static boolean s_bF8Pressed = FALSE;
+
+        if (key == 0x3E) { // F5 -> save state
+            if (!s_bF5Pressed) {
+                s_bF5Pressed = TRUE;
+                g_SharedState.save_state_requested = TRUE;
+            }
+        } else {
+            s_bF5Pressed = FALSE;
+        }
+
+        if (key == 0x3F) { // F6 -> rewind state
+            if (!s_bF6Pressed) {
+                s_bF6Pressed = TRUE;
+                g_SharedState.rewind_requested = TRUE;
+            }
+        } else {
+            s_bF6Pressed = FALSE;
+        }
+
+        if (key == 0x41) { // F8 -> load state
+            if (!s_bF8Pressed) {
+                s_bF8Pressed = TRUE;
+                g_SharedState.load_state_requested = TRUE;
+            }
+        } else {
+            s_bF8Pressed = FALSE;
+        }
     }
 
     static u16 last_kbd_pad = 0xFFFF;

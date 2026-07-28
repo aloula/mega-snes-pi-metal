@@ -469,9 +469,6 @@ void CNESOrchestrator::RewindState()
         Nes::Result ret = machine.LoadState(ss);
         if (ret == Nes::RESULT_OK || ret == Nes::RESULT_NOP) {
             CLogger::Get()->Write("orchestrator", LogNotice, "Rewind NES state loaded successfully!");
-            // Reset rewind buffers to clean slate with current loaded state
-            m_nRewindWriteIdx = 0;
-            // Copy loaded state to slot 0 (which is already preallocated)
             memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], loadSize);
             m_nRewindStateSizes[0] = loadSize;
             m_nStateSize = loadSize;
@@ -483,7 +480,7 @@ void CNESOrchestrator::RewindState()
             m_nRewindFrameCounter = 0;
             ResetAudioAfterStateChange();
         } else {
-            CLogger::Get()->Write("orchestrator", LogError, "Failed to load rewind NES state! error=%d", (int)ret);
+            CLogger::Get()->Write("orchestrator", LogError, "Failed to load NES rewind state! error=%d", (int)ret);
         }
     }
 }

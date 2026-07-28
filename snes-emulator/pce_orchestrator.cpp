@@ -464,7 +464,6 @@ void CPCEOrchestrator::RewindState() {
     if (m_pRewindBuffers[loadIdx] != nullptr) {
         if (retro_unserialize(m_pRewindBuffers[loadIdx], loadSize)) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind PCE state loaded successfully!");
-            m_nRewindWriteIdx = 0;
             memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], loadSize);
             m_nRewindStateSizes[0] = loadSize;
             for (int i = 1; i < 6; i++) {

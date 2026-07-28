@@ -231,9 +231,12 @@ static void cdd_seek(int index, int lba)
 #endif
 
   /* update current track index and LBA */
-  cdd.index = (index < 0 ? 0 : index);
+  if (index < 0) index = 0;
+  if (index > cdd.toc.last) index = cdd.toc.last;
+  if (index >= 100) index = 99;
+  cdd.index = index;
   cdd.lba = lba;
-  if (index < 0) return;
+  if (cdd.toc.last < 0) return;
 
   /* stay within track limits when seeking files */
   if (lba < cdd.toc.tracks[cdd.index].start)
@@ -725,7 +728,7 @@ void cdd_read_audio(unsigned int samples)
 void cdd_update(void)
 {
 #ifdef LOG_CDD
-  error("LBA = %d (track n°%d)(latency=%d)\n", cdd.lba, cdd.index, cdd.latency);
+  error("LBA = %d (track nÂ°%d)(latency=%d)\n", cdd.lba, cdd.index, cdd.latency);
 #endif
   
   /* update decoder, depending on track type */

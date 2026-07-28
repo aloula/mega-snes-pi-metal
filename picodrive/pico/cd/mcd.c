@@ -449,10 +449,11 @@ void pcd_state_loaded(void)
   unsigned int cycles;
 
   pcd_state_loaded_mem();
+  pcd_prepare_frame();
 
   // Re-bind or nullify CDDA stream pointer on state load to resume CD audio properly
   if (Pico_mcd) {
-    if (cdd.status == CD_PLAY && cdd.index >= 0 && cdd.index < cdd.toc.last && (cdd.toc.tracks[cdd.index].type & CT_AUDIO)) {
+    if (cdd.status == CD_PLAY && cdd.index >= 0 && cdd.index <= cdd.toc.last && cdd.index < 100 && (cdd.toc.tracks[cdd.index].type & CT_AUDIO)) {
       cdd_play_audio(cdd.index, cdd.lba);
     } else {
       Pico_mcd->cdda_stream = NULL;

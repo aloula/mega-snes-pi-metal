@@ -411,7 +411,7 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     temp_state.size = 0;
     temp_state.pos = 0;
     int size_ret = PicoStateFP(&temp_state, 1, nullptr, state_skip, nullptr, state_fseek);
-    size_t min_size = is_cd ? (1536 * 1024) : (512 * 1024);
+    size_t min_size = is_cd ? (2048 * 1024) : (512 * 1024);
     if (size_ret == 0 && temp_state.pos > 0) {
         m_nStateSize = temp_state.pos + 262144; // Add 256KB safety margin for dynamic runtime state growth
         if (m_nStateSize < min_size) m_nStateSize = min_size;
@@ -567,8 +567,8 @@ void CEmuOrchestrator::CaptureRewindState() {
 void CEmuOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    // Jump 5 seconds back (oldest state in 6-slot buffer)
-    int loadIdx = (m_nRewindCount == 6) ? m_nRewindWriteIdx : 0;
+    // Pop the most recently saved rewind snapshot from the ring buffer (1 step back)
+    int loadIdx = (m_nRewindWriteIdx + 6 - 1) % 6;
     size_t loadSize = m_nRewindStateSizes[loadIdx];
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD/SegaCD state... loading index %d (size %u)", loadIdx, (unsigned)loadSize);
@@ -582,10 +582,8 @@ void CEmuOrchestrator::RewindState() {
         int ret = PicoStateFP(&state, 0, state_read, nullptr, state_eof, state_fseek);
         if (ret == 0) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
-            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], loadSize);
-            m_nRewindStateSizes[0] = loadSize;
-            m_nRewindWriteIdx = 1;
-            m_nRewindCount = 1;
+            m_nRewindWriteIdx = loadIdx;
+            m_nRewindCount--;
             m_nRewindFrameCounter = 0;
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);

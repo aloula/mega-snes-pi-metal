@@ -408,7 +408,7 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     temp_state.size = 0;
     temp_state.pos = 0;
     int size_ret = PicoStateFP(&temp_state, 1, nullptr, state_skip, nullptr, state_fseek);
-    size_t min_size = is_cd ? (1536 * 1024) : (512 * 1024);
+    size_t min_size = is_cd ? (2048 * 1024) : (512 * 1024);
     if (size_ret == 0 && temp_state.pos > 0) {
         m_nStateSize = temp_state.pos + 262144; // Add 256KB safety margin for dynamic runtime state growth
         if (m_nStateSize < min_size) m_nStateSize = min_size;

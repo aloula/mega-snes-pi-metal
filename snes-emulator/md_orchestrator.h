@@ -4,6 +4,8 @@
 #include <circle/types.h>
 #include <ff.h>
 
+#define NUM_REWIND_SLOTS 10
+
 class CMDOrchestrator {
 public:
     CMDOrchestrator(FATFS *pFileSystem);

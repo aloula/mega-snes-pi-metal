@@ -138,8 +138,7 @@ boolean COSDMenu::LoadLibraryCache() {
             m_RomCount = i;
             break;
         }
-        strncpy(m_RomFiles[i], entry.file, sizeof(m_RomFiles[i]) - 1);
-        m_RomFiles[i][sizeof(m_RomFiles[i]) - 1] = '\0';
+        snprintf(m_RomFiles[i], sizeof(m_RomFiles[i]), "%s", entry.file);
         m_RomSizes[i] = entry.size;
         m_RomSystems[i] = (RomSystem)entry.system;
         m_RomFavorites[i] = FALSE;
@@ -170,8 +169,7 @@ void COSDMenu::SaveLibraryCache() {
     for (int i = 0; i < m_RomCount; i++) {
         RomCacheEntry entry;
         memset(&entry, 0, sizeof(entry));
-        strncpy(entry.file, m_RomFiles[i], sizeof(entry.file) - 1);
-        entry.file[sizeof(entry.file) - 1] = '\0';
+        snprintf(entry.file, sizeof(entry.file), "%s", m_RomFiles[i]);
         entry.size = m_RomSizes[i];
         entry.system = (int)m_RomSystems[i];
         f_write(&file, &entry, sizeof(entry), &written);
@@ -573,15 +571,13 @@ void COSDMenu::Update() {
 
     // Copy tab titles to shared state
     for (int t = 0; t < 8; t++) {
-        strncpy(g_SharedState.menu_tab_names[t], m_TabLabels[t], sizeof(g_SharedState.menu_tab_names[t]) - 1);
-        g_SharedState.menu_tab_names[t][sizeof(g_SharedState.menu_tab_names[t]) - 1] = '\0';
+        snprintf(g_SharedState.menu_tab_names[t], sizeof(g_SharedState.menu_tab_names[t]), "%s", m_TabLabels[t]);
     }
 
     for (int i = 0; i < m_FilteredCount; i++) {
         int orig_idx = m_FilteredIndices[i];
         char temp[80];
-        strncpy(temp, m_RomFiles[orig_idx], sizeof(temp) - 1);
-        temp[sizeof(temp) - 1] = '\0';
+        snprintf(temp, sizeof(temp), "%s", m_RomFiles[orig_idx]);
 
         char *pDot = strrchr(temp, '.');
         if (pDot != nullptr) {
@@ -595,8 +591,7 @@ void COSDMenu::Update() {
         }
 
         char cleanName[80];
-        strncpy(cleanName, displayName, sizeof(cleanName) - 1);
-        cleanName[sizeof(cleanName) - 1] = '\0';
+        snprintf(cleanName, sizeof(cleanName), "%s", displayName);
         
         int max_len = 52;
         if ((int)strlen(cleanName) > max_len) {
