@@ -113,9 +113,10 @@ static OSDThemeColors s_OSDThemeActive = s_OSDThemeDefault;
 static const OSDThemeColors *s_pOSDTheme = &s_OSDThemeActive;
 static boolean s_bUseCustomOSDColors = FALSE;
 
-static EmuMode s_SystemOrder[5] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD };
-static int s_NumSystems = 5;
+static EmuMode s_SystemOrder[6] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD, EmuMode_FAV };
+static int s_NumSystems = 6;
 static int s_SystemOrderIdx = 0;
+static EmuMode s_MenuEmuMode = EmuMode_SNES;
 
 static char *TrimToken(char *s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -148,6 +149,10 @@ static boolean ParseSystemToken(const char *token, EmuMode *outMode) {
     }
     if (strstr(token, "pce") || strstr(token, "pcengine") || strstr(token, "pc engine") || strstr(token, "turbografx") || strstr(token, "tg16")) {
         *outMode = EmuMode_PCE;
+        return TRUE;
+    }
+    if (strstr(token, "fav") || strstr(token, "favorite") || strstr(token, "favorites")) {
+        *outMode = EmuMode_FAV;
         return TRUE;
     }
 
@@ -544,11 +549,11 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
 
     if (!foundPath) return; // Use default system order if file doesn't exist
 
-    EmuMode newOrder[5];
+    EmuMode newOrder[6];
     int count = 0;
     char line[128];
 
-    while (f_gets(line, sizeof(line), &file) != nullptr && count < 5) {
+    while (f_gets(line, sizeof(line), &file) != nullptr && count < 6) {
         char *p = line;
         // Skip UTF-8 BOM if present at start of line/file.
         if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) {
@@ -575,7 +580,7 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
         }
 
         // Support one system per line and CSV/semicolon/pipe lists on a line.
-        for (char *token = lower; token != nullptr && *token != '\0' && count < 5; ) {
+        for (char *token = lower; token != nullptr && *token != '\0' && count < 6; ) {
             char *next = nullptr;
             for (char *q = token; *q != '\0'; q++) {
                 if (*q == ',' || *q == ';' || *q == '|') {
@@ -608,8 +613,8 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
     f_close(&file);
 
     if (count > 0) {
-        const EmuMode allModes[5] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD };
-        for (int m = 0; m < 5; m++) {
+        const EmuMode allModes[6] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuMode_PCE, EmuMode_MD, EmuMode_FAV };
+        for (int m = 0; m < 6; m++) {
             boolean present = FALSE;
             for (int i = 0; i < count; i++) {
                 if (newOrder[i] == allModes[m]) {
@@ -617,7 +622,7 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
                     break;
                 }
             }
-            if (!present && count < 5) {
+            if (!present && count < 6) {
                 newOrder[count++] = allModes[m];
             }
         }
@@ -1163,6 +1168,7 @@ void CKernel::RunOrchestrator() {
             if (!is_locked_out && (pressed & ((1 << 4) | (1 << 5) | (1 << 10))) && start_released) { // SNES A, B or Start -> Select ROM
                 const char *pRomName = m_pOSDMenu->GetSelectedRom();
                 unsigned nRomSize = m_pOSDMenu->GetSelectedRomSize();
+                COSDMenu::RomSystem romSys = m_pOSDMenu->GetSelectedRomSystem();
                 if (pRomName) {
                     char fullPath[256];
                     snprintf(fullPath, sizeof(fullPath), "SD:/roms/%s", pRomName);
@@ -1170,28 +1176,39 @@ void CKernel::RunOrchestrator() {
                     memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
                     g_SharedState.emu_write_idx = 0;
                     g_SharedState.emu_read_idx = 0;
-                    if (g_SharedState.active_emu_mode == EmuMode_SNES) {
+
+                    s_MenuEmuMode = g_SharedState.active_emu_mode;
+                    EmuMode targetMode = s_MenuEmuMode;
+                    if (targetMode == EmuMode_FAV) {
+                        if (romSys == COSDMenu::RomSystem_SNES) targetMode = EmuMode_SNES;
+                        else if (romSys == COSDMenu::RomSystem_MD || romSys == COSDMenu::RomSystem_MCD) targetMode = EmuMode_MD;
+                        else if (romSys == COSDMenu::RomSystem_NES) targetMode = EmuMode_NES;
+                        else if (romSys == COSDMenu::RomSystem_SMS) targetMode = EmuMode_SMS;
+                        else targetMode = EmuMode_PCE;
+                    }
+
+                    if (targetMode == EmuMode_SNES) {
                         g_SharedState.start_line[0] = 0;
                         g_SharedState.game_w[0] = 256;
                         g_SharedState.game_h[0] = 224;
                         g_SharedState.start_line[1] = 0;
                         g_SharedState.game_w[1] = 256;
                         g_SharedState.game_h[1] = 224;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
+                    } else if (targetMode == EmuMode_MD) {
                         g_SharedState.start_line[0] = 8;
                         g_SharedState.game_w[0] = 320;
                         g_SharedState.game_h[0] = 224;
                         g_SharedState.start_line[1] = 8;
                         g_SharedState.game_w[1] = 320;
                         g_SharedState.game_h[1] = 224;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
+                    } else if (targetMode == EmuMode_NES) {
                         g_SharedState.start_line[0] = 0;
                         g_SharedState.game_w[0] = 256;
                         g_SharedState.game_h[0] = 240;
                         g_SharedState.start_line[1] = 0;
                         g_SharedState.game_w[1] = 256;
                         g_SharedState.game_h[1] = 240;
-                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    } else if (targetMode == EmuMode_SMS) {
                         g_SharedState.start_line[0] = 8;
                         g_SharedState.game_w[0] = 256;
                         g_SharedState.game_h[0] = 224;
@@ -1206,20 +1223,23 @@ void CKernel::RunOrchestrator() {
                         g_SharedState.game_w[1] = 256;
                         g_SharedState.game_h[1] = 240;
                     }
+
+                    g_SharedState.active_emu_mode = targetMode;
+
                     g_SharedState.video_frame_ready = FALSE;
                     g_SharedState.rom_loading = TRUE;
                     DataMemBarrier();
                     CTimer::SimpleMsDelay(50); // Delay to let Video Core render the LOADING box
 
                     boolean loaded = FALSE;
-                    if (g_SharedState.active_emu_mode == EmuMode_SNES) {
+                    if (targetMode == EmuMode_SNES) {
                         loaded = m_pSNESOrchestrator->LoadROM(fullPath, nRomSize);
-                    } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
+                    } else if (targetMode == EmuMode_MD) {
                         s_Is3ButtonGame = !is6ButtonGame(pRomName);
                         loaded = m_pMDOrchestrator->LoadROM(fullPath, nRomSize);
-                    } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
+                    } else if (targetMode == EmuMode_NES) {
                         loaded = m_pNESOrchestrator->LoadROM(fullPath, nRomSize);
-                    } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
+                    } else if (targetMode == EmuMode_SMS) {
                         loaded = m_pSMSOrchestrator->LoadROM(fullPath, nRomSize);
                     } else { // EmuMode_PCE
                         loaded = m_pPCEOrchestrator->LoadROM(fullPath, nRomSize);
@@ -1255,7 +1275,8 @@ void CKernel::RunOrchestrator() {
             if (g_SharedState.escape_pressed) {
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
-                m_pOSDMenu->Update();
+                g_SharedState.active_emu_mode = s_MenuEmuMode;
+                m_pOSDMenu->OnEmuModeChanged();
                 just_entered_menu = TRUE;
             }
 
@@ -1653,8 +1674,10 @@ void CKernel::RunVideoDomain() {
                     snprintf(title_str, sizeof(title_str), "### PC Engine - 5 in 1 Emulator ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
                     snprintf(title_str, sizeof(title_str), "### Master System - 5 in 1 Emulator ###");
-                } else {
+                } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
                     snprintf(title_str, sizeof(title_str), "### Mega Drive - 5 in 1 Emulator ###");
+                } else { // EmuMode_FAV
+                    snprintf(title_str, sizeof(title_str), "### Favorites - 5 in 1 Emulator ###");
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;

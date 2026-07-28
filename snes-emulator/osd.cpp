@@ -329,6 +329,12 @@ void COSDMenu::FilterSystemRoms() {
                 m_SystemIndices[m_SystemCount++] = i;
             }
         }
+    } else if (g_SharedState.active_emu_mode == EmuMode_FAV) {
+        for (int i = 0; i < m_RomCount; i++) {
+            if (m_RomFavorites[i]) {
+                m_SystemIndices[m_SystemCount++] = i;
+            }
+        }
     }
 }
 
@@ -336,135 +342,95 @@ void COSDMenu::CalculateTabLabels() {
     // Tab 0: "ALL"
     strcpy(m_TabLabels[0], "ALL");
 
-    // Tab 1: "FAV"
-    strcpy(m_TabLabels[1], "FAV");
+    if (g_SharedState.active_emu_mode == EmuMode_FAV) {
+        strcpy(m_TabLabels[1], "#");
+        strcpy(m_TabLabels[2], "A-D");
+        strcpy(m_TabLabels[3], "E-H");
+        strcpy(m_TabLabels[4], "I-L");
+        strcpy(m_TabLabels[5], "M-P");
+        strcpy(m_TabLabels[6], "Q-T");
+        strcpy(m_TabLabels[7], "U-Z");
 
-    // Count non-CD games per letter
-    int letter_counts[27] = {0};
-    int total_non_cd = 0;
-    for (int i = 0; i < m_SystemCount; i++) {
-        if (!IsMCD(i) && !IsPCECD(i)) {
-            char c = GetChar(i);
-            int idx = GetLetterIdx(c);
-            if (idx >= 0 && idx < 27) {
-                letter_counts[idx]++;
-                total_non_cd++;
-            }
-        }
-    }
-
-    int prefix_counts[27];
-    int running = 0;
-    for (int i = 0; i < 27; i++) {
-        running += letter_counts[i];
-        prefix_counts[i] = running;
-    }
-
-    auto computeBalancedSplits = [&](int segments, int *splits_out) {
-        int prev = -1;
-        for (int s = 1; s < segments; s++) {
-            int target = (total_non_cd * s + segments / 2) / segments;
-            int min_idx = prev + 1;
-            int max_idx = 26 - ((segments - 1) - s);
-            if (max_idx < min_idx) max_idx = min_idx;
-
-            int best_idx = min_idx;
-            int best_diff = 0x7FFFFFFF;
-            for (int idx = min_idx; idx <= max_idx; idx++) {
-                int diff = prefix_counts[idx] - target;
-                if (diff < 0) diff = -diff;
-                if (diff < best_diff) {
-                    best_diff = diff;
-                    best_idx = idx;
-                }
-            }
-            splits_out[s - 1] = best_idx;
-            prev = best_idx;
-        }
-    };
-
-    auto setRangeLabel = [this](int tab_idx, int lower_bound_exclusive, int upper_bound_inclusive,
-                                 bool skip_cd, const char *fallback) {
-        int start = -1;
-        int end = -1;
-        for (int i = 0; i < m_SystemCount; i++) {
-            if (skip_cd && (IsMCD(i) || IsPCECD(i))) {
-                continue;
-            }
-            int idx = GetLetterIdx(GetChar(i));
-            if (idx > lower_bound_exclusive && idx <= upper_bound_inclusive) {
-                if (start == -1) start = i;
-                end = i;
-            }
-        }
-
-        if (start != -1 && end != -1) {
-            char c_start = GetChar(start);
-            char c_end = GetChar(end);
-            if (c_start == c_end) {
-                snprintf(m_TabLabels[tab_idx], sizeof(m_TabLabels[tab_idx]), "%c", c_start);
-            } else {
-                snprintf(m_TabLabels[tab_idx], sizeof(m_TabLabels[tab_idx]), "%c-%c", c_start, c_end);
-            }
-        } else {
-            strcpy(m_TabLabels[tab_idx], fallback);
-        }
-    };
-
-    if (g_SharedState.active_emu_mode == EmuMode_MD || g_SharedState.active_emu_mode == EmuMode_PCE) {
-        // MD or PCE: 5 sorted tabs (2..6) + CD (7)
-        if (g_SharedState.active_emu_mode == EmuMode_MD) {
-            strcpy(m_TabLabels[7], "MCD");
-        } else {
-            strcpy(m_TabLabels[7], "PCD");
-        }
-
-        m_TabSplitK1 = 5;
-        m_TabSplitK2 = 10;
-        m_TabSplitK3 = 15;
-        m_TabSplitK4 = 20;
-        if (total_non_cd > 0) {
-            int splits[4] = {m_TabSplitK1, m_TabSplitK2, m_TabSplitK3, m_TabSplitK4};
-            computeBalancedSplits(5, splits);
-            m_TabSplitK1 = splits[0];
-            m_TabSplitK2 = splits[1];
-            m_TabSplitK3 = splits[2];
-            m_TabSplitK4 = splits[3];
-        }
-
-        setRangeLabel(2, -1, m_TabSplitK1, TRUE, "A-E");
-        setRangeLabel(3, m_TabSplitK1, m_TabSplitK2, TRUE, "F-J");
-        setRangeLabel(4, m_TabSplitK2, m_TabSplitK3, TRUE, "K-O");
-        setRangeLabel(5, m_TabSplitK3, m_TabSplitK4, TRUE, "P-T");
-        setRangeLabel(6, m_TabSplitK4, 26, TRUE, "U-Z");
-    } else {
-        // SNES/NES: 6 sorted tabs (2..7)
         m_TabSplitK1 = 4;
         m_TabSplitK2 = 8;
         m_TabSplitK3 = 12;
         m_TabSplitK4 = 16;
         m_TabSplitK5 = 20;
-        if (total_non_cd > 0) {
-            int splits[5] = {m_TabSplitK1, m_TabSplitK2, m_TabSplitK3, m_TabSplitK4, m_TabSplitK5};
-            computeBalancedSplits(6, splits);
-            m_TabSplitK1 = splits[0];
-            m_TabSplitK2 = splits[1];
-            m_TabSplitK3 = splits[2];
-            m_TabSplitK4 = splits[3];
-            m_TabSplitK5 = splits[4];
-        }
+    } else {
+        // Tab 1: "FAV"
+        strcpy(m_TabLabels[1], "FAV");
 
-        setRangeLabel(2, -1, m_TabSplitK1, FALSE, "A-D");
-        setRangeLabel(3, m_TabSplitK1, m_TabSplitK2, FALSE, "E-H");
-        setRangeLabel(4, m_TabSplitK2, m_TabSplitK3, FALSE, "I-L");
-        setRangeLabel(5, m_TabSplitK3, m_TabSplitK4, FALSE, "M-P");
-        setRangeLabel(6, m_TabSplitK4, m_TabSplitK5, FALSE, "Q-T");
-        setRangeLabel(7, m_TabSplitK5, 26, FALSE, "U-Z");
+        if (g_SharedState.active_emu_mode == EmuMode_MD || g_SharedState.active_emu_mode == EmuMode_PCE) {
+            if (g_SharedState.active_emu_mode == EmuMode_MD) {
+                strcpy(m_TabLabels[7], "MCD");
+            } else {
+                strcpy(m_TabLabels[7], "PCD");
+            }
+            strcpy(m_TabLabels[2], "A-E");
+            strcpy(m_TabLabels[3], "F-J");
+            strcpy(m_TabLabels[4], "K-O");
+            strcpy(m_TabLabels[5], "P-T");
+            strcpy(m_TabLabels[6], "U-Z");
+
+            m_TabSplitK1 = 5;
+            m_TabSplitK2 = 10;
+            m_TabSplitK3 = 15;
+            m_TabSplitK4 = 20;
+        } else {
+            // SNES / NES / SMS
+            strcpy(m_TabLabels[2], "A-D");
+            strcpy(m_TabLabels[3], "E-H");
+            strcpy(m_TabLabels[4], "I-L");
+            strcpy(m_TabLabels[5], "M-P");
+            strcpy(m_TabLabels[6], "Q-T");
+            strcpy(m_TabLabels[7], "U-Z");
+
+            m_TabSplitK1 = 4;
+            m_TabSplitK2 = 8;
+            m_TabSplitK3 = 12;
+            m_TabSplitK4 = 16;
+            m_TabSplitK5 = 20;
+        }
     }
 }
 
 void COSDMenu::BuildFilteredList() {
     m_FilteredCount = 0;
+
+    if (g_SharedState.active_emu_mode == EmuMode_FAV) {
+        if (m_ActiveTab == 0) {
+            for (int i = 0; i < m_SystemCount; i++) {
+                m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+            }
+        } else if (m_ActiveTab == 1) {
+            // # tab (Numbers & Symbols)
+            for (int i = 0; i < m_SystemCount; i++) {
+                int idx = GetLetterIdx(GetChar(i));
+                if (idx == 0) {
+                    m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                }
+            }
+        } else if (m_ActiveTab >= 2 && m_ActiveTab <= 7) {
+            int part = m_ActiveTab - 2;
+            for (int i = 0; i < m_SystemCount; i++) {
+                int idx = GetLetterIdx(GetChar(i));
+                if (part == 0) {
+                    if (idx > 0 && idx <= m_TabSplitK1) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                } else if (part == 1) {
+                    if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                } else if (part == 2) {
+                    if (idx > m_TabSplitK2 && idx <= m_TabSplitK3) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                } else if (part == 3) {
+                    if (idx > m_TabSplitK3 && idx <= m_TabSplitK4) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                } else if (part == 4) {
+                    if (idx > m_TabSplitK4 && idx <= m_TabSplitK5) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                } else if (part == 5) {
+                    if (idx > m_TabSplitK5) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                }
+            }
+        }
+        return;
+    }
 
     if (m_ActiveTab == 0) {
         // ALL tab: include all scanned roms of the current system
@@ -591,11 +557,35 @@ void COSDMenu::Update() {
         }
 
         char cleanName[80];
-        snprintf(cleanName, sizeof(cleanName), "%s", displayName);
-        
         int max_len = 52;
-        if ((int)strlen(cleanName) > max_len) {
-            strcpy(cleanName + max_len - 3, "...");
+
+        if (g_SharedState.active_emu_mode == EmuMode_FAV) {
+            const char *sysTag = "";
+            if (m_RomSystems[orig_idx] == RomSystem_NES) sysTag = " [NES]";
+            else if (m_RomSystems[orig_idx] == RomSystem_SNES) sysTag = " [SNES]";
+            else if (m_RomSystems[orig_idx] == RomSystem_PCE) sysTag = " [PCE]";
+            else if (m_RomSystems[orig_idx] == RomSystem_MD || m_RomSystems[orig_idx] == RomSystem_MCD) sysTag = " [MD]";
+            else if (m_RomSystems[orig_idx] == RomSystem_SMS) sysTag = " [MS]";
+
+            int tagLen = strlen(sysTag);
+            int nameMax = max_len - tagLen;
+            char truncatedDisplayName[80];
+            snprintf(truncatedDisplayName, sizeof(truncatedDisplayName), "%s", displayName);
+
+            if ((int)strlen(truncatedDisplayName) > nameMax) {
+                if (nameMax >= 3) {
+                    strcpy(truncatedDisplayName + nameMax - 3, "...");
+                } else {
+                    truncatedDisplayName[nameMax] = '\0';
+                }
+            }
+
+            snprintf(cleanName, sizeof(cleanName), "%s%s", truncatedDisplayName, sysTag);
+        } else {
+            snprintf(cleanName, sizeof(cleanName), "%s", displayName);
+            if ((int)strlen(cleanName) > max_len) {
+                strcpy(cleanName + max_len - 3, "...");
+            }
         }
 
         unsigned size_kb = m_RomSizes[orig_idx] / 1024;
@@ -669,6 +659,13 @@ unsigned COSDMenu::GetSelectedRomSize() {
     return m_RomSizes[m_FilteredIndices[m_SelectedIndex]];
 }
 
+COSDMenu::RomSystem COSDMenu::GetSelectedRomSystem() const {
+    if (m_FilteredCount == 0 || m_SelectedIndex < 0 || m_SelectedIndex >= m_FilteredCount) {
+        return RomSystem_SNES;
+    }
+    return m_RomSystems[m_FilteredIndices[m_SelectedIndex]];
+}
+
 void COSDMenu::LoadFavorites() {
     for (int i = 0; i < MAX_ROMS; i++) {
         m_RomFavorites[i] = FALSE;
@@ -735,6 +732,14 @@ void COSDMenu::UnfavoriteCurrent() {
     int orig_idx = m_FilteredIndices[m_SelectedIndex];
     m_RomFavorites[orig_idx] = FALSE;
     SaveFavorites();
+    if (g_SharedState.active_emu_mode == EmuMode_FAV || m_ActiveTab == 1) {
+        FilterSystemRoms();
+        CalculateTabLabels();
+        BuildFilteredList();
+        if (m_SelectedIndex >= m_FilteredCount && m_FilteredCount > 0) {
+            m_SelectedIndex = m_FilteredCount - 1;
+        }
+    }
     Update();
 }
 

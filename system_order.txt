@@ -10,9 +10,11 @@
 #   mastersystem (Sega Master System / SMS)
 #   pce          (PC Engine / TurboGrafx-16)
 #   megadrive    (Sega Mega Drive / Genesis / Sega CD)
+#   favorites    (Favorites - Aggregated favorites across all systems)
 #
 # Lines starting with '#' are ignored.
 
+favorites
 pce
 megadrive
 snes

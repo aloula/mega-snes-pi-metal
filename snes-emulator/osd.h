@@ -17,9 +17,19 @@ public:
     void MoveDown();
     void MoveLeft();
     void MoveRight();
-    
+
+    enum RomSystem : int {
+        RomSystem_SNES,
+        RomSystem_MD,
+        RomSystem_MCD,
+        RomSystem_NES,
+        RomSystem_PCE,
+        RomSystem_SMS
+    };
+
     const char *GetSelectedRom();
     unsigned GetSelectedRomSize();
+    RomSystem GetSelectedRomSystem() const;
     void FavoriteCurrent();
     void UnfavoriteCurrent();
     void OnEmuModeChanged();
@@ -40,15 +50,6 @@ private:
     static int GetLetterIdx(char c);
 
 private:
-    enum RomSystem : int {
-        RomSystem_SNES,
-        RomSystem_MD,
-        RomSystem_MCD,
-        RomSystem_NES,
-        RomSystem_PCE,
-        RomSystem_SMS
-    };
-
     FATFS *m_pFileSystem;
     char m_RomFiles[MAX_ROMS][128];
     unsigned m_RomSizes[MAX_ROMS];
@@ -71,6 +72,7 @@ private:
     int m_TabSplitK3;
     int m_TabSplitK4;
     int m_TabSplitK5;
+    int m_TabSplitK6;
 };
 
 #endif

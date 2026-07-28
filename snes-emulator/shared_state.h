@@ -11,7 +11,8 @@ enum EmuMode {
     EmuMode_MD,
     EmuMode_NES,
     EmuMode_PCE,
-    EmuMode_SMS
+    EmuMode_SMS,
+    EmuMode_FAV
 };
 
 struct SharedState {
