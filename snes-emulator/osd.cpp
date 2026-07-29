@@ -339,25 +339,58 @@ void COSDMenu::FilterSystemRoms() {
 }
 
 void COSDMenu::CalculateTabLabels() {
-    // Tab 0: "ALL"
-    strcpy(m_TabLabels[0], "ALL");
-
     if (g_SharedState.active_emu_mode == EmuMode_FAV) {
-        strcpy(m_TabLabels[1], "#");
-        strcpy(m_TabLabels[2], "A-D");
-        strcpy(m_TabLabels[3], "E-H");
-        strcpy(m_TabLabels[4], "I-L");
-        strcpy(m_TabLabels[5], "M-P");
-        strcpy(m_TabLabels[6], "Q-T");
-        strcpy(m_TabLabels[7], "U-Z");
+        strcpy(m_TabLabels[0], "ALL");
+        m_FavTabSystems[0] = -1; // -1 means ALL systems
 
-        m_TabSplitK1 = 4;
-        m_TabSplitK2 = 8;
-        m_TabSplitK3 = 12;
-        m_TabSplitK4 = 16;
-        m_TabSplitK5 = 20;
+        struct SystemTabDef {
+            const char *label;
+            RomSystem sys;
+        };
+
+        static const SystemTabDef sysOrder[6] = {
+            { "SNES", RomSystem_SNES },
+            { "MD",   RomSystem_MD },
+            { "MCD",  RomSystem_MCD },
+            { "PCE",  RomSystem_PCE },
+            { "NES",  RomSystem_NES },
+            { "MS",   RomSystem_SMS }
+        };
+
+        // Count favorites per system
+        int sys_counts[6] = {0};
+        for (int i = 0; i < m_SystemCount; i++) {
+            int orig_idx = m_SystemIndices[i];
+            RomSystem sys = m_RomSystems[orig_idx];
+            for (int s = 0; s < 6; s++) {
+                if (sys == sysOrder[s].sys) {
+                    sys_counts[s]++;
+                    break;
+                }
+            }
+        }
+
+        int t = 1;
+        for (int s = 0; s < 6; s++) {
+            if (sys_counts[s] > 0 && t < 8) {
+                strcpy(m_TabLabels[t], sysOrder[s].label);
+                m_FavTabSystems[t] = sysOrder[s].sys;
+                t++;
+            }
+        }
+
+        m_NumActiveTabs = t;
+        for (int u = t; u < 8; u++) {
+            m_TabLabels[u][0] = '\0';
+            m_FavTabSystems[u] = -2;
+        }
+
+        if (m_ActiveTab >= m_NumActiveTabs) {
+            m_ActiveTab = (m_NumActiveTabs > 0) ? m_NumActiveTabs - 1 : 0;
+        }
     } else {
-        // Tab 1: "FAV"
+        m_NumActiveTabs = 8;
+        strcpy(m_TabLabels[0], "ALL");
         strcpy(m_TabLabels[1], "FAV");
 
         if (g_SharedState.active_emu_mode == EmuMode_MD || g_SharedState.active_emu_mode == EmuMode_PCE) {
@@ -398,34 +431,16 @@ void COSDMenu::BuildFilteredList() {
     m_FilteredCount = 0;
 
     if (g_SharedState.active_emu_mode == EmuMode_FAV) {
-        if (m_ActiveTab == 0) {
+        if (m_ActiveTab == 0 || m_ActiveTab >= m_NumActiveTabs) {
             for (int i = 0; i < m_SystemCount; i++) {
                 m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
             }
-        } else if (m_ActiveTab == 1) {
-            // # tab (Numbers & Symbols)
+        } else {
+            int target_sys = m_FavTabSystems[m_ActiveTab];
             for (int i = 0; i < m_SystemCount; i++) {
-                int idx = GetLetterIdx(GetChar(i));
-                if (idx == 0) {
-                    m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-                }
-            }
-        } else if (m_ActiveTab >= 2 && m_ActiveTab <= 7) {
-            int part = m_ActiveTab - 2;
-            for (int i = 0; i < m_SystemCount; i++) {
-                int idx = GetLetterIdx(GetChar(i));
-                if (part == 0) {
-                    if (idx > 0 && idx <= m_TabSplitK1) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-                } else if (part == 1) {
-                    if (idx > m_TabSplitK1 && idx <= m_TabSplitK2) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-                } else if (part == 2) {
-                    if (idx > m_TabSplitK2 && idx <= m_TabSplitK3) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-                } else if (part == 3) {
-                    if (idx > m_TabSplitK3 && idx <= m_TabSplitK4) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-                } else if (part == 4) {
-                    if (idx > m_TabSplitK4 && idx <= m_TabSplitK5) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
-                } else if (part == 5) {
-                    if (idx > m_TabSplitK5) m_FilteredIndices[m_FilteredCount++] = m_SystemIndices[i];
+                int orig_idx = m_SystemIndices[i];
+                if (m_RomSystems[orig_idx] == target_sys) {
+                    m_FilteredIndices[m_FilteredCount++] = orig_idx;
                 }
             }
         }
@@ -622,7 +637,7 @@ void COSDMenu::MoveDown() {
 }
 
 void COSDMenu::MoveLeft() {
-    int num_tabs = 8;
+    int num_tabs = m_NumActiveTabs > 0 ? m_NumActiveTabs : 8;
     if (m_ActiveTab > 0) {
         m_ActiveTab--;
     } else {
@@ -634,7 +649,7 @@ void COSDMenu::MoveLeft() {
 }
 
 void COSDMenu::MoveRight() {
-    int num_tabs = 8;
+    int num_tabs = m_NumActiveTabs > 0 ? m_NumActiveTabs : 8;
     if (m_ActiveTab < num_tabs - 1) {
         m_ActiveTab++;
     } else {

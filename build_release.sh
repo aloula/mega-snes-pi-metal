@@ -20,8 +20,8 @@ if ! command -v zip &> /dev/null; then
     echo -e "${RED}Error: 'zip' utility is not installed! Please install it (e.g. sudo apt install zip).${NC}"
     exit 1
 fi
-# Generate Splash_Screen.raw16 if res/MD_PCE_NES_SNES_Baremetal_Emulator.png or res/Splash_Screen.png exists
-SPLASH_PNG="res/MD_PCE_NES_SNES_Baremetal_Emulator.png"
+# Generate Splash_Screen.raw16 if res/5-in-1_Baremetal_Emulator_2.png or res/Splash_Screen.png exists
+SPLASH_PNG="res/5-in-1_Baremetal_Emulator_2.png"
 if [ ! -f "$SPLASH_PNG" ] && [ -f "res/Splash_Screen.png" ]; then
     SPLASH_PNG="res/Splash_Screen.png"
 fi

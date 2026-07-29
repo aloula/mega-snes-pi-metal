@@ -66,6 +66,8 @@ private:
     int m_FilteredCount;
 
     int m_ActiveTab; // 0 = ALL, 1 = FAV, 2..7 = custom splits (or 7 = MCD in MD mode)
+    int m_NumActiveTabs;
+    int m_FavTabSystems[8];
     char m_TabLabels[8][16];
     int m_TabSplitK1;
     int m_TabSplitK2;
