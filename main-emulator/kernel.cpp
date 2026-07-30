@@ -1579,10 +1579,23 @@ void CKernel::RunVideoDomain() {
         u16 pad2 = g_SharedState.pad2;
         static u16 s_last_check_pad1 = 0;
         static u16 s_last_check_pad2 = 0;
+        static boolean s_prev_in_menu = TRUE;
+
+        // Reset pad tracking references when transitioning from game to menu mode
+        if (g_SharedState.in_menu && !s_prev_in_menu) {
+            s_last_check_pad1 = 0;
+            s_last_check_pad2 = 0;
+            if (g_SharedState.screensaver_active) {
+                g_SharedState.menu_needs_redraw = TRUE;
+            } else {
+                g_SharedState.last_input_time = now;
+            }
+        }
+        s_prev_in_menu = g_SharedState.in_menu;
 
         boolean input_touched = (pad1 != 0 || pad2 != 0 || pad1 != s_last_check_pad1 || pad2 != s_last_check_pad2 ||
-                                 g_SharedState.escape_pressed || g_SharedState.save_state_requested ||
-                                 g_SharedState.load_state_requested || g_SharedState.rewind_requested);
+                                 g_SharedState.save_state_requested || g_SharedState.load_state_requested ||
+                                 g_SharedState.rewind_requested);
 
         if (input_touched) {
             g_SharedState.last_input_time = now;
