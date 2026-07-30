@@ -348,7 +348,32 @@ void COSDMenu::CalculateTabLabels() {
             RomSystem sys;
         };
 
-        static const SystemTabDef sysOrder[6] = {
+        SystemTabDef sysOrder[6];
+        int numSysOrder = 0;
+
+        int num_sys = g_SharedState.num_systems;
+        if (num_sys <= 0 || num_sys > 6) num_sys = 6;
+
+        for (int i = 0; i < num_sys && numSysOrder < 6; i++) {
+            EmuMode mode = g_SharedState.system_order[i];
+            if (mode == EmuMode_SNES) {
+                sysOrder[numSysOrder++] = { "SNES", RomSystem_SNES };
+            } else if (mode == EmuMode_MD) {
+                sysOrder[numSysOrder++] = { "MD", RomSystem_MD };
+                if (numSysOrder < 6) {
+                    sysOrder[numSysOrder++] = { "MCD", RomSystem_MCD };
+                }
+            } else if (mode == EmuMode_NES) {
+                sysOrder[numSysOrder++] = { "NES", RomSystem_NES };
+            } else if (mode == EmuMode_PCE) {
+                sysOrder[numSysOrder++] = { "PCE", RomSystem_PCE };
+            } else if (mode == EmuMode_SMS) {
+                sysOrder[numSysOrder++] = { "MS", RomSystem_SMS };
+            }
+        }
+
+        // Fallback for any missing system
+        static const SystemTabDef defaultSysOrder[6] = {
             { "SNES", RomSystem_SNES },
             { "MD",   RomSystem_MD },
             { "MCD",  RomSystem_MCD },
@@ -357,12 +382,25 @@ void COSDMenu::CalculateTabLabels() {
             { "MS",   RomSystem_SMS }
         };
 
+        for (int d = 0; d < 6 && numSysOrder < 6; d++) {
+            boolean alreadyIn = FALSE;
+            for (int k = 0; k < numSysOrder; k++) {
+                if (sysOrder[k].sys == defaultSysOrder[d].sys) {
+                    alreadyIn = TRUE;
+                    break;
+                }
+            }
+            if (!alreadyIn) {
+                sysOrder[numSysOrder++] = defaultSysOrder[d];
+            }
+        }
+
         // Count favorites per system
         int sys_counts[6] = {0};
         for (int i = 0; i < m_SystemCount; i++) {
             int orig_idx = m_SystemIndices[i];
             RomSystem sys = m_RomSystems[orig_idx];
-            for (int s = 0; s < 6; s++) {
+            for (int s = 0; s < numSysOrder; s++) {
                 if (sys == sysOrder[s].sys) {
                     sys_counts[s]++;
                     break;
@@ -371,7 +409,7 @@ void COSDMenu::CalculateTabLabels() {
         }
 
         int t = 1;
-        for (int s = 0; s < 6; s++) {
+        for (int s = 0; s < numSysOrder; s++) {
             if (sys_counts[s] > 0 && t < 8) {
                 strcpy(m_TabLabels[t], sysOrder[s].label);
                 m_FavTabSystems[t] = sysOrder[s].sys;
@@ -549,6 +587,7 @@ void COSDMenu::Update() {
     g_SharedState.menu_num_lines = m_FilteredCount;
     g_SharedState.menu_selected_idx = m_SelectedIndex;
     g_SharedState.menu_active_tab = m_ActiveTab;
+    g_SharedState.menu_num_tabs = (m_NumActiveTabs > 0) ? m_NumActiveTabs : 8;
 
     // Copy tab titles to shared state
     for (int t = 0; t < 8; t++) {
@@ -737,6 +776,11 @@ void COSDMenu::FavoriteCurrent() {
     int orig_idx = m_FilteredIndices[m_SelectedIndex];
     m_RomFavorites[orig_idx] = TRUE;
     SaveFavorites();
+    if (g_SharedState.active_emu_mode == EmuMode_FAV || m_ActiveTab == 1) {
+        FilterSystemRoms();
+        CalculateTabLabels();
+        BuildFilteredList();
+    }
     Update();
 }
 

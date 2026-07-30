@@ -629,8 +629,10 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
 
         for (int i = 0; i < count; i++) {
             s_SystemOrder[i] = newOrder[i];
+            g_SharedState.system_order[i] = newOrder[i];
         }
         s_NumSystems = count;
+        g_SharedState.num_systems = count;
         s_SystemOrderIdx = 0;
     }
 }
@@ -985,6 +987,11 @@ void CKernel::RunOrchestrator() {
     }
 
     g_pFileSystem = &m_FileSystem;
+
+    g_SharedState.num_systems = s_NumSystems;
+    for (int i = 0; i < s_NumSystems; i++) {
+        g_SharedState.system_order[i] = s_SystemOrder[i];
+    }
 
     LoadSystemOrder(&m_FileSystem);
     LoadOSDTheme(&m_FileSystem);
@@ -1693,7 +1700,8 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, theme.separator);
 
                 // Draw tabs
-                int num_tabs = 8;
+                int num_tabs = g_SharedState.menu_num_tabs;
+                if (num_tabs <= 0) num_tabs = 8;
                 int active_tab = g_SharedState.menu_active_tab;
                 int tab_spacing = 6;
                 int available_tab_width = (x2 - x1) - 20;
@@ -1739,7 +1747,7 @@ void CKernel::RunVideoDomain() {
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, sep2_y1, x2 - 20, sep2_y1 + 1, theme.separator);
 
                 if (num_lines == 0) {
-                    if (active_tab == 1) {
+                    if (active_tab == 1 || g_SharedState.active_emu_mode == EmuMode_FAV) {
                         DrawString(pBackBuffer, SCREEN_WIDTH, "No favorites added! Press Y on a game to favorite it.", 116, 180, theme.title_text, 0);
                     } else {
                         DrawString(pBackBuffer, SCREEN_WIDTH, "No ROMs found! Copy ROM files to SD card.", 150, 180, theme.warning_text, 0);

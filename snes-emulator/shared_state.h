@@ -17,6 +17,8 @@ enum EmuMode {
 
 struct SharedState {
     volatile EmuMode active_emu_mode __attribute__((aligned(64)));
+    volatile EmuMode system_order[6] __attribute__((aligned(64)));
+    volatile int num_systems __attribute__((aligned(64)));
     volatile u16 pad1 __attribute__((aligned(64)));
     volatile u16 pad2 __attribute__((aligned(64)));
     volatile boolean escape_pressed __attribute__((aligned(64)));
@@ -34,6 +36,7 @@ struct SharedState {
     int menu_selected_idx;
     char menu_tab_names[8][16] __attribute__((aligned(64)));
     int menu_active_tab;
+    int menu_num_tabs;
 
     // Double-buffered emulator frame buffer (512x480, RGB555) to support SNES resolutions up to high-res interlace
     u16 emu_frame_buffer[2][512 * 480] __attribute__((aligned(64)));
