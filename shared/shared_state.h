@@ -38,7 +38,7 @@ struct SharedState {
     int menu_active_tab;
     int menu_num_tabs;
 
-    // Double-buffered emulator frame buffer (512x480, RGB555) to support SNES resolutions up to high-res interlace
+    // Double-buffered emulator frame buffer (512x480, RGB555/RGB565) to support all resolution sizes
     u16 emu_frame_buffer[2][512 * 480] __attribute__((aligned(64)));
     volatile int emu_write_idx __attribute__((aligned(64)));
     volatile int emu_read_idx __attribute__((aligned(64)));

@@ -32,8 +32,164 @@ static CFileWrapper s_OpenFiles[64];
 
 extern "C" {
 
-// static char dummy_reent[1024];
-// struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
+static char dummy_reent[1024];
+struct _reent * _impure_ptr = (struct _reent *)dummy_reent;
+int rand(void);
+long strtol(const char *nptr, char **endptr, int base);
+
+int sprintf(char *buf, const char *fmt, ...) {
+    va_list var;
+    va_start(var, fmt);
+    CString Msg;
+    Msg.FormatV(fmt, var);
+    va_end(var);
+    strcpy(buf, (const char *)Msg);
+    return Msg.GetLength();
+}
+
+int snprintf(char *buf, size_t size, const char *fmt, ...) {
+    if (size == 0) return 0;
+    va_list var;
+    va_start(var, fmt);
+    CString Msg;
+    Msg.FormatV(fmt, var);
+    va_end(var);
+    size_t len = Msg.GetLength();
+    if (size - 1 < len) {
+        len = size - 1;
+    }
+    memcpy(buf, (const char *)Msg, len);
+    buf[len] = '\0';
+    return len;
+}
+
+int vsnprintf(char *buf, size_t size, const char *fmt, va_list var) {
+    if (size == 0) return 0;
+    CString Msg;
+    Msg.FormatV(fmt, var);
+    size_t len = Msg.GetLength();
+    if (size - 1 < len) {
+        len = size - 1;
+    }
+    memcpy(buf, (const char *)Msg, len);
+    buf[len] = '\0';
+    return len;
+}
+
+char *stpcpy(char *dest, const char *src) {
+    while ((*dest++ = *src++) != '\0') ;
+    return dest - 1;
+}
+
+int sscanf(const char *str, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int count = 0;
+
+    if (strcmp(format, "TRACK:%d TYPE:%s SUBTYPE:%s FRAMES:%d PREGAP:%d PGTYPE:%s PGSUB:%s POSTGAP:%d") == 0) {
+        int *track = va_arg(args, int *);
+        char *type = va_arg(args, char *);
+        char *subtype = va_arg(args, char *);
+        int *frames = va_arg(args, int *);
+        int *pregap = va_arg(args, int *);
+        char *pgtype = va_arg(args, char *);
+        char *pgsub = va_arg(args, char *);
+        int *postgap = va_arg(args, int *);
+
+        if (str && track && type && subtype && frames && pregap && pgtype && pgsub && postgap) {
+            const char *p;
+            if ((p = strstr(str, "TRACK:"))) { *track = (int)strtol(p + 6, nullptr, 10); count++; }
+            if ((p = strstr(str, "TYPE:"))) {
+                char *d = type; p += 5;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "SUBTYPE:"))) {
+                char *d = subtype; p += 8;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "FRAMES:"))) { *frames = (int)strtol(p + 7, nullptr, 10); count++; }
+            if ((p = strstr(str, "PREGAP:"))) { *pregap = (int)strtol(p + 7, nullptr, 10); count++; }
+            if ((p = strstr(str, "PGTYPE:"))) {
+                char *d = pgtype; p += 7;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "PGSUB:"))) {
+                char *d = pgsub; p += 6;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "POSTGAP:"))) { *postgap = (int)strtol(p + 8, nullptr, 10); count++; }
+        }
+    }
+    else if (strcmp(format, "TRACK:%d TYPE:%s SUBTYPE:%s FRAMES:%d") == 0) {
+        int *track = va_arg(args, int *);
+        char *type = va_arg(args, char *);
+        char *subtype = va_arg(args, char *);
+        int *frames = va_arg(args, int *);
+
+        if (str && track && type && subtype && frames) {
+            const char *p;
+            if ((p = strstr(str, "TRACK:"))) { *track = (int)strtol(p + 6, nullptr, 10); count++; }
+            if ((p = strstr(str, "TYPE:"))) {
+                char *d = type; p += 5;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "SUBTYPE:"))) {
+                char *d = subtype; p += 8;
+                while (*p && *p != ' ') *d++ = *p++;
+                *d = '\0'; count++;
+            }
+            if ((p = strstr(str, "FRAMES:"))) { *frames = (int)strtol(p + 7, nullptr, 10); count++; }
+        }
+    }
+    else if (strcmp(format, "%d:%d:%d") == 0) {
+        int *m = va_arg(args, int *);
+        int *s = va_arg(args, int *);
+        int *f = va_arg(args, int *);
+
+        if (str && m && s && f) {
+            const char *p = str;
+            while (*p == ' ' || *p == '\t') p++;
+            if (*p >= '0' && *p <= '9') {
+                *m = (int)strtol(p, nullptr, 10);
+                count++;
+                while (*p >= '0' && *p <= '9') p++;
+            }
+            if (*p == ':') {
+                p++;
+                if (*p >= '0' && *p <= '9') {
+                    *s = (int)strtol(p, nullptr, 10);
+                    count++;
+                    while (*p >= '0' && *p <= '9') p++;
+                }
+                if (*p == ':') {
+                    p++;
+                    if (*p >= '0' && *p <= '9') {
+                        *f = (int)strtol(p, nullptr, 10);
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+    else if (strcmp(format, "%d") == 0) {
+        int *val = va_arg(args, int *);
+        if (str && val) {
+            const char *p = str;
+            while (*p == ' ' || *p == '\t') p++;
+            if ((*p >= '0' && *p <= '9') || *p == '-' || *p == '+') {
+                *val = (int)strtol(p, nullptr, 10);
+                count++;
+            }
+        }
+    }
+    va_end(args);
+    return count;
+}
 
 char *strdup(const char *s) {
     if (s == nullptr) return nullptr;
@@ -60,7 +216,6 @@ void lprintf(const char *fmt, ...) {
 }
 
 FILE *fopen(const char *pathname, const char *mode) {
-    // Find a free wrapper slot
     int slot = -1;
     for (int i = 0; i < 64; i++) {
         if (!s_OpenFiles[i].in_use) {
@@ -79,7 +234,6 @@ FILE *fopen(const char *pathname, const char *mode) {
     if (strchr(mode, 'a')) flags |= FA_WRITE | FA_OPEN_APPEND;
     if (strchr(mode, '+')) flags |= FA_READ | FA_WRITE;
 
-    // Convert potential raw path with leading slash to use drive specifier SD:/
     char fullPath[256];
     if (pathname[0] == '/') {
         snprintf(fullPath, sizeof(fullPath), "SD:%s", pathname);
@@ -92,7 +246,7 @@ FILE *fopen(const char *pathname, const char *mode) {
 
     FRESULT res = f_open(&s_OpenFiles[slot].file, fullPath, flags);
     if (res != FR_OK) {
-        if (res != 4) { // Don't log expected FR_NO_FILE (4) failures for optional patches/saves
+        if (res != 4) {
             lprintf("clib_stubs: fopen(%s) failed: FR_%d", fullPath, (int)res);
         }
         return nullptr;
@@ -256,177 +410,19 @@ char *strerror(int errnum) {
     return (char *)"Unknown error";
 }
 
-/*
-int sscanf(const char *str, const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    int count = 0;
-
-    if (strcmp(format, "TRACK:%d TYPE:%s SUBTYPE:%s FRAMES:%d PREGAP:%d PGTYPE:%s PGSUB:%s POSTGAP:%d") == 0) {
-        int *track = va_arg(args, int *);
-        char *type = va_arg(args, char *);
-        char *subtype = va_arg(args, char *);
-        int *frames = va_arg(args, int *);
-        int *pregap = va_arg(args, int *);
-        char *pgtype = va_arg(args, char *);
-        char *pgsub = va_arg(args, char *);
-        int *postgap = va_arg(args, int *);
-
-        if (str && track && type && subtype && frames && pregap && pgtype && pgsub && postgap) {
-            const char *p;
-            if ((p = strstr(str, "TRACK:"))) { *track = (int)strtol(p + 6, nullptr, 10); count++; }
-            if ((p = strstr(str, "TYPE:"))) {
-                char *d = type; p += 5;
-                while (*p && *p != ' ') *d++ = *p++;
-                *d = '\0'; count++;
-            }
-            if ((p = strstr(str, "SUBTYPE:"))) {
-                char *d = subtype; p += 8;
-                while (*p && *p != ' ') *d++ = *p++;
-                *d = '\0'; count++;
-            }
-            if ((p = strstr(str, "FRAMES:"))) { *frames = (int)strtol(p + 7, nullptr, 10); count++; }
-            if ((p = strstr(str, "PREGAP:"))) { *pregap = (int)strtol(p + 7, nullptr, 10); count++; }
-            if ((p = strstr(str, "PGTYPE:"))) {
-                char *d = pgtype; p += 7;
-                while (*p && *p != ' ') *d++ = *p++;
-                *d = '\0'; count++;
-            }
-            if ((p = strstr(str, "PGSUB:"))) {
-                char *d = pgsub; p += 6;
-                while (*p && *p != ' ') *d++ = *p++;
-                *d = '\0'; count++;
-            }
-            if ((p = strstr(str, "POSTGAP:"))) { *postgap = (int)strtol(p + 8, nullptr, 10); count++; }
-        }
-    }
-    else if (strcmp(format, "TRACK:%d TYPE:%s SUBTYPE:%s FRAMES:%d") == 0) {
-        int *track = va_arg(args, int *);
-        char *type = va_arg(args, char *);
-        char *subtype = va_arg(args, char *);
-        int *frames = va_arg(args, int *);
-
-        if (str && track && type && subtype && frames) {
-            const char *p;
-            if ((p = strstr(str, "TRACK:"))) { *track = (int)strtol(p + 6, nullptr, 10); count++; }
-            if ((p = strstr(str, "TYPE:"))) {
-                char *d = type; p += 5;
-                while (*p && *p != ' ') *d++ = *p++;
-                *d = '\0'; count++;
-            }
-            if ((p = strstr(str, "SUBTYPE:"))) {
-                char *d = subtype; p += 8;
-                while (*p && *p != ' ') *d++ = *p++;
-                *d = '\0'; count++;
-            }
-            if ((p = strstr(str, "FRAMES:"))) { *frames = (int)strtol(p + 7, nullptr, 10); count++; }
-        }
-    }
-    else if (strcmp(format, "%d:%d:%d") == 0) {
-        int *m = va_arg(args, int *);
-        int *s = va_arg(args, int *);
-        int *f = va_arg(args, int *);
-
-        if (str && m && s && f) {
-            const char *p = str;
-            while (*p == ' ' || *p == '\t') p++;
-            if (*p >= '0' && *p <= '9') {
-                *m = (int)strtol(p, nullptr, 10);
-                count++;
-                while (*p >= '0' && *p <= '9') p++;
-            }
-            if (*p == ':') {
-                p++;
-                if (*p >= '0' && *p <= '9') {
-                    *s = (int)strtol(p, nullptr, 10);
-                    count++;
-                    while (*p >= '0' && *p <= '9') p++;
-                }
-                if (*p == ':') {
-                    p++;
-                    if (*p >= '0' && *p <= '9') {
-                        *f = (int)strtol(p, nullptr, 10);
-                        count++;
-                    }
-                }
-            }
-        }
-    }
-    else if (strcmp(format, "%d") == 0) {
-        int *val = va_arg(args, int *);
-        if (str && val) {
-            const char *p = str;
-            while (*p == ' ' || *p == '\t') p++;
-            if ((*p >= '0' && *p <= '9') || *p == '-' || *p == '+') {
-                *val = (int)strtol(p, nullptr, 10);
-                count++;
-            }
-        }
-    }
-    else {
-        lprintf("clib_stubs: unsupported sscanf format: %s", format);
-    }
-
-    va_end(args);
-    return count;
-}
-*/
-
-/*
-int sprintf(char *buf, const char *fmt, ...) {
-    va_list var;
-    va_start(var, fmt);
-    CString Msg;
-    Msg.FormatV(fmt, var);
-    va_end(var);
-    strcpy(buf, (const char *)Msg);
-    return Msg.GetLength();
-}
-
-int snprintf(char *buf, size_t size, const char *fmt, ...) {
-    if (size == 0) return 0;
-    va_list var;
-    va_start(var, fmt);
-    CString Msg;
-    Msg.FormatV(fmt, var);
-    va_end(var);
-    size_t len = Msg.GetLength();
-    if (size - 1 < len) {
-        len = size - 1;
-    }
-    memcpy(buf, (const char *)Msg, len);
-    buf[len] = '\0';
-    return len;
-}
-
-int vsnprintf(char *buf, size_t size, const char *fmt, va_list var) {
-    if (size == 0) return 0;
-    CString Msg;
-    Msg.FormatV(fmt, var);
-    size_t len = Msg.GetLength();
-    if (size - 1 < len) {
-        len = size - 1;
-    }
-    memcpy(buf, (const char *)Msg, len);
-    buf[len] = '\0';
-    return len;
-}
-*/
-
 int fprintf(FILE *stream, const char *fmt, ...) {
     return 0;
 }
 
 int gettimeofday(struct timeval *tv, void *tz) {
     if (tv) {
-        u64 ticks = CTimer::GetClockTicks64(); // 1 tick = 1 microsecond
+        u64 ticks = CTimer::GetClockTicks64();
         tv->tv_sec = ticks / 1000000;
         tv->tv_usec = ticks % 1000000;
     }
     return 0;
 }
 
-// Missing string/stdlib functions
 char *strrchr(const char *s, int c) {
     const char *last = nullptr;
     do {
@@ -526,7 +522,6 @@ size_t wcsftime(wchar_t *s, size_t max, const wchar_t *format, const struct tm *
 }
 
 void abort(void) {
-    extern void lprintf(const char *fmt, ...);
     lprintf("clib_stubs: abort() called\n");
     while (1);
 }
@@ -599,7 +594,6 @@ int __locale_mb_cur_max(void) {
     return 1;
 }
 
-
 size_t wcrtomb(char *s, wchar_t wc, mbstate_t *ps) {
     if (s == nullptr) return 1;
     *s = (char)wc;
@@ -653,7 +647,6 @@ __uint32_t arc4random(void) {
     return ((__uint32_t)rand() << 16) | (__uint32_t)rand();
 }
 
-
 int read(int fd, void *buf, size_t count) {
     return -1;
 }
@@ -667,7 +660,6 @@ off_t lseek(int fd, off_t offset, int whence) {
 }
 
 int puts(const char *s) {
-    extern void lprintf(const char *fmt, ...);
     lprintf("%s\n", s);
     return 1;
 }
@@ -722,7 +714,6 @@ int getc(FILE *stream) {
 }
 
 int putchar(int c) {
-    extern void lprintf(const char *fmt, ...);
     lprintf("%c", c);
     return c;
 }
@@ -741,7 +732,6 @@ struct tm *localtime(const time_t *timer) {
 }
 
 void exit(int status) {
-    extern void lprintf(const char *fmt, ...);
     lprintf("clib_stubs: exit(%d) called\n", status);
     while (1);
 }
@@ -775,8 +765,6 @@ int fputs(const char *s, FILE *stream) {
     return fwrite(s, 1, len, stream) == len ? 0 : -1;
 }
 
-
-
 #define _U 01
 #define _L 02
 #define _N 04
@@ -787,7 +775,7 @@ int fputs(const char *s, FILE *stream) {
 #define _B 0200
 
 extern "C" const unsigned char _ctype_[257] = {
-    0, // EOF
+    0,
     _C, _C, _C, _C, _C, _C, _C, _C,                     // 0-7
     _C, _C|_S, _C|_S, _C|_S, _C|_S, _C|_S, _C, _C,       // 8-15
     _C, _C, _C, _C, _C, _C, _C, _C,                     // 16-23
@@ -813,10 +801,6 @@ extern "C" const unsigned char _ctype_[257] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
-
-
-
-
 
 #ifndef LONG_MAX
 #define LONG_MAX 2147483647L
@@ -907,7 +891,7 @@ char *fgets(char *s, int size, FILE *stream) {
         UINT read = 0;
         FRESULT res = f_read(&w->file, &c, 1, &read);
         if (res != FR_OK || read == 0) {
-            if (i == 0) return nullptr; // EOF or error
+            if (i == 0) return nullptr;
             break;
         }
         s[i++] = c;
@@ -936,13 +920,11 @@ int printf(const char *format, ...) {
     va_start(args, format);
     int ret = vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
-    extern void lprintf(const char *fmt, ...);
     lprintf("%s", buf);
     return ret;
 }
 
 void perror(const char *s) {
-    extern void lprintf(const char *fmt, ...);
     lprintf("perror: %s", s);
 }
 
@@ -975,25 +957,20 @@ void qsort(void *base, size_t num, size_t size, int (*compar)(const void *, cons
     }
 }
 
-// Picodrive SMS & 32x stubs
-void Pico32xPrepare(void) {}
-#ifndef _ASM_MEMORY_C
-unsigned int PicoRead8_32x(unsigned int a) { return 0; }
-unsigned int PicoRead16_32x(unsigned int a) { return 0; }
-void PicoWrite8_32x(unsigned int a, unsigned int d) {}
-void PicoWrite16_32x(unsigned int a, unsigned int d) {}
-#endif
+__attribute__((weak)) void Pico32xPrepare(void) {}
+__attribute__((weak)) unsigned int PicoRead8_32x(unsigned int a) { return 0; }
+__attribute__((weak)) unsigned int PicoRead16_32x(unsigned int a) { return 0; }
+__attribute__((weak)) void PicoWrite8_32x(unsigned int a, unsigned int d) {}
+__attribute__((weak)) void PicoWrite16_32x(unsigned int a, unsigned int d) {}
 
-// Picodrive ZIP stubs
 struct ZIP;
 struct zipent;
-ZIP* openzip(const char* path) { return nullptr; }
-void closezip(ZIP* zip) {}
-struct zipent* readzip(ZIP* zip) { return nullptr; }
-int seekcompresszip(ZIP* zip, struct zipent* ent) { return -1; }
+__attribute__((weak)) ZIP* openzip(const char* path) { return nullptr; }
+__attribute__((weak)) void closezip(ZIP* zip) {}
+__attribute__((weak)) struct zipent* readzip(ZIP* zip) { return nullptr; }
+__attribute__((weak)) int seekcompresszip(ZIP* zip, struct zipent* ent) { return -1; }
 
-// Picodrive video mode change callback
-void emu_video_mode_change(int start_line, int line_count, int start_col, int col_count) {
+__attribute__((weak)) void emu_video_mode_change(int start_line, int line_count, int start_col, int col_count) {
     g_SharedState.start_line[0] = start_line;
     g_SharedState.start_line[1] = start_line;
     g_SharedState.game_h[0] = line_count;
@@ -1002,14 +979,13 @@ void emu_video_mode_change(int start_line, int line_count, int start_col, int co
     g_SharedState.game_w[1] = col_count;
 }
 
-// Picodrive Sega CD MP3 & OGG stubs
-int mp3_get_bitrate(void *f, int size) { return 0; }
-void mp3_start_play(void *f, int pos) {}
-void mp3_update(s32 *buffer, int length, int stereo) {}
-int ogg_get_length(void *f_) { return 0; }
-void ogg_start_play(void *f_, int sample_offset) {}
-void ogg_stop_play(void) {}
-void ogg_update(s32 *buffer, int length, int stereo) {}
+__attribute__((weak)) int mp3_get_bitrate(void *f, int size) { return 0; }
+__attribute__((weak)) void mp3_start_play(void *f, int pos) {}
+__attribute__((weak)) void mp3_update(s32 *buffer, int length, int stereo) {}
+__attribute__((weak)) int ogg_get_length(void *f_) { return 0; }
+__attribute__((weak)) void ogg_start_play(void *f_, int sample_offset) {}
+__attribute__((weak)) void ogg_stop_play(void) {}
+__attribute__((weak)) void ogg_update(s32 *buffer, int length, int stereo) {}
 
 void cache_flush_d_inval_i(void *start_addr, void *end_addr) {
     unsigned int start = (unsigned int)start_addr;

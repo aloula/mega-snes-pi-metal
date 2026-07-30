@@ -123,21 +123,7 @@ static void EmuSoundCallback(int len) {
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
 }
 
-// lprintf implementation
-extern "C" void lprintf(const char *fmt, ...) {
-    char buf[256];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-    // Strip trailing newlines
-    int len = strlen(buf);
-    while (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r')) {
-        buf[len-1] = '\0';
-        len--;
-    }
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "%s", buf);
-}
+
 
 // plat_mmap stubs
 extern "C" void *plat_mmap(unsigned long addr, size_t size, int need_exec, int is_fixed) {

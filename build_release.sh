@@ -20,6 +20,7 @@ if ! command -v zip &> /dev/null; then
     echo -e "${RED}Error: 'zip' utility is not installed! Please install it (e.g. sudo apt install zip).${NC}"
     exit 1
 fi
+
 # Generate Splash_Screen.raw16 if res/5-in-1_Baremetal_Emulator_2.png or res/Splash_Screen.png exists
 SPLASH_PNG="res/5-in-1_Baremetal_Emulator_2.png"
 if [ ! -f "$SPLASH_PNG" ] && [ -f "res/Splash_Screen.png" ]; then
@@ -28,8 +29,9 @@ fi
 
 if [ -f "$SPLASH_PNG" ]; then
     echo -e "${BLUE}Generating Splash_Screen.raw16 from $SPLASH_PNG...${NC}"
-    if python3 convert_splash.py "$SPLASH_PNG" snes-emulator/boot/Splash_Screen.raw16; then
+    if python3 convert_splash.py "$SPLASH_PNG" main-emulator/boot/Splash_Screen.raw16; then
         echo -e "${GREEN}Splash screen converted successfully using convert_splash.py!${NC}"
+        cp main-emulator/boot/Splash_Screen.raw16 snes-emulator/boot/Splash_Screen.raw16 2>/dev/null || true
     elif command -v convert &> /dev/null; then
         echo -e "${BLUE}Falling back to ImageMagick convert...${NC}"
         convert "$SPLASH_PNG" -resize '640x480!' rgb:res/Splash_Screen.rgb
@@ -42,10 +44,11 @@ for i in range(0, len(rgb), 3):
     r, g, b = rgb[i], rgb[i+1], rgb[i+2]
     val = (((r >> 3) & 0x1F) << 11) | (((g >> 2) & 0x3F) << 5) | ((b >> 3) & 0x1F)
     out.extend(struct.pack("<H", val))
-with open("snes-emulator/boot/Splash_Screen.raw16", "wb") as f:
+with open("main-emulator/boot/Splash_Screen.raw16", "wb") as f:
     f.write(out)
 '
         rm -f res/Splash_Screen.rgb
+        cp main-emulator/boot/Splash_Screen.raw16 snes-emulator/boot/Splash_Screen.raw16 2>/dev/null || true
         echo -e "${GREEN}Splash screen converted successfully using ImageMagick fallback!${NC}"
     else
         echo -e "${RED}Warning: Neither 'convert_splash.py' dependency (Pillow) nor 'convert' (ImageMagick) is functional. Skipping splash screen generation.${NC}"
@@ -60,26 +63,29 @@ fi
 
 # 3. Clean previous build files
 echo -e "${BLUE}Cleaning previous builds...${NC}"
-make -C snes-emulator clean
-make -C mega-emulator clean
 make -C master-emulator clean
+make -C mega-emulator clean
+make -C snes-emulator clean
+make -C main-emulator clean
 
-# 4. Build all emulator targets for consistency, then package snes-emulator image
+# 4. Build all emulator targets
 echo -e "${BLUE}Compiling master-emulator...${NC}"
 make -C master-emulator -j$(nproc)
 echo -e "${BLUE}Compiling mega-emulator...${NC}"
 make -C mega-emulator -j$(nproc)
-echo -e "${BLUE}Compiling snes-emulator (release image target)...${NC}"
+echo -e "${BLUE}Compiling snes-emulator...${NC}"
 make -C snes-emulator -j$(nproc)
+echo -e "${BLUE}Compiling main-emulator (5-in-1 multi-console target)...${NC}"
+make -C main-emulator -j$(nproc)
 
 # 5. Copy the compiled kernel image to the boot directory and verify it exists
-cp snes-emulator/kernel8-32.img snes-emulator/boot/kernel8-32.img
-IMAGE_FILE="snes-emulator/boot/kernel8-32.img"
+cp main-emulator/kernel8-32.img main-emulator/boot/kernel8-32.img
+IMAGE_FILE="main-emulator/boot/kernel8-32.img"
 if [ ! -f "$IMAGE_FILE" ]; then
     echo -e "${RED}Error: $IMAGE_FILE was not compiled successfully!${NC}"
     exit 1
 fi
-echo -e "${GREEN}Build succeeded! kernel8-32.img is ready.${NC}"
+echo -e "${GREEN}Build succeeded! main-emulator kernel8-32.img is ready.${NC}"
 
 # 6. Create temporary staging area for SD card file structure
 echo -e "${BLUE}Staging SD Card file structure...${NC}"
@@ -87,8 +93,8 @@ STAGING_DIR="tmp_release"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
-# Copy all boot partition files from snes-emulator/boot/
-cp -r snes-emulator/boot/* "$STAGING_DIR/"
+# Copy all boot partition files from main-emulator/boot/
+cp -r main-emulator/boot/* "$STAGING_DIR/"
 if [ -f "system_order.txt" ]; then
     cp system_order.txt "$STAGING_DIR/"
 fi
