@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include <video_utils.h>
 #include <circle/usb/usbdevice.h>
 #include <circle/sound/pwmsoundbasedevice.h>
 #include <circle/sound/hdmisoundbasedevice.h>
@@ -602,14 +603,6 @@ static void UpdateScaleTable(int src_w) {
             s_ScaleTableCache.weight[x] = 0;
         }
         accum += step;
-    }
-}
-
-static inline void DimScanline50(u16 *buf, int count = 640) {
-    u64 *p64 = (u64 *)buf;
-    int count64 = count / 4;
-    for (int i = 0; i < count64; i++) {
-        p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
     }
 }
 

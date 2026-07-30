@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include <video_utils.h>
 #include <circle/usb/usbdevice.h>
 #include <circle/sound/pwmsoundbasedevice.h>
 #include <circle/sound/hdmisoundbasedevice.h>
@@ -715,13 +716,6 @@ boolean is6ButtonGame(const char *pRomName) {
     return FALSE;
 }
 
-static bool IsRowBlack(const u16 *line, int width) {
-    if (line[width / 4] != 0) return false;
-    if (line[width / 2] != 0) return false;
-    if (line[3 * width / 4] != 0) return false;
-    return true;
-}
-
 // Helper drawing utilities
 static void DrawRect(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u16 color) {
     int width = x2 - x1 + 1;
@@ -1414,21 +1408,6 @@ static void UpdateScaleTable(int src_w) {
     }
 }
 
-static inline u16 BlendRGB565(u16 c1, u16 c2, u32 w2) {
-    u32 w1 = 32 - w2;
-    u32 rb = (((c1 & 0xF81F) * w1 + (c2 & 0xF81F) * w2) >> 5) & 0xF81F;
-    u32 g  = (((c1 & 0x07E0) * w1 + (c2 & 0x07E0) * w2) >> 5) & 0x07E0;
-    return (u16)(rb | g);
-}
-
-static inline void DimScanline50(u16 *buf, int count = 640) {
-    u64 *p64 = (u64 *)buf;
-    int count64 = count / 4;
-    for (int i = 0; i < count64; i++) {
-        p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
-    }
-}
-
 static void CopyBackBufferToFB(u16 *pBuf, u32 nPitch, const u16 *pBackBuffer) {
     if (!g_SharedState.screensaver_active) {
         if (nPitch == SCREEN_WIDTH) {
@@ -1531,16 +1510,16 @@ void CKernel::RunVideoDomain() {
 
                 // 1. Fade-in (1 second, 50 steps of 20ms)
                 for (int step = 0; step <= 50; step++) {
+                    u32 scale = (step << 16) / 50;
                     for (int y = 0; y < draw_h; y++) {
+                        const u16 *src_row = s_SplashBuf + (src_y_offset + y) * 640;
+                        u16 *dst_row = pBackBuffer + (start_y + y) * SCREEN_WIDTH;
                         for (int x = 0; x < 640; x++) {
-                            u16 color = s_SplashBuf[(src_y_offset + y) * 640 + x];
-                            u32 r = (color >> 11) & 0x1F;
-                            u32 g = (color >> 5) & 0x3F;
-                            u32 b = color & 0x1F;
-                            r = (r * step) / 50;
-                            g = (g * step) / 50;
-                            b = (b * step) / 50;
-                            pBackBuffer[(start_y + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                            u16 color = src_row[x];
+                            u32 r = ((color >> 11) & 0x1F) * scale >> 16;
+                            u32 g = ((color >> 5) & 0x3F) * scale >> 16;
+                            u32 b = (color & 0x1F) * scale >> 16;
+                            dst_row[x] = (r << 11) | (g << 5) | b;
                         }
                     }
                     CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
@@ -1559,16 +1538,16 @@ void CKernel::RunVideoDomain() {
 
                 // 3. Fade-out (1 second, 50 steps of 20ms)
                 for (int step = 50; step >= 0; step--) {
+                    u32 scale = (step << 16) / 50;
                     for (int y = 0; y < draw_h; y++) {
+                        const u16 *src_row = s_SplashBuf + (src_y_offset + y) * 640;
+                        u16 *dst_row = pBackBuffer + (start_y + y) * SCREEN_WIDTH;
                         for (int x = 0; x < 640; x++) {
-                            u16 color = s_SplashBuf[(src_y_offset + y) * 640 + x];
-                            u32 r = (color >> 11) & 0x1F;
-                            u32 g = (color >> 5) & 0x3F;
-                            u32 b = color & 0x1F;
-                            r = (r * step) / 50;
-                            g = (g * step) / 50;
-                            b = (b * step) / 50;
-                            pBackBuffer[(start_y + y) * SCREEN_WIDTH + x] = (r << 11) | (g << 5) | b;
+                            u16 color = src_row[x];
+                            u32 r = ((color >> 11) & 0x1F) * scale >> 16;
+                            u32 g = ((color >> 5) & 0x3F) * scale >> 16;
+                            u32 b = (color & 0x1F) * scale >> 16;
+                            dst_row[x] = (r << 11) | (g << 5) | b;
                         }
                     }
                     CopyBackBufferToFB(pBuf, nPitch, pBackBuffer);
