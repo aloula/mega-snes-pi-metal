@@ -972,7 +972,37 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
         if (key == 0x28) pad |= (1 << 7);           // Enter -> SMS Pause
         if (key == 0x2C) pad |= (1 << 11);          // Space -> Select
         if (key == 0x29) g_SharedState.escape_pressed = TRUE; // ESC -> Menu
-        if (key == 0x3F) g_SharedState.rewind_requested = TRUE; // F6 -> Rewind state
+
+        static boolean s_bF5Pressed = FALSE;
+        static boolean s_bF6Pressed = FALSE;
+        static boolean s_bF8Pressed = FALSE;
+
+        if (key == 0x3E) { // F5
+            if (!s_bF5Pressed) {
+                s_bF5Pressed = TRUE;
+                g_SharedState.save_state_requested = TRUE;
+            }
+        } else {
+            s_bF5Pressed = FALSE;
+        }
+
+        if (key == 0x3F) { // F6
+            if (!s_bF6Pressed) {
+                s_bF6Pressed = TRUE;
+                g_SharedState.rewind_requested = TRUE;
+            }
+        } else {
+            s_bF6Pressed = FALSE;
+        }
+
+        if (key == 0x41) { // F8
+            if (!s_bF8Pressed) {
+                s_bF8Pressed = TRUE;
+                g_SharedState.load_state_requested = TRUE;
+            }
+        } else {
+            s_bF8Pressed = FALSE;
+        }
     }
 
     g_SharedState.pad1 = pad;

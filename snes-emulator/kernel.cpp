@@ -1282,9 +1282,37 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
         if (key == 0x2C) pad |= (1 << 11); // Space -> Mode
 
         if (key == 0x29) escape = TRUE; // Escape
-        if (key == 0x3E) g_SharedState.save_state_requested = TRUE; // F5
-        if (key == 0x3F) g_SharedState.rewind_requested = TRUE;     // F6
-        if (key == 0x41) g_SharedState.load_state_requested = TRUE; // F8
+
+        static boolean s_bF5Pressed = FALSE;
+        static boolean s_bF6Pressed = FALSE;
+        static boolean s_bF8Pressed = FALSE;
+
+        if (key == 0x3E) { // F5
+            if (!s_bF5Pressed) {
+                s_bF5Pressed = TRUE;
+                g_SharedState.save_state_requested = TRUE;
+            }
+        } else {
+            s_bF5Pressed = FALSE;
+        }
+
+        if (key == 0x3F) { // F6
+            if (!s_bF6Pressed) {
+                s_bF6Pressed = TRUE;
+                g_SharedState.rewind_requested = TRUE;
+            }
+        } else {
+            s_bF6Pressed = FALSE;
+        }
+
+        if (key == 0x41) { // F8
+            if (!s_bF8Pressed) {
+                s_bF8Pressed = TRUE;
+                g_SharedState.load_state_requested = TRUE;
+            }
+        } else {
+            s_bF8Pressed = FALSE;
+        }
     }
 
     static u16 last_kbd_pad = 0xFFFF;
