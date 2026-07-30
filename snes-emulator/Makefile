@@ -2,69 +2,69 @@
 # Makefile for Standalone SNES baremetal emulator
 #
 
-CIRCLEHOME = ../circle
+CIRCLEHOME = ../deps/circle
 
 OBJS	= main.o kernel.o osd.o emu_orchestrator.o clib_stubs.o \
-	  ../snes9x/apu/apu.o \
-	  ../snes9x/apu/bapu/dsp/sdsp.o \
-	  ../snes9x/apu/bapu/smp/smp.o \
-	  ../snes9x/apu/bapu/smp/smp_state.o \
-	  ../snes9x/bsx.o \
-	  ../snes9x/c4.o \
-	  ../snes9x/c4emu.o \
-	  ../snes9x/cheats.o \
-	  ../snes9x/cheats2.o \
-	  ../snes9x/clip.o \
-	  ../snes9x/conffile.o \
-	  ../snes9x/controls.o \
-	  ../snes9x/cpu.o \
-	  ../snes9x/cpuexec.o \
-	  ../snes9x/cpuops.o \
-	  ../snes9x/crosshairs.o \
-	  ../snes9x/dma.o \
-	  ../snes9x/dsp.o \
-	  ../snes9x/dsp1.o \
-	  ../snes9x/dsp2.o \
-	  ../snes9x/dsp3.o \
-	  ../snes9x/dsp4.o \
-	  ../snes9x/fxinst.o \
-	  ../snes9x/fxemu.o \
-	  ../snes9x/gfx.o \
-	  ../snes9x/globals.o \
-	  ../snes9x/memmap.o \
-	  ../snes9x/obc1.o \
-	  ../snes9x/msu1.o \
-	  ../snes9x/ppu.o \
-	  ../snes9x/stream.o \
-	  ../snes9x/sa1.o \
-	  ../snes9x/sa1cpu.o \
-	  ../snes9x/screenshot.o \
-	  ../snes9x/sdd1.o \
-	  ../snes9x/sdd1emu.o \
-	  ../snes9x/seta.o \
-	  ../snes9x/seta010.o \
-	  ../snes9x/seta011.o \
-	  ../snes9x/seta018.o \
-	  ../snes9x/snapshot.o \
-	  ../snes9x/snes9x.o \
-	  ../snes9x/spc7110.o \
-	  ../snes9x/srtc.o \
-	  ../snes9x/tile.o \
-	  ../snes9x/tileimpl-n1x1.o \
-	  ../snes9x/tileimpl-n2x1.o \
-	  ../snes9x/tileimpl-h2x1.o \
-	  ../snes9x/sha256.o \
-	  ../snes9x/bml.o \
-	  ../snes9x/movie.o \
-	  ../snes9x/fscompat.o \
-	  ../snes9x/filter/snes_ntsc.o
+	  ../deps/snes9x/apu/apu.o \
+	  ../deps/snes9x/apu/bapu/dsp/sdsp.o \
+	  ../deps/snes9x/apu/bapu/smp/smp.o \
+	  ../deps/snes9x/apu/bapu/smp/smp_state.o \
+	  ../deps/snes9x/bsx.o \
+	  ../deps/snes9x/c4.o \
+	  ../deps/snes9x/c4emu.o \
+	  ../deps/snes9x/cheats.o \
+	  ../deps/snes9x/cheats2.o \
+	  ../deps/snes9x/clip.o \
+	  ../deps/snes9x/conffile.o \
+	  ../deps/snes9x/controls.o \
+	  ../deps/snes9x/cpu.o \
+	  ../deps/snes9x/cpuexec.o \
+	  ../deps/snes9x/cpuops.o \
+	  ../deps/snes9x/crosshairs.o \
+	  ../deps/snes9x/dma.o \
+	  ../deps/snes9x/dsp.o \
+	  ../deps/snes9x/dsp1.o \
+	  ../deps/snes9x/dsp2.o \
+	  ../deps/snes9x/dsp3.o \
+	  ../deps/snes9x/dsp4.o \
+	  ../deps/snes9x/fxinst.o \
+	  ../deps/snes9x/fxemu.o \
+	  ../deps/snes9x/gfx.o \
+	  ../deps/snes9x/globals.o \
+	  ../deps/snes9x/memmap.o \
+	  ../deps/snes9x/obc1.o \
+	  ../deps/snes9x/msu1.o \
+	  ../deps/snes9x/ppu.o \
+	  ../deps/snes9x/stream.o \
+	  ../deps/snes9x/sa1.o \
+	  ../deps/snes9x/sa1cpu.o \
+	  ../deps/snes9x/screenshot.o \
+	  ../deps/snes9x/sdd1.o \
+	  ../deps/snes9x/sdd1emu.o \
+	  ../deps/snes9x/seta.o \
+	  ../deps/snes9x/seta010.o \
+	  ../deps/snes9x/seta011.o \
+	  ../deps/snes9x/seta018.o \
+	  ../deps/snes9x/snapshot.o \
+	  ../deps/snes9x/snes9x.o \
+	  ../deps/snes9x/spc7110.o \
+	  ../deps/snes9x/srtc.o \
+	  ../deps/snes9x/tile.o \
+	  ../deps/snes9x/tileimpl-n1x1.o \
+	  ../deps/snes9x/tileimpl-n2x1.o \
+	  ../deps/snes9x/tileimpl-h2x1.o \
+	  ../deps/snes9x/sha256.o \
+	  ../deps/snes9x/bml.o \
+	  ../deps/snes9x/movie.o \
+	  ../deps/snes9x/fscompat.o \
+	  ../deps/snes9x/filter/snes_ntsc.o
 
 SNESPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 
 DEFS     = -DSNESPI_VERSION="\"$(SNESPI_VERSION)\"" \
            -DPIXEL_FORMAT=RGB565 -DALLOW_CPU_OVERCLOCK=1 -DHAVE_STDINT_H -DHAVE_STRINGS_H -D_GNU_SOURCE
 
-INCS     = -I. -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu \
+INCS     = -I. -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu \
            -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon \
            -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
@@ -89,13 +89,13 @@ STDLIB_SUPPORT = 3
 
 include $(CIRCLEHOME)/Rules.mk
 
-../snes9x/%.o: INCS = -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-../snes9x/%.o: CFLAGS += -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -w
-../snes9x/%.o: CPPFLAGS += -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -w
+../deps/snes9x/%.o: INCS = -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
+../deps/snes9x/%.o: CFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -w
+../deps/snes9x/%.o: CPPFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -w
 
-emu_orchestrator.o: INCS = -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-emu_orchestrator.o: CFLAGS += -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu
-emu_orchestrator.o: CPPFLAGS += -I../shared -I../snes9x -I../snes9x/apu -I../snes9x/apu/bapu
+emu_orchestrator.o: INCS = -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
+emu_orchestrator.o: CFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu
+emu_orchestrator.o: CPPFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu
 
 main.o: ../shared/main.cpp
 	$(CPP) $(CPPFLAGS) -c -o $@ $<
