@@ -216,27 +216,18 @@ Você também precisará do `make` e `zip` se ainda não os tiver instalados:
 brew install make zip
 ```
 
-#### 2. Compilando o Emulador Duplo Unificado (Padrão)
-Para compilar o kernel unificado:
+#### 2. Compilando o Emulador Bare-Metal 5-em-1
+Para compilar o kernel do emulador multi-console 5-em-1:
 ```bash
-cd snes-emulator
+cd main-emulator
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
-Isso gera o arquivo `snes-emulator/boot/kernel8-32.img`. Copie os arquivos dentro do diretório `snes-emulator/boot/` para a partição de boot FAT32 do seu cartão SD.
+Isso gera o arquivo `main-emulator/kernel8-32.img`.
 
-#### 3. Compilando o Emulador Standalone de Mega Drive
-Para compilar o emulador standalone de Sega:
-```bash
-cd mega-emulator
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-```
-#### 4. Compilando o Emulador Standalone de Master System
-Para compilar o emulador standalone de Sega Master System:
-```bash
-cd master-emulator
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-```
-Isso gera o arquivo `master-emulator/boot/kernel8-32.img`. Copie os arquivos de `master-emulator/boot/` para o seu cartão SD.
+#### 3. Compilando os Alvos de Emuladores Standalone
+- **Super Nintendo**: `cd snes-emulator && make -j$(nproc)` $\rightarrow$ gera `snes-emulator/kernel8-32.img`
+- **Sega Mega Drive**: `cd mega-emulator && make -j$(nproc)` $\rightarrow$ gera `mega-emulator/kernel8-32.img`
+- **Sega Master System**: `cd master-emulator && make -j$(nproc)` $\rightarrow$ gera `master-emulator/kernel8-32.img`
 
 #### 5. Gerando o Pacote de Lançamento (Release) para Cartão SD
 Para compilar e empacotar automaticamente todos os arquivos de inicialização junto com a estrutura de pastas do cartão SD (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem` e `bios`):

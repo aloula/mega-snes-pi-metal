@@ -217,27 +217,18 @@ You will also need `make` and `zip` if you don't already have them installed:
 brew install make zip
 ```
 
-#### 2. Building the Unified Dual Emulator (Default)
-To build the unified kernel:
+#### 2. Building the 5-in-1 Bare-Metal Emulator
+To build the main 5-in-1 multi-console emulator kernel:
 ```bash
-cd snes-emulator
+cd main-emulator
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
-This produces `snes-emulator/boot/kernel8-32.img`. Copy the files inside the `snes-emulator/boot/` directory to the FAT32 boot partition of your SD card.
+This produces `main-emulator/kernel8-32.img`.
 
-#### 3. Building the Standalone Mega Drive Emulator
-To build the standalone Sega emulator:
-```bash
-cd mega-emulator
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-```
-#### 4. Building the Standalone Master System Emulator
-To build the standalone Sega Master System emulator:
-```bash
-cd master-emulator
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-```
-This produces `master-emulator/boot/kernel8-32.img`. Copy the files inside `master-emulator/boot/` to your SD card.
+#### 3. Building Standalone Emulator Targets
+- **Super Nintendo**: `cd snes-emulator && make -j$(nproc)` $\rightarrow$ produces `snes-emulator/kernel8-32.img`
+- **Sega Mega Drive**: `cd mega-emulator && make -j$(nproc)` $\rightarrow$ produces `mega-emulator/kernel8-32.img`
+- **Sega Master System**: `cd master-emulator && make -j$(nproc)` $\rightarrow$ produces `master-emulator/kernel8-32.img`
 
 #### 5. Generating the SD Card Release Package
 To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, and `bios`) automatically:
