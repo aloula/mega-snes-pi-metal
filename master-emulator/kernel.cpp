@@ -572,7 +572,7 @@ void CKernel::RunVideoDomain() {
                 DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(8, 12, 16), 2);
 
                 char title_str[64];
-                snprintf(title_str, sizeof(title_str), "### Master System - 5 in 1 Emulator ###");
+                snprintf(title_str, sizeof(title_str), "### Sega Master System ###");
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(22, 24, 26), 0);

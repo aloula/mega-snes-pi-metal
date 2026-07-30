@@ -1674,17 +1674,17 @@ void CKernel::RunVideoDomain() {
                 // Draw Title (soft cool white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    snprintf(title_str, sizeof(title_str), "### SNES - 5 in 1 Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### SNES - Super Nintendo ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
-                    snprintf(title_str, sizeof(title_str), "### NES - 5 in 1 Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### NES - Nintendo Entertainment System ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    snprintf(title_str, sizeof(title_str), "### PC Engine - 5 in 1 Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### PC Engine - TurboGrafx-16 ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                    snprintf(title_str, sizeof(title_str), "### Master System - 5 in 1 Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### Sega Master System ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
-                    snprintf(title_str, sizeof(title_str), "### Mega Drive - 5 in 1 Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### Sega Mega Drive - Genesis ###");
                 } else { // EmuMode_FAV
-                    snprintf(title_str, sizeof(title_str), "### Favorites - 5 in 1 Emulator ###");
+                    snprintf(title_str, sizeof(title_str), "### Favorites Games ###");
                 }
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
