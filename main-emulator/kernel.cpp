@@ -1674,15 +1674,15 @@ void CKernel::RunVideoDomain() {
                 // Draw Title (soft cool white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    snprintf(title_str, sizeof(title_str), "### SNES - Super Nintendo ###");
+                    snprintf(title_str, sizeof(title_str), "### SNES / Super Famicom ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
-                    snprintf(title_str, sizeof(title_str), "### NES - Nintendo Entertainment System ###");
+                    snprintf(title_str, sizeof(title_str), "### NES - Famicom ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    snprintf(title_str, sizeof(title_str), "### PC Engine - TurboGrafx-16 ###");
+                    snprintf(title_str, sizeof(title_str), "### PC Engine / TurboGrafx-16 ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                    snprintf(title_str, sizeof(title_str), "### Sega Master System ###");
+                    snprintf(title_str, sizeof(title_str), "### Master System ###");
                 } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
-                    snprintf(title_str, sizeof(title_str), "### Sega Mega Drive - Genesis ###");
+                    snprintf(title_str, sizeof(title_str), "### Mega Drive / Genesis ###");
                 } else { // EmuMode_FAV
                     snprintf(title_str, sizeof(title_str), "### Favorites Games ###");
                 }
