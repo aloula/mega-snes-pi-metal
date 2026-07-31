@@ -17,4 +17,4 @@
 # You can write one value per line, or comma/semicolon/pipe-separated.
 # First valid value found is applied.
 
-default
+all

@@ -21,38 +21,22 @@ if ! command -v zip &> /dev/null; then
     exit 1
 fi
 
-# Generate Splash_Screen.raw16 in central boot/ if res/5-in-1_Baremetal_Emulator_2.png or res/Splash_Screen.png exists
+# Generate splash screens in boot/splash/ and default Splash_Screen.raw16
+mkdir -p boot/splash
+
+if [ -d "res" ]; then
+    echo -e "${BLUE}Converting all bootsplash images from res/ to boot/splash/...${NC}"
+    python3 convert_splash.py res/ boot/splash/
+fi
+
 SPLASH_PNG="res/5-in-1_Baremetal_Emulator_2.png"
 if [ ! -f "$SPLASH_PNG" ] && [ -f "res/Splash_Screen.png" ]; then
     SPLASH_PNG="res/Splash_Screen.png"
 fi
 
-mkdir -p boot
-
 if [ -f "$SPLASH_PNG" ]; then
-    echo -e "${BLUE}Generating Splash_Screen.raw16 from $SPLASH_PNG...${NC}"
-    if python3 convert_splash.py "$SPLASH_PNG" boot/Splash_Screen.raw16; then
-        echo -e "${GREEN}Splash screen converted successfully using convert_splash.py!${NC}"
-    elif command -v convert &> /dev/null; then
-        echo -e "${BLUE}Falling back to ImageMagick convert...${NC}"
-        convert "$SPLASH_PNG" -resize '640x480!' rgb:res/Splash_Screen.rgb
-        python3 -c '
-import struct
-with open("res/Splash_Screen.rgb", "rb") as f:
-    rgb = f.read()
-out = bytearray()
-for i in range(0, len(rgb), 3):
-    r, g, b = rgb[i], rgb[i+1], rgb[i+2]
-    val = (((r >> 3) & 0x1F) << 11) | (((g >> 2) & 0x3F) << 5) | ((b >> 3) & 0x1F)
-    out.extend(struct.pack("<H", val))
-with open("boot/Splash_Screen.raw16", "wb") as f:
-    f.write(out)
-'
-        rm -f res/Splash_Screen.rgb
-        echo -e "${GREEN}Splash screen converted successfully using ImageMagick fallback!${NC}"
-    else
-        echo -e "${RED}Warning: Neither 'convert_splash.py' dependency (Pillow) nor 'convert' (ImageMagick) is functional. Skipping splash screen generation.${NC}"
-    fi
+    echo -e "${BLUE}Generating default Splash_Screen.raw16 from $SPLASH_PNG...${NC}"
+    python3 convert_splash.py "$SPLASH_PNG" boot/Splash_Screen.raw16
 fi
 
 # 2b. Ensure Circle configuration exists (generated on fresh clones)
