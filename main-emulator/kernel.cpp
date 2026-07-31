@@ -110,6 +110,132 @@ static const OSDThemeColors s_OSDThemeGrayscale = {
     COLOR15(24, 24, 24)    // warning_text
 };
 
+static const OSDThemeColors s_OSDThemeCyberpunk = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(0, 1, 2),      // panel_bg
+    COLOR15(0, 28, 31),    // panel_border
+    COLOR15(28, 30, 31),   // title_text
+    COLOR15(0, 11, 15),    // separator
+    COLOR15(0, 7, 10),     // tab_active_bg
+    COLOR15(0, 28, 31),    // tab_active_border
+    COLOR15(31, 31, 31),   // tab_active_text
+    COLOR15(0, 3, 5),      // tab_inactive_bg
+    COLOR15(0, 14, 19),    // tab_inactive_border
+    COLOR15(16, 27, 29),   // tab_inactive_text
+    COLOR15(31, 31, 31),   // list_selected_text
+    COLOR15(22, 29, 30),   // list_text
+    COLOR15(1, 5, 8),      // list_selected_bg
+    COLOR15(0, 2, 4),      // scroll_track
+    COLOR15(0, 22, 31),    // scroll_thumb
+    COLOR15(16, 27, 29),   // footer_text
+    COLOR15(16, 29, 31)    // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeSapphire = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(0, 1, 3),      // panel_bg
+    COLOR15(5, 15, 31),    // panel_border
+    COLOR15(29, 30, 31),   // title_text
+    COLOR15(2, 8, 20),     // separator
+    COLOR15(2, 7, 17),     // tab_active_bg
+    COLOR15(8, 17, 31),    // tab_active_border
+    COLOR15(31, 31, 31),   // tab_active_text
+    COLOR15(1, 3, 8),      // tab_inactive_bg
+    COLOR15(3, 10, 22),    // tab_inactive_border
+    COLOR15(18, 23, 31),   // tab_inactive_text
+    COLOR15(31, 31, 31),   // list_selected_text
+    COLOR15(24, 26, 31),   // list_text
+    COLOR15(2, 5, 10),     // list_selected_bg
+    COLOR15(0, 2, 5),      // scroll_track
+    COLOR15(5, 15, 31),    // scroll_thumb
+    COLOR15(18, 23, 31),   // footer_text
+    COLOR15(16, 22, 31)    // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeSynthwave = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(1, 0, 3),      // panel_bg
+    COLOR15(21, 10, 30),   // panel_border
+    COLOR15(30, 29, 31),   // title_text
+    COLOR15(11, 3, 16),    // separator
+    COLOR15(9, 3, 18),     // tab_active_bg
+    COLOR15(24, 16, 31),   // tab_active_border
+    COLOR15(31, 31, 31),   // tab_active_text
+    COLOR15(4, 2, 8),      // tab_inactive_bg
+    COLOR15(15, 4, 25),    // tab_inactive_border
+    COLOR15(27, 22, 31),   // tab_inactive_text
+    COLOR15(31, 31, 31),   // list_selected_text
+    COLOR15(29, 26, 31),   // list_text
+    COLOR15(5, 2, 9),      // list_selected_bg
+    COLOR15(2, 0, 4),      // scroll_track
+    COLOR15(21, 10, 30),   // scroll_thumb
+    COLOR15(27, 22, 31),   // footer_text
+    COLOR15(30, 14, 22)    // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeArctic = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(0, 2, 2),      // panel_bg
+    COLOR15(2, 23, 16),    // panel_border
+    COLOR15(28, 31, 31),   // title_text
+    COLOR15(0, 15, 10),    // separator
+    COLOR15(0, 9, 7),      // tab_active_bg
+    COLOR15(6, 26, 19),    // tab_active_border
+    COLOR15(31, 31, 31),   // tab_active_text
+    COLOR15(0, 5, 4),      // tab_inactive_bg
+    COLOR15(0, 18, 13),    // tab_inactive_border
+    COLOR15(20, 30, 26),   // tab_inactive_text
+    COLOR15(31, 31, 31),   // list_selected_text
+    COLOR15(24, 30, 27),   // list_text
+    COLOR15(0, 7, 6),      // list_selected_bg
+    COLOR15(0, 3, 3),      // scroll_track
+    COLOR15(2, 23, 16),    // scroll_thumb
+    COLOR15(20, 30, 26),   // footer_text
+    COLOR15(13, 28, 22)    // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeAmber = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(2, 1, 0),      // panel_bg
+    COLOR15(30, 19, 1),    // panel_border
+    COLOR15(31, 31, 29),   // title_text
+    COLOR15(22, 10, 1),    // separator
+    COLOR15(15, 6, 1),     // tab_active_bg
+    COLOR15(31, 23, 4),    // tab_active_border
+    COLOR15(31, 31, 31),   // tab_active_text
+    COLOR15(8, 3, 0),      // tab_inactive_bg
+    COLOR15(27, 14, 0),    // tab_inactive_border
+    COLOR15(31, 28, 17),   // tab_inactive_text
+    COLOR15(31, 31, 31),   // list_selected_text
+    COLOR15(31, 30, 24),   // list_text
+    COLOR15(11, 4, 1),     // list_selected_bg
+    COLOR15(4, 1, 0),      // scroll_track
+    COLOR15(30, 19, 1),    // scroll_thumb
+    COLOR15(31, 28, 17),   // footer_text
+    COLOR15(31, 26, 9)     // warning_text
+};
+
+static const OSDThemeColors s_OSDThemeRuby = {
+    COLOR15(0, 0, 0),      // screen_bg
+    COLOR15(2, 0, 0),      // panel_bg
+    COLOR15(29, 8, 8),     // panel_border
+    COLOR15(31, 30, 30),   // title_text
+    COLOR15(19, 3, 3),     // separator
+    COLOR15(15, 3, 3),     // tab_active_bg
+    COLOR15(31, 14, 14),   // tab_active_border
+    COLOR15(31, 31, 31),   // tab_active_text
+    COLOR15(8, 1, 1),      // tab_inactive_bg
+    COLOR15(27, 4, 4),     // tab_inactive_border
+    COLOR15(31, 25, 25),   // tab_inactive_text
+    COLOR15(31, 31, 31),   // list_selected_text
+    COLOR15(31, 28, 28),   // list_text
+    COLOR15(10, 2, 2),     // list_selected_bg
+    COLOR15(5, 0, 1),      // scroll_track
+    COLOR15(29, 8, 8),     // scroll_thumb
+    COLOR15(31, 25, 25),   // footer_text
+    COLOR15(31, 20, 20)    // warning_text
+};
+
 static OSDThemeColors s_OSDThemeActive = s_OSDThemeDefault;
 static const OSDThemeColors *s_pOSDTheme = &s_OSDThemeActive;
 static boolean s_bUseCustomOSDColors = FALSE;
@@ -163,7 +289,7 @@ static boolean ParseSystemToken(const char *token, EmuMode *outMode) {
 static boolean ParseThemeToken(const char *token, const OSDThemeColors **outTheme) {
     if (!token || !*token || !outTheme) return FALSE;
 
-    if (strstr(token, "default") || strstr(token, "classic")) {
+    if (strstr(token, "default") || strstr(token, "classic") || strstr(token, "slate")) {
         *outTheme = &s_OSDThemeDefault;
         return TRUE;
     }
@@ -171,8 +297,32 @@ static boolean ParseThemeToken(const char *token, const OSDThemeColors **outThem
         *outTheme = &s_OSDThemeGreenCRT;
         return TRUE;
     }
-    if (strstr(token, "gray") || strstr(token, "grey") || strstr(token, "grayscale") || strstr(token, "mono")) {
+    if (strstr(token, "gray") || strstr(token, "grey") || strstr(token, "grayscale") || strstr(token, "mono") || strstr(token, "stealth")) {
         *outTheme = &s_OSDThemeGrayscale;
+        return TRUE;
+    }
+    if (strstr(token, "cyberpunk") || strstr(token, "cyan") || strstr(token, "neon") || strstr(token, "nightdrive")) {
+        *outTheme = &s_OSDThemeCyberpunk;
+        return TRUE;
+    }
+    if (strstr(token, "sapphire") || strstr(token, "blue") || strstr(token, "cobalt") || strstr(token, "deepblue")) {
+        *outTheme = &s_OSDThemeSapphire;
+        return TRUE;
+    }
+    if (strstr(token, "synthwave") || strstr(token, "violet") || strstr(token, "purple") || strstr(token, "indigo")) {
+        *outTheme = &s_OSDThemeSynthwave;
+        return TRUE;
+    }
+    if (strstr(token, "arctic") || strstr(token, "mint") || strstr(token, "emerald") || strstr(token, "frost")) {
+        *outTheme = &s_OSDThemeArctic;
+        return TRUE;
+    }
+    if (strstr(token, "amber") || strstr(token, "gold") || strstr(token, "orange") || strstr(token, "warm")) {
+        *outTheme = &s_OSDThemeAmber;
+        return TRUE;
+    }
+    if (strstr(token, "ruby") || strstr(token, "red") || strstr(token, "crimson") || strstr(token, "blood")) {
+        *outTheme = &s_OSDThemeRuby;
         return TRUE;
     }
 
@@ -352,7 +502,7 @@ static void HandleCycleTheme(FATFS *pFileSystem) {
             if (f_read(&file, buf, sizeof(buf) - 1, &bytesRead) == FR_OK && bytesRead > 0) {
                 buf[bytesRead] = '\0';
                 int val = -1;
-                if (sscanf(buf, "%d", &val) == 1 && val >= 0 && val < 3) {
+                if (sscanf(buf, "%d", &val) == 1 && val >= 0 && val < 9) {
                     currentIdx = val;
                 }
             }
@@ -371,13 +521,31 @@ static void HandleCycleTheme(FATFS *pFileSystem) {
         case 2:
             s_OSDThemeActive = s_OSDThemeGrayscale;
             break;
+        case 3:
+            s_OSDThemeActive = s_OSDThemeCyberpunk;
+            break;
+        case 4:
+            s_OSDThemeActive = s_OSDThemeSapphire;
+            break;
+        case 5:
+            s_OSDThemeActive = s_OSDThemeSynthwave;
+            break;
+        case 6:
+            s_OSDThemeActive = s_OSDThemeArctic;
+            break;
+        case 7:
+            s_OSDThemeActive = s_OSDThemeAmber;
+            break;
+        case 8:
+            s_OSDThemeActive = s_OSDThemeRuby;
+            break;
         default:
             s_OSDThemeActive = s_OSDThemeDefault;
             break;
     }
     s_bUseCustomOSDColors = FALSE;
 
-    int nextIdx = (currentIdx + 1) % 3;
+    int nextIdx = (currentIdx + 1) % 9;
     const char *writePath = stateReadPath ? stateReadPath : "SD:/osd_theme_state.txt";
     if (f_open(&file, writePath, FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
         char buf[16];
@@ -752,29 +920,45 @@ static void DrawBox(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u1
     }
 }
 
-static void DrawChar(u16 *pBuffer, u32 nPitch, char c, int x, int y, u16 fg, u16 bg) {
+static void DrawChar(u16 *pBuffer, u32 nPitch, char c, int x, int y, u16 fg, u16 bg, const TFont &font = Font8x16) {
     unsigned char uc = (unsigned char)c;
-    if (uc < Font8x16.first_char || uc > Font8x16.last_char) return;
-    const u8 *char_data = (const u8 *)Font8x16.data + (uc - Font8x16.first_char) * Font8x16.height;
+    if (uc < font.first_char || uc > font.last_char) return;
+    unsigned stride = (font.width + 7) / 8;
     u16 *dest_row = pBuffer + y * nPitch + x;
-    for (unsigned row = 0; row < Font8x16.height; row++) {
-        u8 pixels = char_data[row];
-        for (unsigned col = 0; col < Font8x16.width; col++) {
-            if (pixels & (0x80 >> col)) {
-                dest_row[col] = fg;
-            } else if (bg != 0) {
-                dest_row[col] = bg;
+    if (stride == 1) {
+        const u8 *char_data = (const u8 *)font.data + (uc - font.first_char) * font.height;
+        for (unsigned row = 0; row < font.height; row++) {
+            u8 pixels = char_data[row];
+            for (unsigned col = 0; col < font.width; col++) {
+                if (pixels & (0x80 >> col)) {
+                    dest_row[col] = fg;
+                } else if (bg != 0) {
+                    dest_row[col] = bg;
+                }
             }
+            dest_row += nPitch;
         }
-        dest_row += nPitch;
+    } else if (stride == 2) {
+        const u16 *char_data = (const u16 *)font.data + (uc - font.first_char) * font.height;
+        for (unsigned row = 0; row < font.height; row++) {
+            u16 pixels = char_data[row];
+            for (unsigned col = 0; col < font.width; col++) {
+                if (pixels & (1 << (font.width - 1 - col))) {
+                    dest_row[col] = fg;
+                } else if (bg != 0) {
+                    dest_row[col] = bg;
+                }
+            }
+            dest_row += nPitch;
+        }
     }
 }
 
-static void DrawString(u16 *pBuffer, u32 nPitch, const char *str, int x, int y, u16 fg, u16 bg) {
+static void DrawString(u16 *pBuffer, u32 nPitch, const char *str, int x, int y, u16 fg, u16 bg, const TFont &font = Font8x16) {
     int cur_x = x;
     while (*str) {
-        DrawChar(pBuffer, nPitch, *str, cur_x, y, fg, bg);
-        cur_x += Font8x16.width;
+        DrawChar(pBuffer, nPitch, *str, cur_x, y, fg, bg, font);
+        cur_x += font.width;
         str++;
     }
 }
@@ -1277,7 +1461,7 @@ void CKernel::RunOrchestrator() {
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
                 g_SharedState.active_emu_mode = s_MenuEmuMode;
-                m_pOSDMenu->OnEmuModeChanged();
+                m_pOSDMenu->OnReturnFromGame();
                 just_entered_menu = TRUE;
             }
 
@@ -1666,26 +1850,26 @@ void CKernel::RunVideoDomain() {
                 // Draw Title (soft cool white)
                 char title_str[64];
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    snprintf(title_str, sizeof(title_str), "### SNES / Super Famicom ###");
+                    snprintf(title_str, sizeof(title_str), "SNES / Super Famicom");
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
-                    snprintf(title_str, sizeof(title_str), "### NES - Famicom ###");
+                    snprintf(title_str, sizeof(title_str), "NES - Famicom");
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
-                    snprintf(title_str, sizeof(title_str), "### PC Engine / TurboGrafx-16 ###");
+                    snprintf(title_str, sizeof(title_str), "PC Engine / TurboGrafx-16");
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
-                    snprintf(title_str, sizeof(title_str), "### Master System ###");
+                    snprintf(title_str, sizeof(title_str), "Master System");
                 } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
-                    snprintf(title_str, sizeof(title_str), "### Mega Drive / Genesis ###");
+                    snprintf(title_str, sizeof(title_str), "Mega Drive / Genesis");
                 } else { // EmuMode_FAV
-                    snprintf(title_str, sizeof(title_str), "### Favorites Games ###");
+                    snprintf(title_str, sizeof(title_str), "Favorites Games");
                 }
-                int title_w = strlen(title_str) * 8;
+                int title_w = strlen(title_str) * Font12x22.width;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
-                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, theme.title_text, 0);
+                DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 11, theme.title_text, 0, Font12x22);
                 
                 if (num_lines > 0) {
                     char count_str[32];
                     snprintf(count_str, sizeof(count_str), "[%d/%d]", selected + 1, num_lines);
-                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, theme.title_text, theme.panel_bg);
+                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 84, y1 + 15, theme.title_text, theme.panel_bg, Font8x16);
                 }
                 
                 // Draw separator 1 (dark steel blue)

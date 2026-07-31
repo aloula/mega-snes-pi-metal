@@ -201,6 +201,19 @@ void COSDMenu::OnEmuModeChanged() {
     Update();
 }
 
+void COSDMenu::OnReturnFromGame() {
+    FilterSystemRoms();
+    CalculateTabLabels();
+    if (m_ActiveTab >= m_NumActiveTabs) {
+        m_ActiveTab = (m_NumActiveTabs > 0) ? m_NumActiveTabs - 1 : 0;
+    }
+    BuildFilteredList();
+    if (m_SelectedIndex >= m_FilteredCount) {
+        m_SelectedIndex = (m_FilteredCount > 0) ? m_FilteredCount - 1 : 0;
+    }
+    Update();
+}
+
 void COSDMenu::ScanRoms() {
     m_RomCount = 0;
 

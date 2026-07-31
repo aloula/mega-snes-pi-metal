@@ -17,12 +17,14 @@ Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **Snes9x**, **PicoDrive
 * **Emulação Multi-Console**: Execute jogos de SNES, NES, Sega Master System, Sega Mega Drive/Mega CD e PC Engine/PC Engine CD a partir de uma única imagem de boot.
 * **Baixa Latência**: Acesso direto ao hardware ignorando a sobrecarga do sistema operacional, proporcionando resposta de entrada e áudio em menos de um milissegundo.
 * **Menu OSD Unificado**: Interface gráfica de usuário dinâmica com:
-  * Banners de cabeçalho dinâmicos que mudam com base no sistema selecionado.
+  * Banners de cabeçalho dinâmicos renderizados em fonte 12x22 de alta legibilidade, que mudam com base no sistema selecionado.
   * Troca de console em tempo real através dos botões superiores **L** e **R**.
+  * Persistência do estado de seleção: ao retornar para o menu OSD, lembra a aba ativa exata e o último jogo jogado.
   * Navegação por 8 abas por sistema:
     * **SNES/NES/SMS**: `ALL` (TUDO), `FAV` (FAVORITOS) e 6 abas alfabéticas auto-balanceadas.
     * **Mega Drive**: `ALL`, `FAV`, 5 abas alfabéticas auto-balanceadas e `MCD` (Mega CD).
     * **PC Engine**: `ALL`, `FAV`, 5 abas alfabéticas auto-balanceadas e `PCD` (PC Engine CD).
+  * 9 temas de cores integrados (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) com rotação automática opcional a cada inicialização.
   * Lista de favoritos (`favorites.txt`) gerenciada diretamente pela interface do usuário.
 * **Suporte a Save States**: Os estados do jogo podem ser salvos/carregados no Slot 0 (armazenados como arquivos `.s0` ao lado das ROMs) usando **SELECT + D-pad Esquerda** (ou **Gatilho/Botão L**) para salvar, e **SELECT + D-pad Direita** (ou **Gatilho/Botão R**) para carregar.
 * **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado).
@@ -40,7 +42,7 @@ Para carregar os jogos e arquivos de BIOS, organize os diretórios na raiz do se
 SD:/
  ├── cmdline.txt             (Parâmetros de boot, incluindo tempo limite do protetor de tela)
  ├── system_order.txt        (Arquivo de texto opcional para personalizar a ordem dos consoles e o sistema padrão no boot)
- ├── osd_theme.txt           (Arquivo de texto opcional para escolher o tema do OSD: default, green, grayscale, custom, all)
+ ├── osd_theme.txt           (Arquivo de texto opcional para escolher o tema do OSD: default, green, grayscale, cyberpunk, sapphire, synthwave, arctic, amber, ruby, custom, all)
  ├── osd_colors.txt          (Arquivo de texto opcional para sobrescrever cores do OSD: fundo, borda, texto etc.)
  ├── bios/
  │    ├── bios_CD_U.bin      (BIOS do Sega CD - Região EUA)
@@ -67,7 +69,7 @@ SD:/
 > **Personalização da Ordem dos Sistemas**: Crie ou edite o arquivo `system_order.txt` na raiz do cartão SD para definir a ordem preferida de alternância dos consoles pelos botões superiores **L** / **R**. O primeiro sistema listado no arquivo se tornará automaticamente o console inicial padrão ao ligar o Pi (ex.: `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]
-> **Personalização do Tema do OSD**: Crie ou edite o arquivo `osd_theme.txt` na raiz do cartão SD e defina um destes valores: `default`, `green` (estilo CRT de computador antigo), `grayscale`, `custom` ou `all` (alterna entre default, green e grayscale a cada ciclo de energia/inicialização).
+> **Personalização do Tema do OSD**: Crie ou edite o arquivo `osd_theme.txt` na raiz do cartão SD e defina um destes valores: `default` (azul ardósia), `green` (verde CRT), `grayscale` (cinza stealth), `cyberpunk` (neon ciano), `sapphire` (azul safira), `synthwave` (violeta elétrico), `arctic` (menta polar), `amber` (ouro solar), `ruby` (vermelho rubi), `custom`, ou `all` (alterna entre todos os 9 temas a cada inicialização).
 
 > [!TIP]
 > **Personalização de Cores do OSD**: Defina `osd_theme.txt` como `custom` e então crie ou edite `osd_colors.txt` na raiz do cartão SD usando linhas `chave=valor` (exemplo: `background=#000000`, `border=8,12,16`, `text=26,28,30`). O repositório já inclui paletas prontas para copiar em `osd_colors.txt` (High Contrast Dark, Warm Amber Terminal, Ice Blue).

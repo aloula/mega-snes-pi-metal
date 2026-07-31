@@ -17,12 +17,14 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
 * **Multi-Console Emulation**: Run SNES, NES, Sega Master System, Sega Mega Drive/Mega CD, and PC Engine/PC Engine CD games from a single boot image.
 * **Low Latency**: Direct hardware access bypassing OS overhead, providing sub-millisecond input and audio response.
 * **Unified OSD Menu**: Dynamic graphical user interface featuring:
-  * Dynamic header banners changing based on the selected system.
+  * Dynamic header banners rendered in high-legibility 12x22 font changing based on the selected system.
   * Real-time console switching via **L** and **R** shoulder buttons.
+  * Selection state persistence: returning to OSD menu remembers the exact active tab and last game played.
   * 8-tab browsing per system:
     * **SNES/NES/SMS**: `ALL`, `FAV`, and 6 auto-balanced alphabetical tabs.
     * **Mega Drive**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `MCD`.
     * **PC Engine**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `PCD` (PC Engine CD).
+  * 9 built-in color themes (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) with optional auto-rotation on every power cycle.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
 * **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**).
@@ -40,7 +42,7 @@ To load games and BIOS files, organize your SD card root directories as follows:
 SD:/
  ├── cmdline.txt             (Boot parameters including screensaver timeout)
  ├── system_order.txt        (Optional text file to customize console order and default boot system)
- ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, custom, all)
+ ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, cyberpunk, sapphire, synthwave, arctic, amber, ruby, custom, all)
  ├── osd_colors.txt          (Optional text file to override OSD element colors: background, border, text, etc.)
  ├── bios/
  │    ├── bios_CD_U.bin      (Sega CD - US Region BIOS)
@@ -67,7 +69,7 @@ SD:/
 > **Customizing System Order**: Create or edit `system_order.txt` on the SD card root to set your preferred system cycling order for **L** / **R** shoulder buttons. The first system in the list will automatically become the default boot system on startup (e.g., `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]
-> **Customizing OSD Theme**: Create or edit `osd_theme.txt` on the SD card root and set one of these values: `default`, `green` (old-computer CRT style), `grayscale`, `custom`, or `all` (cycles through default, green, and grayscale on every power cycle).
+> **Customizing OSD Theme**: Create or edit `osd_theme.txt` on the SD card root and set one of these values: `default` (slate blue), `green` (CRT green), `grayscale` (stealth slate), `cyberpunk` (neon cyan), `sapphire` (royal blue), `synthwave` (electric violet), `arctic` (polar mint), `amber` (solar gold), `ruby` (crimson red), `custom`, or `all` (cycles through all 9 themes on every boot).
 
 > [!TIP]
 > **Customizing OSD Colors**: Set `osd_theme.txt` to `custom`, then create or edit `osd_colors.txt` on the SD card root using `key=value` lines (example: `background=#000000`, `border=8,12,16`, `text=26,28,30`). The repository includes multiple ready-to-copy palettes in `osd_colors.txt` (High Contrast Dark, Warm Amber Terminal, Ice Blue).

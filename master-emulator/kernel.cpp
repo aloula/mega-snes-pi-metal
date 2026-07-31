@@ -586,7 +586,7 @@ void CKernel::RunVideoDomain() {
                 if (num_lines > 0) {
                     char count_str[32];
                     snprintf(count_str, sizeof(count_str), "[%d/%d]", selected + 1, num_lines);
-                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 84, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
                 }
                 
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(4, 6, 8));

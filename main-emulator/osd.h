@@ -33,6 +33,7 @@ public:
     void FavoriteCurrent();
     void UnfavoriteCurrent();
     void OnEmuModeChanged();
+    void OnReturnFromGame();
     void RebuildLibrary();
 
 private:
