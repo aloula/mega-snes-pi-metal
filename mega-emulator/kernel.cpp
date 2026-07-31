@@ -451,10 +451,19 @@ void CKernel::RunOrchestrator() {
                     u64 elapsedMs = (now - lastRepeatTime) / 1000;
                     u64 heldTotalMs = (now - repeatKeyStartTime) / 1000;
                     
-                    boolean isLongList = g_SharedState.menu_num_lines > 17;
-                    boolean isFastScroll = isLongList && (heldTotalMs >= 4000);
+                    u64 threshold = 400; // Initial delay before repeat starts (400ms)
+                    if (repeatPhase) {
+                        if (heldTotalMs >= 4500) {
+                            threshold = 12; // Speed 4: Hyper Scroll (~83 items/sec)
+                        } else if (heldTotalMs >= 2800) {
+                            threshold = 22; // Speed 3: Turbo Scroll (~45 items/sec) - NEW
+                        } else if (heldTotalMs >= 1400) {
+                            threshold = 45; // Speed 2: Fast Scroll (~22 items/sec) - NEW
+                        } else {
+                            threshold = 80; // Speed 1: Normal Scroll (~12.5 items/sec)
+                        }
+                    }
                     
-                    u64 threshold = repeatPhase ? (isFastScroll ? 40 : 80) : 400;
                     if (elapsedMs >= threshold) {
                         if (repeatKey == 1) doUp = TRUE;
                         if (repeatKey == 2) doDown = TRUE;

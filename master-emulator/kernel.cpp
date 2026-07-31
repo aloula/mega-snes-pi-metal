@@ -302,51 +302,111 @@ void CKernel::RunOrchestrator() {
                 continue;
             }
 
-            if (current_time - last_menu_time >= 150000) {
-                last_menu_time = current_time;
+            static u16 prev_pad1 = 0;
+            u16 pad1 = g_SharedState.pad1 | g_SharedState.pad2;
+            u16 pressed = pad1 & ~prev_pad1;
+            prev_pad1 = pad1;
 
-                u16 pad1 = g_SharedState.pad1;
-                u16 pad2 = g_SharedState.pad2;
-                u16 pad_combined = pad1 | pad2;
+            boolean isUpHeld = (pad1 & (1 << 0)) != 0;
+            boolean isDownHeld = (pad1 & (1 << 1)) != 0;
 
-                if (pad_combined & (1 << 0)) { // Up
-                    m_pOSDMenu->MoveUp();
-                } else if (pad_combined & (1 << 1)) { // Down
-                    m_pOSDMenu->MoveDown();
-                } else if (pad_combined & (1 << 2)) { // Left
-                    m_pOSDMenu->MoveLeft();
-                } else if (pad_combined & (1 << 3)) { // Right
-                    m_pOSDMenu->MoveRight();
-                } else if (pad_combined & (1 << 10)) { // Gamesir X -> Unfavorite
-                    m_pOSDMenu->UnfavoriteCurrent();
-                } else if (pad_combined & (1 << 9)) { // Gamesir Y -> Favorite
-                    m_pOSDMenu->FavoriteCurrent();
-                } else if (pad_combined & ((1 << 4) | (1 << 5) | (1 << 6) | (1 << 7))) { // Launch Game
-                    const char *pRomName = m_pOSDMenu->GetSelectedRom();
-                    unsigned nRomSize = m_pOSDMenu->GetSelectedRomSize();
-                    if (pRomName != nullptr && nRomSize > 0) {
-                        m_Logger.Write("orchestrator", LogNotice, "Starting game: %s (size %u)", pRomName, nRomSize);
-                        char fullPath[256];
-                        snprintf(fullPath, sizeof(fullPath), "SD:/roms/%s", pRomName);
-                        
-                        memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
-                        g_SharedState.emu_write_idx = 0;
-                        g_SharedState.emu_read_idx = 0;
-                        g_SharedState.start_line[0] = 8;
-                        g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 224;
-                        g_SharedState.start_line[1] = 8;
-                        g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 224;
-                        g_SharedState.video_frame_ready = FALSE;
-                        DataMemBarrier();
+            int repeatKey = 0;
+            if (isUpHeld) {
+                repeatKey = 1; // UP
+            } else if (isDownHeld) {
+                repeatKey = 2; // DOWN
+            }
 
-                        if (m_pEmuOrchestrator->LoadROM(fullPath, nRomSize)) {
-                            g_SharedState.audio_ring_buffer.Init();
-                            g_SharedState.in_menu = FALSE;
-                            g_SharedState.escape_pressed = FALSE;
-                            just_entered_menu = TRUE;
+            static int activeRepeatKey = 0;
+            static u64 lastRepeatTime = 0;
+            static u64 repeatKeyStartTime = 0;
+            static boolean repeatPhase = FALSE;
+
+            boolean doUp = (pressed & (1 << 0)) != 0;
+            boolean doDown = (pressed & (1 << 1)) != 0;
+
+            if (repeatKey != 0) {
+                if (activeRepeatKey != repeatKey) {
+                    activeRepeatKey = repeatKey;
+                    lastRepeatTime = CTimer::GetClockTicks64();
+                    repeatKeyStartTime = lastRepeatTime;
+                    repeatPhase = FALSE;
+                } else {
+                    u64 now = CTimer::GetClockTicks64();
+                    u64 elapsedMs = (now - lastRepeatTime) / 1000;
+                    u64 heldTotalMs = (now - repeatKeyStartTime) / 1000;
+                    
+                    u64 threshold = 400; // Initial delay before repeat starts (400ms)
+                    if (repeatPhase) {
+                        if (heldTotalMs >= 4500) {
+                            threshold = 12; // Speed 4: Hyper Scroll (~83 items/sec)
+                        } else if (heldTotalMs >= 2800) {
+                            threshold = 22; // Speed 3: Turbo Scroll (~45 items/sec) - NEW
+                        } else if (heldTotalMs >= 1400) {
+                            threshold = 45; // Speed 2: Fast Scroll (~22 items/sec) - NEW
+                        } else {
+                            threshold = 80; // Speed 1: Normal Scroll (~12.5 items/sec)
                         }
+                    }
+                    
+                    if (elapsedMs >= threshold) {
+                        if (repeatKey == 1) doUp = TRUE;
+                        if (repeatKey == 2) doDown = TRUE;
+                        repeatPhase = TRUE;
+                        lastRepeatTime = CTimer::GetClockTicks64();
+                    }
+                }
+            } else {
+                activeRepeatKey = 0;
+                repeatPhase = FALSE;
+            }
+
+            boolean doLeft = (pressed & (1 << 2)) != 0;
+            boolean doRight = (pressed & (1 << 3)) != 0;
+
+            if (doUp) {
+                m_pOSDMenu->MoveUp();
+            }
+            if (doDown) {
+                m_pOSDMenu->MoveDown();
+            }
+            if (doLeft) {
+                m_pOSDMenu->MoveLeft();
+            }
+            if (doRight) {
+                m_pOSDMenu->MoveRight();
+            }
+            if (pressed & (1 << 10)) { // Gamesir X -> Unfavorite
+                m_pOSDMenu->UnfavoriteCurrent();
+            }
+            if (pressed & (1 << 9)) { // Gamesir Y -> Favorite
+                m_pOSDMenu->FavoriteCurrent();
+            }
+            if (pressed & ((1 << 4) | (1 << 5) | (1 << 6) | (1 << 7))) { // Launch Game
+                const char *pRomName = m_pOSDMenu->GetSelectedRom();
+                unsigned nRomSize = m_pOSDMenu->GetSelectedRomSize();
+                if (pRomName != nullptr && nRomSize > 0) {
+                    m_Logger.Write("orchestrator", LogNotice, "Starting game: %s (size %u)", pRomName, nRomSize);
+                    char fullPath[256];
+                    snprintf(fullPath, sizeof(fullPath), "SD:/roms/%s", pRomName);
+                    
+                    memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
+                    g_SharedState.emu_write_idx = 0;
+                    g_SharedState.emu_read_idx = 0;
+                    g_SharedState.start_line[0] = 8;
+                    g_SharedState.game_w[0] = 256;
+                    g_SharedState.game_h[0] = 224;
+                    g_SharedState.start_line[1] = 8;
+                    g_SharedState.game_w[1] = 256;
+                    g_SharedState.game_h[1] = 224;
+                    g_SharedState.video_frame_ready = FALSE;
+                    DataMemBarrier();
+
+                    if (m_pEmuOrchestrator->LoadROM(fullPath, nRomSize)) {
+                        g_SharedState.audio_ring_buffer.Init();
+                        g_SharedState.in_menu = FALSE;
+                        g_SharedState.escape_pressed = FALSE;
+                        just_entered_menu = TRUE;
                     }
                 }
             }
