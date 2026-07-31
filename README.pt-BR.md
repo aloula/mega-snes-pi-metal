@@ -66,6 +66,9 @@ SD:/
 > **Configurando a Duração da Tela de Splash**: Adicione ou edite `splash=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `splash=4` para 4 segundos, `splash=2` para 2 segundos, ou `splash=0` para desativar e não exibir a tela de splash no boot).
 
 > [!TIP]
+> **Múltiplas Telas de Splash & Rotação Automática**: Agora você pode salvar várias telas de splash no seu cartão SD! Basta criar uma pasta `splash/` na raiz do cartão SD (ex.: `SD:/splash/retro1.raw16`, `SD:/splash/retro2.raw16`) ou usar arquivos numerados na raiz (ex.: `SD:/Splash_Screen1.raw16`, `SD:/Splash_Screen2.raw16`). O emulador detectará automaticamente todas as imagens e alternará para a próxima tela de splash a cada inicialização!
+
+> [!TIP]
 > **Personalização da Ordem dos Sistemas**: Crie ou edite o arquivo `system_order.txt` na raiz do cartão SD para definir a ordem preferida de alternância dos consoles pelos botões superiores **L** / **R**. O primeiro sistema listado no arquivo se tornará automaticamente o console inicial padrão ao ligar o Pi (ex.: `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]

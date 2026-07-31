@@ -806,6 +806,130 @@ static void LoadSystemOrder(FATFS *pFileSystem) {
     }
 }
 
+static int splash_strcasecmp(const char *s1, const char *s2) {
+    while (*s1 && *s2) {
+        char c1 = *s1;
+        char c2 = *s2;
+        if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+        if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+        if (c1 != c2) return (int)(unsigned char)c1 - (int)(unsigned char)c2;
+        s1++;
+        s2++;
+    }
+    char c1 = *s1;
+    char c2 = *s2;
+    if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+    if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+    return (int)(unsigned char)c1 - (int)(unsigned char)c2;
+}
+
+static boolean OpenNextSplashScreen(FIL *pFile, char *outPath, size_t maxPathLen) {
+    if (!pFile || !outPath || maxPathLen == 0) return FALSE;
+
+    static const char *splashDirs[] = { "SD:/splash", "SD:/splashes", "SD:/roms/splash", nullptr };
+    char splashFiles[64][280];
+    int count = 0;
+
+    // 1. Scan splash folders for images (.raw16, .bin, .raw)
+    for (int d = 0; splashDirs[d] != nullptr && count < 64; d++) {
+        DIR dir;
+        FILINFO fileInfo;
+        if (f_findfirst(&dir, &fileInfo, splashDirs[d], "*") == FR_OK) {
+            while (fileInfo.fname[0] != '\0' && count < 64) {
+                if (!(fileInfo.fattrib & AM_DIR) && !(fileInfo.fattrib & (AM_HID | AM_SYS))) {
+                    const char *dot = strrchr(fileInfo.fname, '.');
+                    if (dot && (splash_strcasecmp(dot + 1, "raw16") == 0 ||
+                                splash_strcasecmp(dot + 1, "bin") == 0 ||
+                                splash_strcasecmp(dot + 1, "raw") == 0)) {
+                        snprintf(splashFiles[count], sizeof(splashFiles[count]), "%s/%s", splashDirs[d], fileInfo.fname);
+                        count++;
+                    }
+                }
+                if (f_findnext(&dir, &fileInfo) != FR_OK) break;
+            }
+            f_closedir(&dir);
+        }
+    }
+
+    // 2. Search SD root for numbered splash screens (SD:/Splash_Screen1.raw16, etc.)
+    if (count == 0) {
+        for (int i = 1; i <= 16 && count < 64; i++) {
+            char candidate[64];
+            snprintf(candidate, sizeof(candidate), "SD:/Splash_Screen%d.raw16", i);
+            FIL testFile;
+            if (f_open(&testFile, candidate, FA_READ) == FR_OK) {
+                f_close(&testFile);
+                snprintf(splashFiles[count], sizeof(splashFiles[count]), "%s", candidate);
+                count++;
+            }
+        }
+    }
+
+    // 3. Fallback to default single splash file
+    if (count == 0) {
+        const char *fallbackPaths[] = { "SD:/Splash_Screen.raw16", "SD:/roms/Splash_Screen.raw16", nullptr };
+        for (int i = 0; fallbackPaths[i] != nullptr; i++) {
+            if (f_open(pFile, fallbackPaths[i], FA_READ) == FR_OK) {
+                snprintf(outPath, maxPathLen, "%s", fallbackPaths[i]);
+                return TRUE;
+            }
+        }
+        return FALSE;
+    }
+
+    // Sort splashFiles alphabetically for consistent rotation sequence
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = i + 1; j < count; j++) {
+            if (splash_strcasecmp(splashFiles[i], splashFiles[j]) > 0) {
+                char temp[280];
+                snprintf(temp, sizeof(temp), "%s", splashFiles[i]);
+                snprintf(splashFiles[i], sizeof(splashFiles[i]), "%s", splashFiles[j]);
+                snprintf(splashFiles[j], sizeof(splashFiles[j]), "%s", temp);
+            }
+        }
+    }
+
+    // 4. Load rotation state index from SD:/splash_state.txt
+    int currentIdx = 0;
+    const char *statePaths[] = { "SD:/splash_state.txt", "SD:/roms/splash_state.txt", nullptr };
+    const char *stateReadPath = nullptr;
+    FIL stateFile;
+
+    for (int i = 0; statePaths[i] != nullptr; i++) {
+        if (f_open(&stateFile, statePaths[i], FA_READ) == FR_OK) {
+            stateReadPath = statePaths[i];
+            char buf[32];
+            UINT bytesRead = 0;
+            if (f_read(&stateFile, buf, sizeof(buf) - 1, &bytesRead) == FR_OK && bytesRead > 0) {
+                buf[bytesRead] = '\0';
+                int val = -1;
+                if (sscanf(buf, "%d", &val) == 1 && val >= 0) {
+                    currentIdx = val;
+                }
+            }
+            f_close(&stateFile);
+            break;
+        }
+    }
+
+    int selectedIdx = currentIdx % count;
+    snprintf(outPath, maxPathLen, "%s", splashFiles[selectedIdx]);
+
+    // 5. Save next rotation index to splash_state.txt
+    int nextIdx = (selectedIdx + 1) % count;
+    const char *writePath = stateReadPath ? stateReadPath : "SD:/splash_state.txt";
+    if (f_open(&stateFile, writePath, FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
+        char buf[16];
+        int len = snprintf(buf, sizeof(buf), "%d\n", nextIdx);
+        UINT bytesWritten = 0;
+        f_write(&stateFile, buf, (UINT)len, &bytesWritten);
+        f_close(&stateFile);
+    }
+
+    CLogger::Get()->Write("Kernel", LogNotice, "Splash Rotation (%d/%d): %s", selectedIdx + 1, count, outPath);
+    return (f_open(pFile, outPath, FA_READ) == FR_OK);
+}
+
 static boolean strcontains(const char *haystack, const char *needle) {
     if (!haystack || !needle) return FALSE;
     for (int i = 0; haystack[i]; i++) {
@@ -1662,7 +1786,8 @@ void CKernel::RunVideoDomain() {
 
     if (splash_sec > 0) {
         FIL splashFile;
-        if (f_open(&splashFile, "SD:/Splash_Screen.raw16", FA_READ) == FR_OK) {
+        char splashPath[128] = "";
+        if (OpenNextSplashScreen(&splashFile, splashPath, sizeof(splashPath))) {
         u64 fileSize = f_size(&splashFile);
         int img_h = fileSize / (640 * sizeof(u16));
         if (img_h > 480) img_h = 480;
