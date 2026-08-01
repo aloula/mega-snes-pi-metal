@@ -27,8 +27,8 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
   * 9 built-in color themes (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) with optional auto-rotation on every power cycle.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
-* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**).
-* **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES, YM2413 FM audio for SMS).
+* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Automatic rewind is disabled for SA-1 SNES cartridges to prevent performance and audio interruptions; manual save/load states remain available.
+* **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for standard SNES games, a low-overhead profile for SA-1 games, and YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 * **Screensaver & Audio Mute**: Automatically dims the screen by 50% and mutes audio output after controller inactivity. Pressing any controller button immediately restores full brightness and audio. Configurable via `cmdline.txt`.
 
@@ -61,6 +61,9 @@ SD:/
 
 > [!TIP]
 > **Configuring Screensaver Timeout**: Add or edit `screensaver=<seconds>` in `cmdline.txt` on the SD card root (e.g. `screensaver=60` for 60 seconds, `screensaver=120` for 2 minutes, or `screensaver=0` to disable the screensaver completely).
+
+> [!IMPORTANT]
+> **Pi 3 Performance Profile**: The bundled `config.txt` configures the Pi 3 at 1.4 GHz with a 500 MHz core clock and `over_voltage=4` for demanding games. Active cooling is required; remove these settings if the system is unstable.
 
 > [!TIP]
 > **Configuring Splash Screen Duration**: Add or edit `splash=<seconds>` in `cmdline.txt` on the SD card root (e.g. `splash=4` for 4 seconds, `splash=2` for 2 seconds, or `splash=0` to completely skip the splash screen on boot).

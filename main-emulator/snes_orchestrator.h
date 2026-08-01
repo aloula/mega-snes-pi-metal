@@ -34,6 +34,7 @@ private:
     int m_nRewindCount;
     u32 m_nRewindFrameCounter;
     size_t m_nStateSize;
+    boolean m_bSkipNextFrame;
 
     void ResetAudioAfterStateChange();
     u32 m_nAudioMuteFrames;

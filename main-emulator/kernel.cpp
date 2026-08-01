@@ -1136,12 +1136,13 @@ void CEmulatorMultiCore::Run(unsigned nCore) {
 
 // CKernel Implementation
 CKernel::CKernel(void)
-    : m_Screen(SCREEN_WIDTH, SCREEN_HEIGHT),
+    : m_CPUThrottle(CPUSpeedMaximum),
+      m_Screen(SCREEN_WIDTH, SCREEN_HEIGHT),
       m_Timer(&m_Interrupt),
       m_Logger(m_Options.GetLogLevel(), &m_Timer),
       m_EMMC(&m_Interrupt, &m_Timer, &m_ActLED),
-      m_USBHCI(&m_Interrupt, &m_Timer, TRUE),
-      m_MultiCore(CMemorySystem::Get(), this),
+    m_USBHCI(&m_Interrupt, &m_Timer, TRUE),
+    m_MultiCore(CMemorySystem::Get(), this),
       m_pKeyboard(nullptr),
       m_pOSDMenu(nullptr),
       m_pSNESOrchestrator(nullptr),

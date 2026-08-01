@@ -135,8 +135,17 @@ include $(CIRCLEHOME)/Rules.mk
 ../deps/picodrive/pico/pico_int_offs.h:
 	cd ../deps/picodrive/tools && CC="arm-none-eabi-gcc" CFLAGS="$(DEFS) -I../pico/sound" sh ./mkoffsets.sh ../pico
 
-# Make all objects depend on generated offset header
-$(OBJS): ../deps/picodrive/pico/pico_int_offs.h
+# Local symlink so PicoDrive's relative includes work after a clean build.
+pico:
+	ln -sf ../deps/picodrive/pico .
+
+pico/%: pico
+	@:
+
+pico/pico_int_offs.h: pico
+
+# Make all objects depend on generated offset header and local symlink.
+$(OBJS): ../deps/picodrive/pico/pico_int_offs.h pico
 
 # Rebuild kernel.o when VERSION changes
 # kernel.o: ../VERSION

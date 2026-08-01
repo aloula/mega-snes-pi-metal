@@ -27,8 +27,8 @@ Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **Snes9x**, **PicoDrive
   * 9 temas de cores integrados (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) com rotação automática opcional a cada inicialização.
   * Lista de favoritos (`favorites.txt`) gerenciada diretamente pela interface do usuário.
 * **Suporte a Save States**: Os estados do jogo podem ser salvos/carregados no Slot 0 (armazenados como arquivos `.s0` ao lado das ROMs) usando **SELECT + D-pad Esquerda** (ou **Gatilho/Botão L**) para salvar, e **SELECT + D-pad Direita** (ou **Gatilho/Botão R**) para carregar.
-* **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado).
-* **Áudio de Alta Fidelidade**: Reamostragem e interpolação de áudio autênticas do hardware (áudio Gaussiano para SNES, áudio FM YM2413 para SMS).
+* **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado). O rewind automático é desativado para cartuchos SNES com SA-1 para evitar interrupções de desempenho e áudio; os estados manuais de salvar/carregar continuam disponíveis.
+* **Áudio de Alta Fidelidade**: Reamostragem e interpolação de áudio autênticas do hardware (áudio Gaussiano para jogos SNES padrão, perfil de baixo custo para jogos SA-1 e áudio FM YM2413 para SMS).
 * **Escalonamento de Tela**: Escalonamento nearest-neighbor para jogos Sega e escalonamento de proporção linear/Gaussiano para jogos SNES.
 * **Protetor de Tela (Screensaver) e Mute de Áudio**: Escurece a tela em 50% e silencia a saída de áudio automaticamente após inatividade do controle. Ao pressionar qualquer botão do controle, o brilho total e o áudio são restaurados instantaneamente. Configurável via `cmdline.txt`.
 
@@ -61,6 +61,9 @@ SD:/
 
 > [!TIP]
 > **Configurando o Tempo do Protetor de Tela**: Adicione ou edite `screensaver=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `screensaver=60` para 60 segundos, `screensaver=120` para 2 minutos, ou `screensaver=0` para desativar o protetor de tela completamente).
+
+> [!IMPORTANT]
+> **Perfil de Desempenho do Pi 3**: O `config.txt` incluído configura o Pi 3 para 1,4 GHz, com clock de core de 500 MHz e `over_voltage=4` para jogos exigentes. A refrigeração ativa é obrigatória; remova essas configurações se o sistema ficar instável.
 
 > [!TIP]
 > **Configurando a Duração da Tela de Splash**: Adicione ou edite `splash=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `splash=4` para 4 segundos, `splash=2` para 2 segundos, ou `splash=0` para desativar e não exibir a tela de splash no boot).

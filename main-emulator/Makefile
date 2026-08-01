@@ -268,6 +268,9 @@ pico_int_offs.h: ../deps/picodrive/pico/pico_int_offs.h
 pico:
 	ln -sf ../deps/picodrive/pico .
 
+pico/%: pico
+	@:
+
 pico/pico_int_offs.h: pico
 
 $(OBJS): ../deps/picodrive/pico/pico_int_offs.h pico_int_offs.h pico

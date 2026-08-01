@@ -20,7 +20,10 @@ overscan_bottom=0
 [pi3]
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
-# arm_freq=1200  # Commented out to run Pi 3B+ at native 1.4 GHz
+# Moderate performance profile for SA-1-heavy SNES games. Active cooling required.
+arm_freq=1400
+core_freq=500
+over_voltage=4
 force_turbo=1
 
 [pi4]
@@ -40,4 +43,3 @@ otg_mode=1
 #
 # To debug via the serial interface (GPIO 14 & 15 at 115200 baud):
 #   fast=true logdev=ttyS1 loglevel=4
-

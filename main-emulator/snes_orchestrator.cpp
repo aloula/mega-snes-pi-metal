@@ -20,6 +20,7 @@
 #include <memmap.h>
 #include <apu/apu.h>
 #include <gfx.h>
+#include <ppu.h>
 #include <controls.h>
 #include <cheats.h>
 #include <snapshot.h>
@@ -149,7 +150,8 @@ CSNESOrchestrator::CSNESOrchestrator(FATFS *pFileSystem)
       m_pRomBuffer(nullptr),
       m_bRomLoaded(FALSE),
       m_LastPad1(0xFFFF),
-      m_LastPad2(0xFFFF)
+      m_LastPad2(0xFFFF),
+      m_bSkipNextFrame(FALSE)
 {
     m_nRewindWriteIdx = 0;
     m_nRewindCount = 0;
@@ -274,6 +276,17 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
         return FALSE;
     }
 
+    if (Settings.SA1) {
+        // SA-1 games emulate a second 65c816 CPU; avoid the expensive DSP filter.
+        Settings.SoundSync = FALSE;
+        Settings.InterpolationMethod = DSP_INTERPOLATION_NONE;
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "Enabled SA-1 performance audio profile");
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "Enabled SA-1 adaptive frame skipping");
+    } else {
+        Settings.SoundSync = TRUE;
+        Settings.InterpolationMethod = DSP_INTERPOLATION_GAUSSIAN;
+    }
+
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "ROM Loaded Successfully!");
 
     strncpy(m_CurrentRomName, pRomName, sizeof(m_CurrentRomName) - 1);
@@ -296,14 +309,21 @@ boolean CSNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     m_nRewindCount = 0;
     m_nRewindFrameCounter = 0;
     m_nAudioMuteFrames = 0;
+    m_bSkipNextFrame = FALSE;
 
-    m_nStateSize = S9xFreezeSize();
-    if (m_nStateSize == 0) m_nStateSize = 512 * 1024;
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Snes9x state size detected: %u bytes", m_nStateSize);
+    if (Settings.SA1) {
+        // Serializing an SA-1 state on the emulation core causes audio underruns.
+        m_nStateSize = 0;
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "Disabled rewind for SA-1 cartridge");
+    } else {
+        m_nStateSize = S9xFreezeSize();
+        if (m_nStateSize == 0) m_nStateSize = 512 * 1024;
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "Snes9x state size detected: %u bytes", m_nStateSize);
 
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
-    for (int i = 0; i < 6; i++) {
-        m_pRewindBuffers[i] = new u8[m_nStateSize];
+        CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
+        for (int i = 0; i < 6; i++) {
+            m_pRewindBuffers[i] = new u8[m_nStateSize];
+        }
     }
 
     m_bRomLoaded = TRUE;
@@ -368,8 +388,13 @@ void CSNESOrchestrator::RunFrame() {
         }
     }
 
-    // 3. Emulate 1 frame
+    // 3. Emulate 1 frame. A missed deadline skips only the next frame's rendering.
+    IPPU.RenderThisFrame = !Settings.SA1 || !m_bSkipNextFrame;
+    u64 frameStart = CTimer::GetClockTicks64();
     S9xMainLoop();
+    u64 frameBudget = IsPAL() ? 20000 : 16667;
+    m_bSkipNextFrame = Settings.SA1 &&
+        CTimer::GetClockTicks64() - frameStart > frameBudget;
 
     // Capture rewind state if 1 second elapsed
     CaptureRewindState();
