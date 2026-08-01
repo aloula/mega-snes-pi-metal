@@ -1,1 +1,1 @@
-fast=true socmaxtemp=75 logdev=tty1 loglevel=3 snddevice=sndhdmi screensaver=60 splash=4
+fast=true socmaxtemp=65 logdev=tty1 loglevel=3 snddevice=sndhdmi screensaver=60 splash=4

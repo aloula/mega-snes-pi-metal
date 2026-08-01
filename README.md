@@ -27,7 +27,7 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
   * 9 built-in color themes (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) with optional auto-rotation on every power cycle.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
-* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Automatic rewind is disabled for SA-1 SNES cartridges to prevent performance and audio interruptions; manual save/load states remain available.
+* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Automatic rewind is disabled for SA-1 SNES cartridges to prevent performance and audio interruptions, and for the Mega Drive games *The Cursed Knight* and *Steel Empire* to prevent PicoDrive state-stability freezes; manual save/load states remain available.
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for standard SNES games, a low-overhead profile for SA-1 games, and YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 * **Screensaver & Audio Mute**: Automatically dims the screen by 50% and mutes audio output after controller inactivity. Pressing any controller button immediately restores full brightness and audio. Configurable via `cmdline.txt`.

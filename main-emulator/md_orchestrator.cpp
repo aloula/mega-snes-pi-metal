@@ -541,16 +541,12 @@ boolean CMDOrchestrator::IsPAL() const {
 }
 
 void CMDOrchestrator::CaptureRewindState() {
-    if (!m_bRomLoaded || m_nStateSize == 0) return;
+    if (!m_bRomLoaded || m_nStateSize == 0 ||
+        (PicoIn.quirks & PQUIRK_DISABLE_REWIND)) return;
 
     m_nRewindFrameCounter++;
     u32 framesPerSec = IsPAL() ? 50 : 60;
     if (m_nRewindFrameCounter >= framesPerSec) {
-        if ((PicoIn.quirks & PQUIRK_SAFE_REWIND) &&
-            (Pico.video.pending || Pico.video.fifo_cnt || Pico.video.fifo_bgcnt ||
-             (Pico.video.status & (PVS_CPUWR | PVS_CPURD | PVS_DMAFILL | PVS_DMABG | PVS_FIFORUN)))) {
-            return;
-        }
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {

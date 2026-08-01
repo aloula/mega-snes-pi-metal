@@ -20,10 +20,10 @@ overscan_bottom=0
 [pi3]
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
-# Moderate performance profile for SA-1-heavy SNES games. Active cooling required.
-arm_freq=1400
+# Moderate performance profile for SA-1-heavy SNES games. A heatsink is required.
+arm_freq=1350
 core_freq=500
-over_voltage=4
+over_voltage=2
 force_turbo=1
 
 [pi4]
