@@ -1795,7 +1795,7 @@ void CKernel::RunVideoDomain() {
 
     if (splash_sec > 0) {
         FIL splashFile;
-        char splashPath[128] = "";
+        char splashPath[280] = "";
         if (OpenNextSplashScreen(&splashFile, splashPath, sizeof(splashPath))) {
         u64 fileSize = f_size(&splashFile);
         int img_h = fileSize / (640 * sizeof(u16));

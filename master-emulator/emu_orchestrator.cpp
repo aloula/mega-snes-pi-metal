@@ -91,7 +91,7 @@ static int state_fseek(void *file, long offset, int whence)
    return (int)state->pos;
 }
 
-#define ROM_BUFFER_SIZE (8 * 1024 * 1024)
+#define ROM_BUFFER_SIZE (16 * 1024 * 1024)
 
 extern "C" {
 unsigned int p32x_event_times[1] = {0};

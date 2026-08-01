@@ -263,7 +263,6 @@ TShutdownMode CKernel::Run(void) {
 void CKernel::RunOrchestrator() {
     m_Logger.Write("orchestrator", LogNotice, "Core 0: Orchestrator Domain Active");
 
-    u64 last_menu_time = 0;
     u64 menu_enter_time = CTimer::GetClockTicks64();
     boolean just_entered_menu = TRUE;
 

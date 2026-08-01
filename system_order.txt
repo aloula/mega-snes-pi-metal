@@ -15,8 +15,8 @@
 # Lines starting with '#' are ignored.
 
 favorites
-pce
 megadrive
 snes
+pce
 nes
 mastersystem
