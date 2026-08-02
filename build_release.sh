@@ -21,22 +21,12 @@ if ! command -v zip &> /dev/null; then
     exit 1
 fi
 
-# Generate splash screens in boot/splash/ and default Splash_Screen.raw16
+# Generate splash screens in boot/splash/
 mkdir -p boot/splash
 
 if [ -d "res" ]; then
     echo -e "${BLUE}Converting all bootsplash images from res/ to boot/splash/...${NC}"
     python3 convert_splash.py res/ boot/splash/
-fi
-
-SPLASH_PNG="res/5-in-1_Baremetal_Emulator_2.png"
-if [ ! -f "$SPLASH_PNG" ] && [ -f "res/Splash_Screen.png" ]; then
-    SPLASH_PNG="res/Splash_Screen.png"
-fi
-
-if [ -f "$SPLASH_PNG" ]; then
-    echo -e "${BLUE}Generating default Splash_Screen.raw16 from $SPLASH_PNG...${NC}"
-    python3 convert_splash.py "$SPLASH_PNG" boot/Splash_Screen.raw16
 fi
 
 # 2b. Ensure Circle configuration exists (generated on fresh clones)
