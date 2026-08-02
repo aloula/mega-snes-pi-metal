@@ -1595,6 +1595,8 @@ void CKernel::RunOrchestrator() {
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                     m_pSNESOrchestrator->SaveSRAM();
                 }
+                g_SharedState.video_frame_ready = FALSE;
+                g_SharedState.audio_ring_buffer.Init();
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
                 g_SharedState.active_emu_mode = s_MenuEmuMode;

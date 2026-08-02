@@ -166,7 +166,7 @@ void CLRSnes2010Orchestrator::RunFrame() {
     }
 
     unsigned waitSpins = 0;
-    while (g_SharedState.video_frame_ready) {
+    while (g_SharedState.video_frame_ready && !g_SharedState.in_menu && !g_SharedState.escape_pressed) {
         if (waitSpins++ >= 200) {
             CTimer::SimpleusDelay(10);
         }

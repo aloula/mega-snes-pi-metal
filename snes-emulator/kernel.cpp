@@ -534,6 +534,8 @@ void CKernel::RunOrchestrator() {
             // Check if user requested return to OSD menu
             if (g_SharedState.escape_pressed) {
                 m_pEmuOrchestrator->SaveSRAM();
+                g_SharedState.video_frame_ready = FALSE;
+                g_SharedState.audio_ring_buffer.Init();
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
                 m_pOSDMenu->Update();
