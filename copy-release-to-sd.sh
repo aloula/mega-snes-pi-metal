@@ -44,7 +44,7 @@ echo "Extracting release package to Windows drive E:..."
 (cd /mnt/c && powershell.exe -NoProfile -Command "Expand-Archive -LiteralPath '${windows_source}' -DestinationPath 'E:\' -Force")
 echo "Extracted release package to E:\\"
 
-if ! (cd /mnt/c && powershell.exe -NoProfile -Command '$shell = New-Object -ComObject Shell.Application; $drive = $shell.NameSpace(17).ParseName("E:"); if ($null -eq $drive) { exit 1 }; $eject = $drive.Verbs() | Where-Object { ($_.Name -replace "[&.]", "") -match "Eject|Ejetar" } | Select-Object -First 1; if ($null -eq $eject) { exit 1 }; $eject.DoIt(); Start-Sleep -Milliseconds 500; if (Test-Path "E:\") { exit 1 }'); then
+if ! (cd /mnt/c && powershell.exe -NoProfile -Command '$shell = New-Object -ComObject Shell.Application; $drive = $shell.NameSpace(17).ParseName("E:"); if ($null -eq $drive) { exit 1 }; $eject = $drive.Verbs() | Where-Object { ($_.Name -replace "[&.]", "") -match "Eject|Ejetar" } | Select-Object -First 1; if ($null -eq $eject) { exit 1 }; $eject.DoIt(); Start-Sleep -Milliseconds 2000; if (Test-Path "E:\") { exit 1 }'); then
     echo "Extracted the release package, but could not eject Windows drive E:" >&2
     exit 1
 fi
