@@ -20,11 +20,8 @@ overscan_bottom=0
 [pi3]
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
-# Moderate performance profile for SA-1-heavy SNES games. A heatsink is required.
-arm_freq=1350
-core_freq=500
-over_voltage=2
-force_turbo=1
+# Let firmware manage the Pi 3 clock to prevent sustained thermal throttling.
+force_turbo=0
 
 [pi4]
 kernel=kernel7l.img

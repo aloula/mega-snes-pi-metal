@@ -63,7 +63,7 @@ SD:/
 > **Configurando o Tempo do Protetor de Tela**: Adicione ou edite `screensaver=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `screensaver=60` para 60 segundos, `screensaver=120` para 2 minutos, ou `screensaver=0` para desativar o protetor de tela completamente).
 
 > [!IMPORTANT]
-> **Perfil de Desempenho do Pi 3**: O `config.txt` incluído configura o Pi 3 para 1,4 GHz, com clock de core de 500 MHz e `over_voltage=4` para jogos exigentes. A refrigeração ativa é obrigatória; remova essas configurações se o sistema ficar instável.
+> **Segurança Térmica do Pi 3**: O `config.txt` incluído deixa o gerenciamento de clock do Pi 3 para o firmware e desativa o turbo forçado. Um indicador de sobretemperatura piscando significa que o sistema precisa de melhor refrigeração; pare de jogar até ele resfriar e adicione refrigeração ativa antes de tentar qualquer overclock.
 
 > [!TIP]
 > **Configurando a Duração da Tela de Splash**: Adicione ou edite `splash=<segundos>` no arquivo `cmdline.txt` na raiz do cartão SD (ex.: `splash=4` para 4 segundos, `splash=2` para 2 segundos, ou `splash=0` para desativar e não exibir a tela de splash no boot).

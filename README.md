@@ -63,7 +63,7 @@ SD:/
 > **Configuring Screensaver Timeout**: Add or edit `screensaver=<seconds>` in `cmdline.txt` on the SD card root (e.g. `screensaver=60` for 60 seconds, `screensaver=120` for 2 minutes, or `screensaver=0` to disable the screensaver completely).
 
 > [!IMPORTANT]
-> **Pi 3 Performance Profile**: The bundled `config.txt` configures the Pi 3 at 1.4 GHz with a 500 MHz core clock and `over_voltage=4` for demanding games. Active cooling is required; remove these settings if the system is unstable.
+> **Pi 3 Thermal Safety**: The bundled `config.txt` leaves Pi 3 clock management to firmware and disables forced turbo. A flashing over-temperature indicator means the system needs improved cooling; stop playing until it cools down and add active cooling before attempting any overclock.
 
 > [!TIP]
 > **Configuring Splash Screen Duration**: Add or edit `splash=<seconds>` in `cmdline.txt` on the SD card root (e.g. `splash=4` for 4 seconds, `splash=2` for 2 seconds, or `splash=0` to completely skip the splash screen on boot).
