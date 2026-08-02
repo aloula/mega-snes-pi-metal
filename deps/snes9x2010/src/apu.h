@@ -453,6 +453,7 @@ uint8_t S9xInitAPU (void);
 #define DSP_INTERP_GAUSSIAN 0
 #define DSP_INTERP_CUBIC    1
 #define DSP_INTERP_SINC     2
+#define DSP_INTERP_NONE     3
 extern int dsp_interp_mode;
 
 void S9xResetAPU (void);
@@ -461,6 +462,7 @@ uint8_t S9xAPUReadPort (int port);
 void S9xAPUWritePort (int port, uint8_t byte);
 void S9xAPUExecute (void);
 void S9xAPUSetReferenceTime (int32_t cpucycles);
+void S9xAPUResyncAfterStateLoad (int32_t cpucycles);
 void S9xAPUTimingSetSpeedup (int ticks);
 void S9xAPUAllowTimeOverflow (uint8_t allow);
 void S9xAPULoadState (uint8_t * block);

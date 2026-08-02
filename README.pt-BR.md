@@ -6,7 +6,7 @@
 
 Um emulador multi-console bare-metal unificado e de baixa latência para o Raspberry Pi 3B+. Este projeto unifica os emuladores **SNES-PI** e **MEGA-PI** em um único kernel bare-metal. Inclui suporte para **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), **Sega Master System (SMS)** (via PicoDrive) e **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), permitindo a troca em tempo real entre os sistemas diretamente no menu OSD (On-Screen Display).
 
-Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **Snes9x**, **PicoDrive**, **Nestopia** e **Beetle PCE Fast**, ele roda diretamente na CPU ARM sem a necessidade de um sistema operacional subjacente, garantindo velocidade máxima, latência de entrada mínima e tempo de hardware preciso.
+Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **lr-snes9x2010**, **PicoDrive**, **Nestopia** e **Beetle PCE Fast**, ele roda diretamente na CPU ARM sem a necessidade de um sistema operacional subjacente, garantindo velocidade máxima, latência de entrada mínima e tempo de hardware preciso.
 
 🎥 **Demonstração em Vídeo**: [Assista ao MEGA-SNES Pi Metal rodando em um Raspberry Pi 3B+](https://youtu.be/jyMUjcQem-0)
 
@@ -27,7 +27,7 @@ Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **Snes9x**, **PicoDrive
   * 9 temas de cores integrados (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) com rotação automática opcional a cada inicialização.
   * Lista de favoritos (`favorites.txt`) gerenciada diretamente pela interface do usuário.
 * **Suporte a Save States**: Os estados do jogo podem ser salvos/carregados no Slot 0 (armazenados como arquivos `.s0` ao lado das ROMs) usando **SELECT + D-pad Esquerda** (ou **Gatilho/Botão L**) para salvar, e **SELECT + D-pad Direita** (ou **Gatilho/Botão R**) para carregar.
-* **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado). O rewind automático é desativado para cartuchos SNES com SA-1 para evitar interrupções de desempenho e áudio, e para os jogos de Mega Drive *The Cursed Knight* e *Steel Empire* para evitar congelamentos de estabilidade de estado no PicoDrive; os estados manuais de salvar/carregar continuam disponíveis.
+* **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado). Suportado em todos os sistemas, incluindo jogos SNES e SA-1 (o rewind automático é desativado apenas para os jogos de Mega Drive *The Cursed Knight* e *Steel Empire* para evitar congelamentos de estabilidade de estado no PicoDrive; os estados manuais de salvar/carregar continuam disponíveis).
 * **Áudio de Alta Fidelidade**: Reamostragem e interpolação de áudio autênticas do hardware (áudio Gaussiano para jogos SNES padrão, perfil de baixo custo para jogos SA-1 e áudio FM YM2413 para SMS).
 * **Escalonamento de Tela**: Escalonamento nearest-neighbor para jogos Sega e escalonamento de proporção linear/Gaussiano para jogos SNES.
 * **Protetor de Tela (Screensaver) e Mute de Áudio**: Escurece a tela em 50% e silencia a saída de áudio automaticamente após inatividade do controle. Ao pressionar qualquer botão do controle, o brilho total e o áudio são restaurados instantaneamente. Configurável via `cmdline.txt`.
@@ -254,7 +254,7 @@ Este projeto foi construído sobre o trabalho incrível dos seguintes projetos d
   * Repositório: [rsta2/circle](https://github.com/rsta2/circle)
 * **PicoDrive**: Um emulador rápido e altamente otimizado de Sega Mega Drive/Genesis/Master System e Sega CD.
   * Repositório: [notaz/picodrive](https://github.com/notaz/picodrive)
-* **Snes9x**: Um emulador portátil e de alta compatibilidade de Super Nintendo Entertainment System (SNES).
+* **lr-snes9x2010**: A porta libretro do emulador Snes9x 1.52.4 para Super Nintendo Entertainment System (SNES).
   * Repositório: [snes9xgit/snes9x](https://github.com/snes9xgit/snes9x)
 * **Nestopia**: Um emulador altamente preciso de Nintendo Entertainment System (NES/Famicom) usado como base para a implementação de NES deste projeto.
   * Página do projeto: [nestopia.sourceforge.net](http://nestopia.sourceforge.net/)

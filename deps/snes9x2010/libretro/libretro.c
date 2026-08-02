@@ -465,7 +465,9 @@ static void check_variables(bool first_run)
 	var.value = NULL;
 	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
 	{
-		if (strcmp(var.value, "cubic") == 0)
+		if (strcmp(var.value, "none") == 0)
+			dsp_interp_mode = DSP_INTERP_NONE;
+		else if (strcmp(var.value, "cubic") == 0)
 			dsp_interp_mode = DSP_INTERP_CUBIC;
 		else if (strcmp(var.value, "sinc") == 0)
 			dsp_interp_mode = DSP_INTERP_SINC;
@@ -817,7 +819,11 @@ void retro_set_environment(retro_environment_t cb)
 
 	libretro_supports_option_categories = false;
 
+#if defined(__circle__)
+	local_bool_val = false;
+#else
 	libretro_set_core_options(environ_cb, &local_bool_val);
+#endif
   
         libretro_supports_option_categories = local_bool_val;
 
@@ -1284,7 +1290,7 @@ void retro_init(void)
 	GFX.Screen          = NULL;
 	ntsc_screen_buffer  = NULL;
 
-#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L) && !defined(GEKKO) && !defined(_3DS) && !defined(__SWITCH__) && !defined(VITA)
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L) && !defined(GEKKO) && !defined(_3DS) && !defined(__SWITCH__) && !defined(VITA) && !defined(__circle__)
 	/* GFX.Pitch is already in bytes (= MAX_BUFFER_WIDTH * sizeof(uint16_t));
 	   buffer size is Pitch * lines, not Pitch * lines * sizeof(uint16_t) again.
 	   request 128-bit alignment here if possible.

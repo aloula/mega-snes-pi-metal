@@ -189,6 +189,40 @@
 #include "srtc.h"
 #include "msu1.h"
 #include "snapshot.h"
+
+#if defined(__circle__)
+#define SNAPSHOT_WORKSPACE_SIZE (192 * 1024)
+static uint8_t snapshot_workspace[SNAPSHOT_WORKSPACE_SIZE] __attribute__((aligned(8)));
+static size_t snapshot_workspace_used;
+
+static void *SnapshotAlloc(size_t size)
+{
+	size = (size + 7) & ~(size_t)7;
+	if (size > SNAPSHOT_WORKSPACE_SIZE - snapshot_workspace_used)
+		return NULL;
+
+	void *block = snapshot_workspace + snapshot_workspace_used;
+	snapshot_workspace_used += size;
+	return block;
+}
+
+static void SnapshotFree(void *block)
+{
+	if (block < (void *)snapshot_workspace ||
+	    block >= (void *)(snapshot_workspace + SNAPSHOT_WORKSPACE_SIZE))
+		free(block);
+}
+#else
+static void *SnapshotAlloc(size_t size)
+{
+	return malloc(size);
+}
+
+static void SnapshotFree(void *block)
+{
+	free(block);
+}
+#endif
 #include "controls.h"
 #include "display.h"
 
@@ -1531,12 +1565,14 @@ static int UnfreezeBlockCopy (STREAM stream, const char *name, uint8_t **block, 
 		return 0;
 	}
 
-	*block = (uint8_t*)malloc(size);
+	*block = (uint8_t*)SnapshotAlloc(size);
+	if (*block == NULL)
+		return (SNAPSHOT_INCONSISTENT);
 
 	result = UnfreezeBlock(stream, name, *block, size);
 	if (result != SUCCESS)
 	{
-		free(*block);
+		SnapshotFree(*block);
 		*block = NULL;
 		return (result);
 	}
@@ -1739,6 +1775,10 @@ int S9xUnfreezeFromStream (STREAM stream)
 	size_t snapshot_magic_len  = strlen(SNAPSHOT_MAGIC);
 	uint64_t len               = (uint64_t)snapshot_magic_len + 1 + 4 + 1;
 
+#if defined(__circle__)
+	snapshot_workspace_used = 0;
+#endif
+
 	if (READ_STREAM(buffer, len, stream) != len)
 		return (WRONG_FORMAT);
 
@@ -1752,7 +1792,6 @@ int S9xUnfreezeFromStream (STREAM stream)
 	result = UnfreezeBlock(stream, "NAM", (uint8_t *) buffer, PATH_MAX);
 	if (result != SUCCESS)
 		return (result);
-
 
 	do
 	{
@@ -1909,7 +1948,6 @@ int S9xUnfreezeFromStream (STREAM stream)
 			/* Don't call this if you bypassed the "local_" buffers and modified the "Memory." buffers directly. */
 			S9xReset();
 		}
-
 		UnfreezeStructFromCopy(&CPU, SnapCPU, COUNT(SnapCPU), local_cpu, version);
 
 		UnfreezeStructFromCopy(&Registers, SnapRegisters, COUNT(SnapRegisters), local_registers, version);
@@ -1931,6 +1969,7 @@ int S9xUnfreezeFromStream (STREAM stream)
 			memcpy(Memory.FillRAM, local_fillram, 0x8000);
 
 		S9xAPULoadState(local_apu_sound);
+		S9xAPUResyncAfterStateLoad(CPU.Cycles);
 
 		UnfreezeStructFromCopy(&ctl_snap, SnapControls, COUNT(SnapControls), local_control_data, version);
 
@@ -1989,6 +2028,7 @@ int S9xUnfreezeFromStream (STREAM stream)
 			UnfreezeStructFromCopy(&BSX, SnapBSX, COUNT(SnapBSX), local_bsx_data, version);
 
 		CPU.Flags |= old_flags & (DEBUG_MODE_FLAG | TRACE_FLAG | SINGLE_STEP_FLAG);
+		Registers.PBPC &= 0xFFFFFF;
 		ICPU.ShiftedPB = Registers.PB << 16;
 		ICPU.ShiftedDB = Registers.DB << 16;
 		S9xSetPCBase(Registers.PBPC);
@@ -2007,6 +2047,10 @@ int S9xUnfreezeFromStream (STREAM stream)
 		CPU.InDMA = CPU.InHDMA = FALSE;
 		CPU.InDMAorHDMA = CPU.InWRAMDMAorHDMA = FALSE;
 		CPU.HDMARanInDMA = 0;
+
+		extern uint8_t *HDMAMemPointers[8];
+		memset(HDMAMemPointers, 0, sizeof(HDMAMemPointers));
+		S9xAPUTimingSetSpeedup(Timings.APUSpeedup);
 
 		S9xFixColourBrightness();
 		IPPU.RenderThisFrame = TRUE;
@@ -2036,32 +2080,32 @@ int S9xUnfreezeFromStream (STREAM stream)
 			S9xBSXPostLoadState();
 	}
 
-	if (local_cpu)			free(local_cpu);
-	if (local_registers)		free(local_registers);
-	if (local_ppu)			free(local_ppu);
-	if (local_dma)			free(local_dma);
-	if (local_vram)			free(local_vram);
-	if (local_ram)			free(local_ram);
-	if (local_sram)			free(local_sram);
-	if (local_fillram)		free(local_fillram);
-	if (local_apu_sound)		free(local_apu_sound);
-	if (local_control_data)		free(local_control_data);
-	if (local_timing_data)		free(local_timing_data);
-	if (local_superfx)		free(local_superfx);
-	if (local_sa1)			free(local_sa1);
-	if (local_sa1_registers)	free(local_sa1_registers);
-	if (local_dsp1)			free(local_dsp1);
-	if (local_dsp2)			free(local_dsp2);
-	if (local_dsp4)			free(local_dsp4);
-	if (local_cx4_data)		free(local_cx4_data);
-	if (local_st010)		free(local_st010);
-	if (local_obc1)			free(local_obc1);
-	if (local_msu1)			free(local_msu1);
-	if (local_obc1_data)		free(local_obc1_data);
-	if (local_spc7110)		free(local_spc7110);
-	if (local_srtc)			free(local_srtc);
-	if (local_rtc_data)		free(local_rtc_data);
-	if (local_bsx_data)		free(local_bsx_data);
+	if (local_cpu)			SnapshotFree(local_cpu);
+	if (local_registers)		SnapshotFree(local_registers);
+	if (local_ppu)			SnapshotFree(local_ppu);
+	if (local_dma)			SnapshotFree(local_dma);
+	if (local_vram)			SnapshotFree(local_vram);
+	if (local_ram)			SnapshotFree(local_ram);
+	if (local_sram)			SnapshotFree(local_sram);
+	if (local_fillram)		SnapshotFree(local_fillram);
+	if (local_apu_sound)		SnapshotFree(local_apu_sound);
+	if (local_control_data)		SnapshotFree(local_control_data);
+	if (local_timing_data)		SnapshotFree(local_timing_data);
+	if (local_superfx)		SnapshotFree(local_superfx);
+	if (local_sa1)			SnapshotFree(local_sa1);
+	if (local_sa1_registers)	SnapshotFree(local_sa1_registers);
+	if (local_dsp1)			SnapshotFree(local_dsp1);
+	if (local_dsp2)			SnapshotFree(local_dsp2);
+	if (local_dsp4)			SnapshotFree(local_dsp4);
+	if (local_cx4_data)		SnapshotFree(local_cx4_data);
+	if (local_st010)		SnapshotFree(local_st010);
+	if (local_obc1)			SnapshotFree(local_obc1);
+	if (local_msu1)			SnapshotFree(local_msu1);
+	if (local_obc1_data)		SnapshotFree(local_obc1_data);
+	if (local_spc7110)		SnapshotFree(local_spc7110);
+	if (local_srtc)			SnapshotFree(local_srtc);
+	if (local_rtc_data)		SnapshotFree(local_rtc_data);
+	if (local_bsx_data)		SnapshotFree(local_bsx_data);
 
 	return (result);
 }

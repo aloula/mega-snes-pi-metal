@@ -35,15 +35,22 @@ struct memstream
    unsigned writing;
 };
 
+#if defined(__circle__)
+static struct memstream circle_memstream;
+#endif
 
 memstream_t *memstream_open(uint8_t *buf, uint64_t size, unsigned writing)
 {
    memstream_t *stream;
 
+#if defined(__circle__)
+   stream = &circle_memstream;
+#else
    stream = (memstream_t*)malloc(sizeof(*stream));
 
    if (!stream)
       return NULL;
+#endif
 
    stream->ptr       = 0;
    stream->max_ptr   = 0;
@@ -59,7 +66,9 @@ void memstream_close(memstream_t *stream)
    if (!stream)
       return;
 
+#if !defined(__circle__)
    free(stream);
+#endif
 }
 
 uint64_t memstream_get_ptr(memstream_t *stream)

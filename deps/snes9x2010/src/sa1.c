@@ -353,10 +353,18 @@ static void S9xSA1SetBWRAMMemMap (uint8_t val)
 	}
 }
 
+static void S9xSetSA1MemMap (uint32_t which1, uint8_t map);
+
 void S9xSA1PostLoadState (void)
 {
+	SA1Registers.PBPC &= 0xFFFFFF;
 	SA1.ShiftedPB = (uint32_t) SA1Registers.PB << 16;
 	SA1.ShiftedDB = (uint32_t) SA1Registers.DB << 16;
+
+	S9xSetSA1MemMap(0, Memory.FillRAM[0x2220]);
+	S9xSetSA1MemMap(1, Memory.FillRAM[0x2221]);
+	S9xSetSA1MemMap(2, Memory.FillRAM[0x2222]);
+	S9xSetSA1MemMap(3, Memory.FillRAM[0x2223]);
 
 	S9xSA1SetPCBase(SA1Registers.PBPC);
 	S9xSA1UnpackStatus();
@@ -418,6 +426,12 @@ static INLINE uint8_t S9xSA1GetByte (uint32_t address)
 
 	if (GetAddress >= (uint8_t *) MAP_LAST)
 		return (*(GetAddress + (address & 0xffff)));
+
+	if (GetAddress == (uint8_t *) MAP_SA1RAM)
+		return (*(Memory.SRAM + (address & 0xffff)));
+
+	if (GetAddress == (uint8_t *) MAP_BWRAM)
+		return (*(SA1.BWRAM + ((address & 0x7fff) - 0x6000)));
 
 	return (S9xSA1GetByteFromRegister(GetAddress, address));
 }
@@ -509,21 +523,36 @@ uint8_t S9xSA1ReadCC1 (uint32_t bwoffset)
 			bwaddr += bpl;
 
 			memset(out, 0, sizeof(out));
-			for (x = 0; x < 8; x++)
+			if (dmacb == 2)
 			{
-				out[0] |= (data & 1) << (7 - x); data >>= 1;
-				out[1] |= (data & 1) << (7 - x); data >>= 1;
-				if (dmacb != 2)
+				for (x = 0; x < 8; x++)
 				{
+					out[0] |= (data & 1) << (7 - x); data >>= 1;
+					out[1] |= (data & 1) << (7 - x); data >>= 1;
+				}
+			}
+			else if (dmacb == 1)
+			{
+				for (x = 0; x < 8; x++)
+				{
+					out[0] |= (data & 1) << (7 - x); data >>= 1;
+					out[1] |= (data & 1) << (7 - x); data >>= 1;
 					out[2] |= (data & 1) << (7 - x); data >>= 1;
 					out[3] |= (data & 1) << (7 - x); data >>= 1;
-					if (dmacb != 1)
-					{
-						out[4] |= (data & 1) << (7 - x); data >>= 1;
-						out[5] |= (data & 1) << (7 - x); data >>= 1;
-						out[6] |= (data & 1) << (7 - x); data >>= 1;
-						out[7] |= (data & 1) << (7 - x); data >>= 1;
-					}
+				}
+			}
+			else
+			{
+				for (x = 0; x < 8; x++)
+				{
+					out[0] |= (data & 1) << (7 - x); data >>= 1;
+					out[1] |= (data & 1) << (7 - x); data >>= 1;
+					out[2] |= (data & 1) << (7 - x); data >>= 1;
+					out[3] |= (data & 1) << (7 - x); data >>= 1;
+					out[4] |= (data & 1) << (7 - x); data >>= 1;
+					out[5] |= (data & 1) << (7 - x); data >>= 1;
+					out[6] |= (data & 1) << (7 - x); data >>= 1;
+					out[7] |= (data & 1) << (7 - x); data >>= 1;
 				}
 			}
 
@@ -1200,7 +1229,12 @@ static void S9xSA1SetByteToRegister (uint8_t byte, uint8_t *SetAddress, uint32_t
 	uint8_t  *_sa1_sb_p    = SA1.WriteMap[(_sa1_sb_addr & 0xffffff) >> MEMMAP_SHIFT]; \
 	if (_sa1_sb_p >= (uint8_t *) MAP_LAST) \
 		*(_sa1_sb_p + (_sa1_sb_addr & 0xffff)) = _sa1_sb_byte; \
-	else \
+	else if (_sa1_sb_p == (uint8_t *) MAP_SA1RAM) \
+		*(Memory.SRAM + (_sa1_sb_addr & 0xffff)) = _sa1_sb_byte; \
+	else if (_sa1_sb_p == (uint8_t *) MAP_BWRAM) { \
+		if (!S9xSA1BWRAMWriteProtected((uint32_t)(SA1.BWRAM - Memory.SRAM) + ((_sa1_sb_addr & 0x7fff) - 0x6000))) \
+			*(SA1.BWRAM + ((_sa1_sb_addr & 0x7fff) - 0x6000)) = _sa1_sb_byte; \
+	} else \
 		S9xSA1SetByteToRegister(_sa1_sb_byte, _sa1_sb_p, _sa1_sb_addr); \
 } while (0)
 
@@ -1373,6 +1407,9 @@ void S9xSA1MainLoop (void)
 	int i;
 	uint8_t sa1_quit;
 
+	if (SA1.WaitingForInterrupt && !(SA1.Flags & (NMI_FLAG | IRQ_FLAG)))
+		return;
+
 	if (SA1.Flags & NMI_FLAG)
 	{
 		if (Memory.FillRAM[0x2200] & 0x10)
@@ -1408,8 +1445,10 @@ void S9xSA1MainLoop (void)
 	}
 
 	sa1_quit = Memory.FillRAM[0x2200] & 0x60;
+	if (sa1_quit)
+		return;
 
-	for ( i = 0; i < 3 && !sa1_quit; i++)
+	for ( i = 0; i < 3; i++)
 	{
 		register uint8_t			Op;
 		register struct SOpcodes	*Opcodes;

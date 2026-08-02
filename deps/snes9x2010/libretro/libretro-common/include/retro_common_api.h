@@ -103,6 +103,11 @@ typedef int ssize_t;
 #endif
 #include <inttypes.h>
 #endif
+#if defined(__circle__) && !defined(PRId64)
+#define PRId64 "lld"
+#define PRIu64 "llu"
+#define PRIuPTR "u"
+#endif
 #ifndef PRId64
 #error "inttypes.h is being screwy"
 #endif

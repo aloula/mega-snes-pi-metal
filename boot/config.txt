@@ -20,8 +20,9 @@ overscan_bottom=0
 [pi3]
 kernel=kernel8-32.img
 dtoverlay=pi3-disable-bt
-# Let firmware manage the Pi 3 clock to prevent sustained thermal throttling.
-force_turbo=0
+# Maintain full rated CPU performance (1.2 GHz) for bare-metal execution
+arm_freq=1200
+force_turbo=1
 
 [pi4]
 kernel=kernel7l.img

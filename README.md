@@ -6,7 +6,7 @@
 
 A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel. It includes support for the **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), **Sega Master System (SMS)** (via PicoDrive), and **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), allowing real-time switching between systems directly from the On-Screen Display (OSD) menu.
 
-Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, **Nestopia**, and **Beetle PCE Fast**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
+Built on the **Circle C++ bare-metal environment**, **lr-snes9x2010**, **PicoDrive**, **Nestopia**, and **Beetle PCE Fast**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
 
 🎥 **Video Demonstration**: [Watch MEGA-SNES Pi Metal running on a Raspberry Pi 3B+](https://youtu.be/jyMUjcQem-0)
 
@@ -27,7 +27,7 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
   * 9 built-in color themes (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) with optional auto-rotation on every power cycle.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
-* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Automatic rewind is disabled for SA-1 SNES cartridges to prevent performance and audio interruptions, and for the Mega Drive games *The Cursed Knight* and *Steel Empire* to prevent PicoDrive state-stability freezes; manual save/load states remain available.
+* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Supported across all systems including SNES and SA-1 games (automatic rewind is disabled only for the Mega Drive games *The Cursed Knight* and *Steel Empire* to prevent PicoDrive state-stability freezes; manual save/load states remain available).
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for standard SNES games, a low-overhead profile for SA-1 games, and YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 * **Screensaver & Audio Mute**: Automatically dims the screen by 50% and mutes audio output after controller inactivity. Pressing any controller button immediately restores full brightness and audio. Configurable via `cmdline.txt`.
@@ -255,7 +255,7 @@ This project is built upon the incredible work of the following open-source proj
   * Repository: [rsta2/circle](https://github.com/rsta2/circle)
 * **PicoDrive**: A fast, highly-optimized Sega Mega Drive/Genesis/Master System and Sega CD emulator.
   * Repository: [notaz/picodrive](https://github.com/notaz/picodrive)
-* **Snes9x**: A portable, high-compatibility Super Nintendo Entertainment System (SNES) emulator.
+* **lr-snes9x2010**: The libretro port of the Snes9x 1.52.4 Super Nintendo Entertainment System (SNES) emulator.
   * Repository: [snes9xgit/snes9x](https://github.com/snes9xgit/snes9x)
 * **Nestopia**: A highly accurate Nintendo Entertainment System (NES/Famicom) emulator used as the base for this project's NES implementation.
   * Project page: [nestopia.sourceforge.net](http://nestopia.sourceforge.net/)

@@ -636,7 +636,7 @@ static INLINE int dsp_interpolate( dsp_voice_t *v )
 }
 
 /* DSP voice interpolation mode (core option). 0 = gaussian (accurate,
- * hardware default). 1 = cubic. Inaccurate modes brighten the high end
+ * hardware default). Inaccurate modes brighten the high end
  * by replacing the SPC's gaussian pitch interpolation; they do NOT
  * recover BRR quantization loss and do NOT match real hardware.
  * DSP_INTERP_* constants are declared in apu.h. */
@@ -996,6 +996,8 @@ static void dsp_voice_V3c( dsp_voice_t* v )
 		output = dsp_interpolate_cubic( v );
 	else if ( dsp_interp_mode == DSP_INTERP_SINC )
 		output = dsp_interpolate_sinc( v );
+	else if ( dsp_interp_mode == DSP_INTERP_NONE )
+		output = v->buf[(v->interp_pos >> 12) + v->buf_pos + 1] & ~1;
 	else
 		output = dsp_interpolate( v );
 
@@ -3717,6 +3719,13 @@ void S9xAPUSetReferenceTime (int32_t cpucycles)
 	reference_time = cpucycles;
 }
 
+void S9xAPUResyncAfterStateLoad (int32_t cpucycles)
+{
+	reference_time = cpucycles;
+	spc_remainder = 0;
+	dsp_set_output(landing_buffer, LANDING_BUFFER_FRAMES * 2);
+}
+
 void S9xAPUExecute (void)
 {
 	/* Per-scanline timing rebase. The catch-up itself is usually a no-op
@@ -3788,7 +3797,7 @@ static void NO_OPTIMIZE to_apu_from_state (uint8_t **buf, void *var, size_t size
 
 // work around optimization bug in android GCC
 // similar to this: http://jeffq.com/blog/over-aggressive-gcc-optimization-can-cause-sigbus-crash-when-using-memcpy-with-the-android-ndk/
-#if defined(ANDROID) || defined(__QNX__)
+#if defined(ANDROID) || defined(__QNX__) || defined(__circle__)
 void __attribute__((optimize(0))) S9xAPUSaveState (uint8_t *block)
 #else
 void S9xAPUSaveState (uint8_t *block)
@@ -3807,7 +3816,7 @@ void S9xAPUSaveState (uint8_t *block)
 	memset(ptr, 0, SPC_SAVE_STATE_BLOCK_SIZE - (ptr - block));
 }
 
-#if defined(ANDROID) || defined(__QNX__)
+#if defined(ANDROID) || defined(__QNX__) || defined(__circle__)
 void __attribute__((optimize(0))) S9xAPULoadState (uint8_t *block)
 #else
 void S9xAPULoadState (uint8_t *block)

@@ -64,7 +64,8 @@ SNESPI_VERSION = $(shell cat ../VERSION 2>/dev/null || echo 1.0)
 DEFS     = -DSNESPI_VERSION="\"$(SNESPI_VERSION)\"" \
            -DPIXEL_FORMAT=RGB565 -DALLOW_CPU_OVERCLOCK=1 -DHAVE_STDINT_H -DHAVE_STRINGS_H -D_GNU_SOURCE
 
-INCS     = -I. -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu \
+INCS     = -I. -I../shared -I../deps/snes9x2010/libretro -I../deps/snes9x2010/src -I../deps/snes9x2010/libretro/libretro-common/include \
+           -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu \
            -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon \
            -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 
@@ -87,15 +88,45 @@ LIBS	= $(CIRCLEHOME)/addon/fatfs/libfatfs.a \
 
 STDLIB_SUPPORT = 3
 
-include $(CIRCLEHOME)/Rules.mk
-
 ../deps/snes9x/%.o: INCS = -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
 ../deps/snes9x/%.o: CFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -w
 ../deps/snes9x/%.o: CPPFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -w
 
-emu_orchestrator.o: INCS = -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu -I$(CIRCLEHOME)/addon/fatfs -I$(CIRCLEHOME)/addon -I/usr/include/newlib/c++/13.2.1 -I/usr/include/newlib/c++/13.2.1/arm-none-eabi
-emu_orchestrator.o: CFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu
-emu_orchestrator.o: CPPFLAGS += -I../shared -I../deps/snes9x -I../deps/snes9x/apu -I../deps/snes9x/apu/bapu
+LR_SNES2010_DIR = ../deps/snes9x2010
+LR_SNES2010_COMMON = $(LR_SNES2010_DIR)/libretro/libretro-common
+LR_SNES2010_SRCS = $(filter-out $(LR_SNES2010_DIR)/src/hdpack.c,$(wildcard $(LR_SNES2010_DIR)/src/*.c)) \
+	$(LR_SNES2010_DIR)/filter/snes_ntsc.c \
+	$(LR_SNES2010_DIR)/libretro/libretro.c \
+	$(LR_SNES2010_COMMON)/streams/memory_stream.c \
+	$(LR_SNES2010_COMMON)/memmap/memalign.c
+LR_SNES2010_OBJS = $(LR_SNES2010_SRCS:.c=.o)
+LR_SNES2010_INCS = -I../shared -I$(LR_SNES2010_DIR)/libretro -I$(LR_SNES2010_DIR)/src -I$(LR_SNES2010_COMMON)/include
+LR_SNES2010_DEFS = -D__LIBRETRO__ -DINLINE=inline -DHAVE_NO_LANGEXTRA -D__int64_t_defined=1 -U_POSIX_C_SOURCE \
+	-Dretro_api_version=lr_snes2010_retro_api_version -Dretro_get_memory_data=lr_snes2010_retro_get_memory_data \
+	-Dretro_get_memory_size=lr_snes2010_retro_get_memory_size -Dretro_set_video_refresh=lr_snes2010_retro_set_video_refresh \
+	-Dretro_set_audio_sample=lr_snes2010_retro_set_audio_sample -Dretro_set_audio_sample_batch=lr_snes2010_retro_set_audio_sample_batch \
+	-Dretro_set_input_poll=lr_snes2010_retro_set_input_poll -Dretro_set_input_state=lr_snes2010_retro_set_input_state \
+	-Dretro_set_environment=lr_snes2010_retro_set_environment -Dretro_get_system_info=lr_snes2010_retro_get_system_info \
+	-Dretro_set_controller_port_device=lr_snes2010_retro_set_controller_port_device \
+	-Dretro_get_system_av_info=lr_snes2010_retro_get_system_av_info -Dretro_init=lr_snes2010_retro_init \
+	-Dretro_deinit=lr_snes2010_retro_deinit -Dretro_reset=lr_snes2010_retro_reset -Dretro_run=lr_snes2010_retro_run \
+	-Dretro_serialize_size=lr_snes2010_retro_serialize_size -Dretro_serialize=lr_snes2010_retro_serialize \
+	-Dretro_unserialize=lr_snes2010_retro_unserialize -Dretro_cheat_reset=lr_snes2010_retro_cheat_reset \
+	-Dretro_cheat_set=lr_snes2010_retro_cheat_set -Dretro_load_game=lr_snes2010_retro_load_game \
+	-Dretro_load_game_special=lr_snes2010_retro_load_game_special -Dretro_unload_game=lr_snes2010_retro_unload_game \
+	-Dretro_get_region=lr_snes2010_retro_get_region
+
+OBJS := $(filter-out ../deps/snes9x/%, $(OBJS))
+OBJS += $(LR_SNES2010_OBJS) ../shared/lr_snes2010_orchestrator.o ../shared/lr_snes2010_optional_stubs.o
+
+$(LR_SNES2010_OBJS): CFLAGS += $(LR_SNES2010_INCS) $(LR_SNES2010_DEFS) -w
+../shared/lr_snes2010_orchestrator.o: ../shared/lr_snes2010_orchestrator.cpp
+	$(CPP) $(CPPFLAGS) $(LR_SNES2010_INCS) $(LR_SNES2010_DEFS) -c -o $@ $<
+
+../shared/lr_snes2010_optional_stubs.o: ../shared/lr_snes2010_optional_stubs.c
+	$(CC) $(CFLAGS) $(LR_SNES2010_INCS) $(LR_SNES2010_DEFS) -c -o $@ $<
+
+emu_orchestrator.o: CPPFLAGS += $(LR_SNES2010_INCS) $(LR_SNES2010_DEFS)
 
 main.o: ../shared/main.cpp
 	$(CPP) $(CPPFLAGS) -c -o $@ $<
@@ -106,5 +137,8 @@ clib_stubs.o: ../shared/clib_stubs.cpp
 EXTRALIBS += $(shell $(PREFIX)gcc $(ARCHCPU) -print-file-name=libm.a) \
              $(shell $(PREFIX)gcc $(ARCHCPU) -print-file-name=libc.a) \
              $(shell $(PREFIX)gcc $(ARCHCPU) -print-file-name=libnosys.a)
+
+include $(CIRCLEHOME)/Rules.mk
+.DEFAULT_GOAL := $(TARGET).img
 
 -include $(DEPS)

@@ -548,14 +548,14 @@ void CKernel::RunOrchestrator() {
             if (g_SharedState.save_state_requested) {
                 g_SharedState.save_state_requested = FALSE;
                 m_pEmuOrchestrator->SaveState(0);
-                // Blink the activity LED 3 times quickly to confirm save
-                m_ActLED.Blink(3, 50, 50);
+                // Quick activity LED flash to confirm save
+                m_ActLED.Blink(1, 20, 10);
             }
             if (g_SharedState.load_state_requested) {
                 g_SharedState.load_state_requested = FALSE;
                 m_pEmuOrchestrator->LoadState(0);
-                // Blink the activity LED 3 times quickly to confirm load
-                m_ActLED.Blink(3, 50, 50);
+                // Quick activity LED flash to confirm load
+                m_ActLED.Blink(1, 20, 10);
             }
             if (g_SharedState.rewind_requested) {
                 g_SharedState.rewind_requested = FALSE;
