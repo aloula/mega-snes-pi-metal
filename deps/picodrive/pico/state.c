@@ -239,8 +239,10 @@ static int state_save(void *file)
   areaWrite(&ver, 1, 4, file);
 
   if (!(PicoIn.AHW & PAHW_SMS)) {
-    // the patches can cause incompatible saves with no-idle
-    SekFinishIdleDet();
+    if (!(PicoIn.opt & POPT_DIS_IDLE_DET)) {
+      // the patches can cause incompatible saves with no-idle
+      SekFinishIdleDet();
+    }
 
     memset(buff, 0, sizeof(buff));
     SekPackCpu(buff, 0);
@@ -644,10 +646,6 @@ readend:
   // kludge: if there is no new ports data save, they must be initialised
   if (!has_iov2)
     io_ports_reset();
-
-  Pico.t.m68c_frame_start = Pico.t.m68c_cnt;
-  Pico.t.m68c_aim = Pico.t.m68c_cnt;
-  Pico.t.z80c_aim = Pico.t.z80c_cnt;
 
   Pico.m.dirtyPal = 1;
   retval = 0;

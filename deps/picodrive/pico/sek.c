@@ -376,6 +376,9 @@ int SekIsIdleCode(unsigned short *dst, int bytes)
 
 int SekRegisterIdlePatch(unsigned int pc, int oldop, int newop, void *ctx)
 {
+  if (PicoIn.opt & POPT_DIS_IDLE_DET)
+    return 1;
+
   int is_main68k = 1;
   u16 *target;
   uptr v;
