@@ -239,11 +239,27 @@ This produces `main-emulator/kernel8-32.img`.
 - **Sega Master System**: `cd master-emulator && make -j$(nproc)` $\rightarrow$ produces `master-emulator/kernel8-32.img`
 
 #### 5. Generating the SD Card Release Package
-To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, and `bios`) automatically:
+To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, `roms/nes`, `roms/pce`, and `bios`) automatically:
 ```bash
 ./build_release.sh
 ```
 This script clean builds the unified project and saves the final package to `release/sdcard_release.zip`. Extract the contents of this zip directly onto the root of a FAT32-formatted SD Card.
+
+#### 6. Deploying to SD Card (WSL & Linux Helper Scripts)
+Quickly deploy built kernels or full release packages directly to your SD card (supports configurable drive letters e.g. `F`, `G:`, or `DRIVE=F`, with built-in safety protection blocking system drive `C:`):
+```bash
+# Copy compiled kernel image to SD card (default drive E:)
+./copy-kernel-to-sd.sh
+
+# Copy compiled kernel image to a specific drive (e.g. F:)
+./copy-kernel-to-sd.sh F
+
+# Extract full release package directly onto SD card (default drive E:)
+./copy-release-to-sd.sh
+
+# Extract full release package directly onto a specific drive (e.g. F:)
+./copy-release-to-sd.sh F
+```
 
 ---
 
