@@ -5,6 +5,11 @@ DRIVE_INPUT="${1:-${DRIVE:-${SD_DRIVE:-E}}}"
 DRIVE_LETTER="$(echo "${DRIVE_INPUT}" | tr -d ':' | tr 'a-z' 'A-Z')"
 DRIVE_LETTER_LOWER="$(echo "${DRIVE_LETTER}" | tr 'A-Z' 'a-z')"
 
+if [[ "${DRIVE_LETTER}" == "C" ]]; then
+    echo "Error: Drive C: is the system OS drive and cannot be selected as the target SD card drive." >&2
+    exit 1
+fi
+
 mnt_drive="/mnt/${DRIVE_LETTER_LOWER}"
 win_drive="${DRIVE_LETTER}:"
 
