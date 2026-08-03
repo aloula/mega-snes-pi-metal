@@ -645,6 +645,10 @@ readend:
   if (!has_iov2)
     io_ports_reset();
 
+  Pico.t.m68c_frame_start = Pico.t.m68c_cnt;
+  Pico.t.m68c_aim = Pico.t.m68c_cnt;
+  Pico.t.z80c_aim = Pico.t.z80c_cnt;
+
   Pico.m.dirtyPal = 1;
   retval = 0;
 

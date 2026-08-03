@@ -116,8 +116,11 @@ static void ApplyMDPicoConfig() {
 }
 
 static void ResetMDAudioAfterStateChange() {
+    Pico.t.m68c_frame_start = Pico.t.m68c_cnt;
+    Pico.t.m68c_aim = Pico.t.m68c_cnt;
+    Pico.t.z80c_aim = Pico.t.z80c_cnt;
     g_SharedState.audio_ring_buffer.Init();
-    s_nAudioMuteFrames = 60; // 1 second (60 frames at 60 FPS)
+    s_nAudioMuteFrames = 30;
 }
 
 // Sound callback

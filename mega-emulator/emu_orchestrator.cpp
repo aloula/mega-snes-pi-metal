@@ -572,6 +572,7 @@ void CEmuOrchestrator::RewindState() {
             m_nRewindWriteIdx = loadIdx;
             m_nRewindCount--;
             m_nRewindFrameCounter = 0;
+            g_SharedState.audio_ring_buffer.Init();
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);
         }
