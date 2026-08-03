@@ -1365,8 +1365,8 @@ static void PicoCartDetect(const char *carthw_cfg)
   if (carthw_cfg != NULL)
     parse_carthw(carthw_cfg, &fill_sram, &carthw_detected);
 
-  // assume the standard mapper for large roms
-  if (!carthw_detected && Pico.romsize > 0x400000)
+  // assume the standard mapper for large roms (4MB+)
+  if (!carthw_detected && Pico.romsize >= 0x400000)
     carthw_ssf2_startup();
 
   if (Pico.sv.flags & SRF_ENABLED)
