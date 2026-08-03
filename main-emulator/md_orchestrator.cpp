@@ -547,6 +547,24 @@ void CMDOrchestrator::CaptureRewindState() {
     m_nRewindFrameCounter++;
     u32 framesPerSec = IsPAL() ? 50 : 60;
     if (m_nRewindFrameCounter >= framesPerSec) {
+        // Titles that run tight VDP DMA/FIFO sequences can leave the 68000/Z80
+        // microstate unrecoverable if snapshotted mid-transfer (screen freeze +
+        // looping audio when later rewound into). Defer capture by a frame at a
+        // time instead of forcing it at an unsafe boundary; frame counter is
+        // left elevated so the check retries every subsequent frame.
+        static u32 s_nRewindDeferStreak = 0;
+        if ((PicoIn.quirks & PQUIRK_SAFE_REWIND) &&
+            (Pico.video.pending || Pico.video.fifo_cnt || Pico.video.fifo_bgcnt ||
+             (Pico.video.status & (PVS_CPUWR | PVS_CPURD | PVS_DMAFILL | PVS_DMABG | PVS_FIFORUN)))) {
+            s_nRewindDeferStreak++;
+            return;
+        }
+        if (s_nRewindDeferStreak > 0) {
+            CLogger::Get()->Write(FromOrchestrator, LogNotice,
+                "Rewind capture deferred %u frame(s) for VDP-busy safety, capturing now", s_nRewindDeferStreak);
+            s_nRewindDeferStreak = 0;
+        }
+
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
@@ -559,6 +577,9 @@ void CMDOrchestrator::CaptureRewindState() {
             int ret = PicoStateFP(&state, 1, nullptr, state_write, nullptr, state_fseek);
             if (ret == 0 && state.pos > 0) {
                 m_nRewindStateSizes[m_nRewindWriteIdx] = state.pos;
+                CLogger::Get()->Write(FromOrchestrator, LogNotice,
+                    "Rewind captured: slot %d, frame %u, size %u", m_nRewindWriteIdx,
+                    (unsigned)Pico.m.frame_count, (unsigned)state.pos);
                 m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 6;
                 if (m_nRewindCount < 6) {
                     m_nRewindCount++;

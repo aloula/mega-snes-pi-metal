@@ -647,6 +647,12 @@ readend:
   if (!has_iov2)
     io_ports_reset();
 
+  // re-sync cycle accumulators to the loaded state so a partially-elapsed
+  // frame at load time can't leave the 68000/Z80 timing desynced
+  Pico.t.m68c_frame_start = Pico.t.m68c_cnt;
+  Pico.t.m68c_aim = Pico.t.m68c_cnt;
+  Pico.t.z80c_aim = Pico.t.z80c_cnt;
+
   Pico.m.dirtyPal = 1;
   retval = 0;
 
