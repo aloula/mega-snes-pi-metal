@@ -1365,15 +1365,6 @@ static void PicoCartDetect(const char *carthw_cfg)
   if (carthw_cfg != NULL)
     parse_carthw(carthw_cfg, &fill_sram, &carthw_detected);
 
-  if (Pico.romsize == 0x400000 &&
-      rom_strcmp(Pico.rom, Pico.romsize, 0x150, "THE CURSED KNIGHT") == 0 &&
-      rom_strcmp(Pico.rom, Pico.romsize, 0x180, "GM 000BS017-02") == 0)
-    PicoIn.quirks |= PQUIRK_DISABLE_REWIND;
-  else if (Pico.romsize == 0x100000 &&
-       rom_strcmp(Pico.rom, Pico.romsize, 0x150, "STEEL EMPIRE") == 0 &&
-       rom_strcmp(Pico.rom, Pico.romsize, 0x180, "GM T-081046-00") == 0)
-    PicoIn.quirks |= PQUIRK_DISABLE_REWIND;
-
   // assume the standard mapper for large roms
   if (!carthw_detected && Pico.romsize > 0x400000)
     carthw_ssf2_startup();
