@@ -108,6 +108,7 @@ extern void *p32x_bios_g, *p32x_bios_m, *p32x_bios_s;
 #define PQUIRK_MARSCHECK_HACK   (1<<3)
 #define PQUIRK_NO_Z80_BUS_LOCK  (1<<4)
 #define PQUIRK_DISABLE_REWIND   (1<<5)
+#define PQUIRK_SAFE_REWIND      (1<<6)  // defer rewind capture until VDP is idle
 
 // the emulator is configured and some status is reported
 // through this global state (not saved in savestates)

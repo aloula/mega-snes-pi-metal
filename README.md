@@ -27,7 +27,7 @@ Built on the **Circle C++ bare-metal environment**, **lr-snes9x2010**, **PicoDri
   * 9 built-in color themes (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) with optional auto-rotation on every power cycle.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
-* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Supported across all systems including SNES and SA-1 games (automatic rewind is disabled only for the Mega Drive games *The Cursed Knight* and *Steel Empire* to prevent PicoDrive state-stability freezes; manual save/load states remain available).
+* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Supported across all systems including SNES, SA-1, and all Mega Drive games (including *The Cursed Knight* and *Steel Empire*).
 * **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for standard SNES games, a low-overhead profile for SA-1 games, and YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 * **Screensaver & Audio Mute**: Automatically dims the screen by 50% and mutes audio output after controller inactivity. Pressing any controller button immediately restores full brightness and audio. Configurable via `cmdline.txt`.
@@ -239,11 +239,27 @@ This produces `main-emulator/kernel8-32.img`.
 - **Sega Master System**: `cd master-emulator && make -j$(nproc)` $\rightarrow$ produces `master-emulator/kernel8-32.img`
 
 #### 5. Generating the SD Card Release Package
-To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, and `bios`) automatically:
+To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, `roms/nes`, `roms/pce`, and `bios`) automatically:
 ```bash
 ./build_release.sh
 ```
 This script clean builds the unified project and saves the final package to `release/sdcard_release.zip`. Extract the contents of this zip directly onto the root of a FAT32-formatted SD Card.
+
+#### 6. Deploying to SD Card (WSL & Linux Helper Scripts)
+Quickly deploy built kernels or full release packages directly to your SD card (supports configurable drive letters e.g. `F`, `G:`, or `DRIVE=F`, with built-in safety protection blocking system drive `C:`):
+```bash
+# Copy compiled kernel image to SD card (default drive E:)
+./copy-kernel-to-sd.sh
+
+# Copy compiled kernel image to a specific drive (e.g. F:)
+./copy-kernel-to-sd.sh F
+
+# Extract full release package directly onto SD card (default drive E:)
+./copy-release-to-sd.sh
+
+# Extract full release package directly onto a specific drive (e.g. F:)
+./copy-release-to-sd.sh F
+```
 
 ---
 

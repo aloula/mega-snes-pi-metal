@@ -52,6 +52,7 @@ void carthw_ssf2_write8(u32 a, u32 d)
   if (!have_bank(base))
     return;
   carthw_ssf2_banks[a >> 1] = d;
+  elprintf(EL_STATUS, "SSF2 bank %d -> %02x (rom @ %06x mapped to %06x)", a >> 1, d, base, target);
 
   cpu68k_map_set(m68k_read8_map,  target, target + 0x80000 - 1, Pico.rom + base, 0);
   cpu68k_map_set(m68k_read16_map, target, target + 0x80000 - 1, Pico.rom + base, 0);

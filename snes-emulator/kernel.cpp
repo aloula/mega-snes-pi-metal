@@ -18,85 +18,6 @@ SharedState g_SharedState;
 FATFS *g_pFileSystem = nullptr;
 
 static CKernel *s_pThis = nullptr;
-static boolean s_Is3ButtonGame = TRUE;
-
-static boolean strcontains(const char *haystack, const char *needle) {
-    if (!haystack || !needle) return FALSE;
-    for (int i = 0; haystack[i]; i++) {
-        int j = 0;
-        while (haystack[i + j] && needle[j] && haystack[i + j] == needle[j]) {
-            j++;
-        }
-        if (!needle[j]) {
-            return TRUE;
-        }
-    }
-    return FALSE;
-}
-
-boolean is6ButtonGame(const char *pRomName) {
-    if (!pRomName) return FALSE;
-    char name[256];
-    int len = 0;
-    for (int i = 0; pRomName[i] && len < 255; i++) {
-        char c = pRomName[i];
-        if (c >= 'A' && c <= 'Z') {
-            c = c - 'A' + 'a';
-        }
-        name[len++] = c;
-    }
-    name[len] = '\0';
-    
-    if (strcontains(name, "(6b)") || strcontains(name, "(6-button)") || strcontains(name, "(6button)")) {
-        return TRUE;
-    }
-    if (strcontains(name, "(3b)") || strcontains(name, "(3-button)") || strcontains(name, "(3button)")) {
-        return FALSE;
-    }
-    
-    if (strcontains(name, "street fighter") ||
-        strcontains(name, "sf2") ||
-        strcontains(name, "mortal kombat") ||
-        strcontains(name, "mk2") ||
-        strcontains(name, "mk3") ||
-        strcontains(name, "umk3") ||
-        strcontains(name, "comix zone") ||
-        strcontains(name, "ranger x") ||
-        strcontains(name, "lost vikings") ||
-        strcontains(name, "streets of rage 3") ||
-        strcontains(name, "bare knuckle 3") ||
-        strcontains(name, "eternal champions") ||
-        strcontains(name, "virtua fighter") ||
-        strcontains(name, "world heroes") ||
-        strcontains(name, "primal rage") ||
-        strcontains(name, "clayfighter") ||
-        strcontains(name, "fatal fury") ||
-        strcontains(name, "samurai shodown") ||
-        strcontains(name, "samurai spirits") ||
-        strcontains(name, "art of fighting") ||
-        strcontains(name, "yu yu hakusho") ||
-        strcontains(name, "justice league") ||
-        strcontains(name, "weaponlord") ||
-        strcontains(name, "wwf") ||
-        strcontains(name, "batman forever") ||
-        strcontains(name, "shinobi iii") ||
-        strcontains(name, "after burner") ||
-        strcontains(name, "doom") ||
-        strcontains(name, "star wars arcade") ||
-        strcontains(name, "toejam & earl") ||
-        strcontains(name, "pitfall") ||
-        strcontains(name, "forgotten worlds") ||
-        strcontains(name, "story of thor") ||
-        strcontains(name, "beyond oasis") ||
-        strcontains(name, "metal head") ||
-        strcontains(name, "marsupilami") ||
-        strcontains(name, "outrunners") ||
-        strcontains(name, "duke nukem") ||
-        strcontains(name, "bruce lee")) {
-        return TRUE;
-    }
-    return FALSE;
-}
 
 // Helper drawing utilities
 static void DrawRect(u16 *pBuffer, u32 nPitch, int x1, int y1, int x2, int y2, u16 color) {
@@ -517,7 +438,6 @@ void CKernel::RunOrchestrator() {
                     g_SharedState.video_frame_ready = FALSE;
                     DataMemBarrier();
 
-                    s_Is3ButtonGame = !is6ButtonGame(pRomName);
                     if (m_pEmuOrchestrator->LoadROM(fullPath, nRomSize)) {
                         g_SharedState.audio_ring_buffer.Init();
                         g_SharedState.in_menu = FALSE;
@@ -1145,38 +1065,16 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     // pad bit 8: Sega Z
     // pad bit 7: Sega Start
     // pad bit 11: Sega Mode
-    if (g_SharedState.in_menu) {
-        if (pState->buttons & GamePadButtonA)     pad |= (1 << 6);  // Sega A
-        if (pState->buttons & GamePadButtonB)     pad |= (1 << 4);  // Sega B
-        if (pState->buttons & GamePadButtonRT)    pad |= (1 << 5);  // Sega C (R2/RT -> C)
-        if (pState->buttons & GamePadButtonLT)    pad |= (1 << 8);  // Sega Z (L2/LT -> Z)
-        if (pState->buttons & GamePadButtonX)     pad |= (1 << 10); // Sega X
-        if (pState->buttons & GamePadButtonY)     pad |= (1 << 9);  // Sega Y
-        if (pState->buttons & GamePadButtonRB)    pad |= (1 << 8);  // Sega Z (fallback RB -> Z)
-        if (pState->buttons & GamePadButtonLB)    pad |= (1 << 10); // Sega X (fallback LB -> X)
-        if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);  // Sega Start
-        if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11); // Sega Mode
-    } else {
-        if (s_Is3ButtonGame) {
-            if (pState->buttons & GamePadButtonA)     pad |= (1 << 6);  // Sega A
-            if (pState->buttons & GamePadButtonB)     pad |= (1 << 4);  // Sega B
-            if (pState->buttons & GamePadButtonX)     pad |= (1 << 5);  // Sega C (Gamesir X -> Sega C in 3-button games)
-            if (pState->buttons & GamePadButtonRT)    pad |= (1 << 5);  // Sega C (fallback RT -> C)
-            if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);  // Sega Start
-            if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11); // Sega Mode
-        } else {
-            if (pState->buttons & GamePadButtonA)     pad |= (1 << 6);  // Sega A
-            if (pState->buttons & GamePadButtonB)     pad |= (1 << 4);  // Sega B
-            if (pState->buttons & GamePadButtonRT)    pad |= (1 << 5);  // Sega C (R2/RT -> C)
-            if (pState->buttons & GamePadButtonLT)    pad |= (1 << 8);  // Sega Z (L2/LT -> Z)
-            if (pState->buttons & GamePadButtonX)     pad |= (1 << 10); // Sega X
-            if (pState->buttons & GamePadButtonY)     pad |= (1 << 9);  // Sega Y
-            if (pState->buttons & GamePadButtonRB)    pad |= (1 << 8);  // Sega Z (fallback RB -> Z)
-            if (pState->buttons & GamePadButtonLB)    pad |= (1 << 10); // Sega X (fallback LB -> X)
-            if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);  // Sega Start
-            if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11); // Sega Mode
-        }
-    }
+    if (pState->buttons & GamePadButtonA)     pad |= (1 << 6);  // Sega A
+    if (pState->buttons & GamePadButtonB)     pad |= (1 << 4);  // Sega B
+    if (pState->buttons & GamePadButtonRT)    pad |= (1 << 5);  // Sega C (R2/RT -> C)
+    if (pState->buttons & GamePadButtonLT)    pad |= (1 << 8);  // Sega Z (L2/LT -> Z)
+    if (pState->buttons & GamePadButtonX)     pad |= (1 << 10); // Sega X
+    if (pState->buttons & GamePadButtonY)     pad |= (1 << 9);  // Sega Y
+    if (pState->buttons & GamePadButtonRB)    pad |= (1 << 8);  // Sega Z (fallback RB -> Z)
+    if (pState->buttons & GamePadButtonLB)    pad |= (1 << 10); // Sega X (fallback LB -> X)
+    if (pState->buttons & GamePadButtonStart) pad |= (1 << 7);  // Sega Start
+    if (pState->buttons & GamePadButtonSelect)pad |= (1 << 11); // Sega Mode
 
     // START + SELECT combo -> Exit to menu
     if ((pState->buttons & (GamePadButtonStart | GamePadButtonPlus)) && (pState->buttons & (GamePadButtonSelect | GamePadButtonMinus))) {

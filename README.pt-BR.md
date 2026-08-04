@@ -27,7 +27,7 @@ Desenvolvido sobre o **ambiente C++ bare-metal Circle**, **lr-snes9x2010**, **Pi
   * 9 temas de cores integrados (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) com rotação automática opcional a cada inicialização.
   * Lista de favoritos (`favorites.txt`) gerenciada diretamente pela interface do usuário.
 * **Suporte a Save States**: Os estados do jogo podem ser salvos/carregados no Slot 0 (armazenados como arquivos `.s0` ao lado das ROMs) usando **SELECT + D-pad Esquerda** (ou **Gatilho/Botão L**) para salvar, e **SELECT + D-pad Direita** (ou **Gatilho/Botão R**) para carregar.
-* **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado). Suportado em todos os sistemas, incluindo jogos SNES e SA-1 (o rewind automático é desativado apenas para os jogos de Mega Drive *The Cursed Knight* e *Steel Empire* para evitar congelamentos de estabilidade de estado no PicoDrive; os estados manuais de salvar/carregar continuam disponíveis).
+* **Recurso de Voltar no Tempo (Rewind)**: Rebobine até 5 segundos de jogo usando **SELECT + D-pad Cima** (ou tecla **F6** no teclado). Suportado em todos os sistemas, incluindo jogos SNES, SA-1 e todos os jogos de Mega Drive (incluindo *The Cursed Knight* e *Steel Empire*).
 * **Áudio de Alta Fidelidade**: Reamostragem e interpolação de áudio autênticas do hardware (áudio Gaussiano para jogos SNES padrão, perfil de baixo custo para jogos SA-1 e áudio FM YM2413 para SMS).
 * **Escalonamento de Tela**: Escalonamento nearest-neighbor para jogos Sega e escalonamento de proporção linear/Gaussiano para jogos SNES.
 * **Protetor de Tela (Screensaver) e Mute de Áudio**: Escurece a tela em 50% e silencia a saída de áudio automaticamente após inatividade do controle. Ao pressionar qualquer botão do controle, o brilho total e o áudio são restaurados instantaneamente. Configurável via `cmdline.txt`.
@@ -238,11 +238,27 @@ Isso gera o arquivo `main-emulator/kernel8-32.img`.
 - **Sega Master System**: `cd master-emulator && make -j$(nproc)` $\rightarrow$ gera `master-emulator/kernel8-32.img`
 
 #### 5. Gerando o Pacote de Lançamento (Release) para Cartão SD
-Para compilar e empacotar automaticamente todos os arquivos de inicialização junto com a estrutura de pastas do cartão SD (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem` e `bios`):
+Para compilar e empacotar automaticamente todos os arquivos de inicialização junto com a estrutura de pastas do cartão SD (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, `roms/nes`, `roms/pce` e `bios`):
 ```bash
 ./build_release.sh
 ```
 Este script realiza o build limpo do projeto unificado e salva o pacote final em `release/sdcard_release.zip`. Extraia o conteúdo deste arquivo zip diretamente na raiz de um cartão SD formatado em FAT32.
+
+#### 6. Implantação no Cartão SD (Scripts Auxiliares para WSL e Linux)
+Deploy rápido do kernel compilado ou do pacote completo de release diretamente no cartão SD (suporta letras de drive configuráveis como `F`, `G:`, ou `DRIVE=F`, com proteção nativa contra gravação na unidade de sistema `C:`):
+```bash
+# Copia a imagem do kernel compilado para o cartão SD (drive E: por padrão)
+./copy-kernel-to-sd.sh
+
+# Copia a imagem do kernel compilado para uma unidade específica (ex.: F:)
+./copy-kernel-to-sd.sh F
+
+# Extrai o pacote de release completo no cartão SD (drive E: por padrão)
+./copy-release-to-sd.sh
+
+# Extrai o pacote de release completo em uma unidade específica (ex.: F:)
+./copy-release-to-sd.sh F
+```
 
 ---
 
