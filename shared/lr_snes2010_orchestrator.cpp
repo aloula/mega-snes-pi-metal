@@ -403,10 +403,6 @@ bool CLRSnes2010Orchestrator::Environment(unsigned cmd, void *data) {
             variable->value = Settings.SA1 ? "none" : "gaussian";
             return true;
         }
-        if (strcmp(variable->key, "snes9x_2010_overclock_cycles") == 0) {
-            variable->value = (Settings.SA1 || Settings.SuperFX) ? "compatible" : "disabled";
-            return true;
-        }
         return false;
     }
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
