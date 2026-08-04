@@ -1002,7 +1002,8 @@ boolean is6ButtonGame(const char *pRomName) {
         strcontains(name, "marsupilami") ||
         strcontains(name, "outrunners") ||
         strcontains(name, "duke nukem") ||
-        strcontains(name, "bruce lee")) {
+        strcontains(name, "bruce lee") ||
+        strcontains(name, "cursed knight")) {
         return TRUE;
     }
     return FALSE;

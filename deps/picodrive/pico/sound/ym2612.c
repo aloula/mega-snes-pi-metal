@@ -2250,7 +2250,11 @@ static size_t save_slot(u8 *buf, const FM_SLOT *slot)
 	save_u8_(buf, &b, slot->key);
 	save_u8_(buf, &b, slot->state);
 	save_u8_(buf, &b, slot->tl >> (ENV_BITS-7));
-	save_u16(buf, &b, slot->volume);
+	// volume is signed (can transiently dip just below 0 mid-envelope-decay
+	// before the next clamp tick); load_slot() reads it back with load_s16,
+	// so save must match or a brief negative excursion trips save_u16's
+	// unsigned-range assert.
+	save_s16(buf, &b, slot->volume);
 	save_u32(buf, &b, slot->sl);
 	save_u8_(buf, &b, slot->ssg);
 	save_u8_(buf, &b, slot->ssgn);

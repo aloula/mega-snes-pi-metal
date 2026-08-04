@@ -577,9 +577,6 @@ void CMDOrchestrator::CaptureRewindState() {
             int ret = PicoStateFP(&state, 1, nullptr, state_write, nullptr, state_fseek);
             if (ret == 0 && state.pos > 0) {
                 m_nRewindStateSizes[m_nRewindWriteIdx] = state.pos;
-                CLogger::Get()->Write(FromOrchestrator, LogNotice,
-                    "Rewind captured: slot %d, frame %u, size %u", m_nRewindWriteIdx,
-                    (unsigned)Pico.m.frame_count, (unsigned)state.pos);
                 m_nRewindWriteIdx = (m_nRewindWriteIdx + 1) % 6;
                 if (m_nRewindCount < 6) {
                     m_nRewindCount++;

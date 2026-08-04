@@ -284,6 +284,9 @@ pce_orchestrator.o: CFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565
 pce_orchestrator.o: CPPFLAGS += -DNEED_CD -DNEED_TREMOR -DFRONTEND_SUPPORTS_RGB565 -DSTATIC_LINKING=1 -DINLINE="inline" -DMEDNAFEN_VERSION_NUMERIC=931 -DMEDNAFEN_VERSION=\"0.9.31\" -D__LIBRETRO__ -DSTDC_HEADERS -D__STDC_LIMIT_MACROS -D__STDC_FORMAT_MACROS -D__int64_t_defined=1 -DHAVE_CHD -D_7ZIP_ST -DZSTD_DISABLE_ASM
 
 # Custom assembler rule for lowercase .s files (Cyclone, etc.)
+../deps/picodrive/cpu/cyclone/Cyclone.s:
+	$(MAKE) -C ../deps/picodrive/cpu/cyclone CONFIG_FILE=../cyclone_config.h HAVE_ARMv6=1 Cyclone.s
+
 %.o: %.s
 	@echo "  AS    $@"
 	@$(AS) $(AFLAGS) -c -o $@ $<

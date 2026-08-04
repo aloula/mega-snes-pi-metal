@@ -127,6 +127,9 @@ include $(CIRCLEHOME)/Rules.mk
 ../deps/picodrive/%.o: CPPFLAGS += -w
 
 # Custom assembler rule for lowercase .s files (Cyclone, etc.)
+../deps/picodrive/cpu/cyclone/Cyclone.s:
+	$(MAKE) -C ../deps/picodrive/cpu/cyclone CONFIG_FILE=../cyclone_config.h HAVE_ARMv6=1 Cyclone.s
+
 %.o: %.s
 	@echo "  AS    $@"
 	@$(AS) $(AFLAGS) -c -o $@ $<
@@ -134,6 +137,10 @@ include $(CIRCLEHOME)/Rules.mk
 # Generate ILP32 offset header for ASM files dynamically
 ../deps/picodrive/pico/pico_int_offs.h:
 	cd ../deps/picodrive/tools && CC="arm-none-eabi-gcc" CFLAGS="$(DEFS) -I../pico/sound" sh ./mkoffsets.sh ../pico
+
+# Local symlink so draw_arm.o can find it via local include
+pico_int_offs.h: ../deps/picodrive/pico/pico_int_offs.h
+	ln -sf ../deps/picodrive/pico/pico_int_offs.h .
 
 # Local symlink so PicoDrive's relative includes work after a clean build.
 pico:
@@ -145,7 +152,7 @@ pico/%: pico
 pico/pico_int_offs.h: pico
 
 # Make all objects depend on generated offset header and local symlink.
-$(OBJS): ../deps/picodrive/pico/pico_int_offs.h pico
+$(OBJS): ../deps/picodrive/pico/pico_int_offs.h pico_int_offs.h pico
 
 # Rebuild kernel.o when VERSION changes
 # kernel.o: ../VERSION

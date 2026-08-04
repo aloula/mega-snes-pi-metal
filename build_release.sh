@@ -29,11 +29,20 @@ if [ -d "res" ]; then
     python3 convert_splash.py res/ boot/splash/
 fi
 
-# 2b. Ensure Circle configuration exists (generated on fresh clones)
+# 2b. Ensure Circle configuration and libraries exist (generated on fresh clones)
 if [ ! -f "deps/circle/Config.mk" ]; then
     echo -e "${BLUE}Configuring Circle environment (KERNEL_MAX_SIZE=24MB)...${NC}"
     (cd deps/circle && ./configure -r 3 --prefix arm-none-eabi- --multicore --kernel-max-size 24 -f)
 fi
+
+if [ ! -f "deps/circle/lib/libcircle.a" ] || [ ! -f "deps/circle/addon/fatfs/libfatfs.a" ]; then
+    echo -e "${BLUE}Building Circle core libraries and addons...${NC}"
+    (cd deps/circle && ./makeall && cd addon/fatfs && make -j$(nproc) && cd ../SDCard && make -j$(nproc))
+fi
+
+# 2c. Fix potential clock skew from git clones or machine switches
+find . -type f -exec touch -d "1 minute ago" {} + 2>/dev/null || true
+find deps/ -name "*.d" -delete 2>/dev/null || true
 
 # 3. Clean previous build files
 echo -e "${BLUE}Cleaning previous builds...${NC}"
