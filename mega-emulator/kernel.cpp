@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include <video_utils.h>
 #include <circle/usb/usbdevice.h>
 #include <circle/sound/pwmsoundbasedevice.h>
 #include <circle/sound/hdmisoundbasedevice.h>
@@ -97,7 +98,8 @@ boolean is6ButtonGame(const char *pRomName) {
         strcontains(name, "marsupilami") ||
         strcontains(name, "outrunners") ||
         strcontains(name, "duke nukem") ||
-        strcontains(name, "bruce lee")) {
+        strcontains(name, "bruce lee") ||
+        strcontains(name, "cursed knight")) {
         return TRUE;
     }
     return FALSE;
@@ -450,10 +452,19 @@ void CKernel::RunOrchestrator() {
                     u64 elapsedMs = (now - lastRepeatTime) / 1000;
                     u64 heldTotalMs = (now - repeatKeyStartTime) / 1000;
                     
-                    boolean isLongList = g_SharedState.menu_num_lines > 17;
-                    boolean isFastScroll = isLongList && (heldTotalMs >= 4000);
+                    u64 threshold = 400; // Initial delay before repeat starts (400ms)
+                    if (repeatPhase) {
+                        if (heldTotalMs >= 4500) {
+                            threshold = 12; // Speed 4: Hyper Scroll (~83 items/sec)
+                        } else if (heldTotalMs >= 2800) {
+                            threshold = 22; // Speed 3: Turbo Scroll (~45 items/sec) - NEW
+                        } else if (heldTotalMs >= 1400) {
+                            threshold = 45; // Speed 2: Fast Scroll (~22 items/sec) - NEW
+                        } else {
+                            threshold = 80; // Speed 1: Normal Scroll (~12.5 items/sec)
+                        }
+                    }
                     
-                    u64 threshold = repeatPhase ? (isFastScroll ? 40 : 80) : 400;
                     if (elapsedMs >= threshold) {
                         if (repeatKey == 1) doUp = TRUE;
                         if (repeatKey == 2) doDown = TRUE;
@@ -528,6 +539,8 @@ void CKernel::RunOrchestrator() {
 
             // Check if user requested return to OSD menu
             if (g_SharedState.escape_pressed) {
+                g_SharedState.video_frame_ready = FALSE;
+                g_SharedState.audio_ring_buffer.Init();
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
                 m_pOSDMenu->Update();
@@ -538,14 +551,14 @@ void CKernel::RunOrchestrator() {
             if (g_SharedState.save_state_requested) {
                 g_SharedState.save_state_requested = FALSE;
                 m_pEmuOrchestrator->SaveState(0);
-                // Blink the activity LED 3 times quickly to confirm save
-                m_ActLED.Blink(3, 50, 50);
+                // Quick activity LED flash to confirm save
+                m_ActLED.Blink(1, 20, 10);
             }
             if (g_SharedState.load_state_requested) {
                 g_SharedState.load_state_requested = FALSE;
                 m_pEmuOrchestrator->LoadState(0);
-                // Blink the activity LED 3 times quickly to confirm load
-                m_ActLED.Blink(3, 50, 50);
+                // Quick activity LED flash to confirm load
+                m_ActLED.Blink(1, 20, 10);
             }
             if (g_SharedState.rewind_requested) {
                 g_SharedState.rewind_requested = FALSE;
@@ -602,14 +615,6 @@ static void UpdateScaleTable(int src_w) {
             s_ScaleTableCache.weight[x] = 0;
         }
         accum += step;
-    }
-}
-
-static inline void DimScanline50(u16 *buf, int count = 640) {
-    u64 *p64 = (u64 *)buf;
-    int count64 = count / 4;
-    for (int i = 0; i < count64; i++) {
-        p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
     }
 }
 
@@ -688,10 +693,23 @@ void CKernel::RunVideoDomain() {
         u16 pad2 = g_SharedState.pad2;
         static u16 s_last_check_pad1 = 0;
         static u16 s_last_check_pad2 = 0;
+        static boolean s_prev_in_menu = TRUE;
+
+        // Reset pad tracking references when transitioning from game to menu mode
+        if (g_SharedState.in_menu && !s_prev_in_menu) {
+            s_last_check_pad1 = 0;
+            s_last_check_pad2 = 0;
+            if (g_SharedState.screensaver_active) {
+                g_SharedState.menu_needs_redraw = TRUE;
+            } else {
+                g_SharedState.last_input_time = now;
+            }
+        }
+        s_prev_in_menu = g_SharedState.in_menu;
 
         boolean input_touched = (pad1 != 0 || pad2 != 0 || pad1 != s_last_check_pad1 || pad2 != s_last_check_pad2 ||
-                                 g_SharedState.escape_pressed || g_SharedState.save_state_requested ||
-                                 g_SharedState.load_state_requested || g_SharedState.rewind_requested);
+                                 g_SharedState.save_state_requested || g_SharedState.load_state_requested ||
+                                 g_SharedState.rewind_requested);
 
         if (input_touched) {
             g_SharedState.last_input_time = now;
@@ -764,7 +782,7 @@ void CKernel::RunVideoDomain() {
                 if (num_lines > 0) {
                     char count_str[32];
                     snprintf(count_str, sizeof(count_str), "[%d/%d]", selected + 1, num_lines);
-                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 84, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
                 }
                 
                 // Draw separator 1 (dark steel blue)
@@ -1278,9 +1296,37 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
         if (key == 0x2C) pad |= (1 << 11); // Space -> Mode
 
         if (key == 0x29) escape = TRUE; // Escape
-        if (key == 0x3E) g_SharedState.save_state_requested = TRUE; // F5
-        if (key == 0x3F) g_SharedState.rewind_requested = TRUE;     // F6
-        if (key == 0x41) g_SharedState.load_state_requested = TRUE; // F8
+
+        static boolean s_bF5Pressed = FALSE;
+        static boolean s_bF6Pressed = FALSE;
+        static boolean s_bF8Pressed = FALSE;
+
+        if (key == 0x3E) { // F5
+            if (!s_bF5Pressed) {
+                s_bF5Pressed = TRUE;
+                g_SharedState.save_state_requested = TRUE;
+            }
+        } else {
+            s_bF5Pressed = FALSE;
+        }
+
+        if (key == 0x3F) { // F6
+            if (!s_bF6Pressed) {
+                s_bF6Pressed = TRUE;
+                g_SharedState.rewind_requested = TRUE;
+            }
+        } else {
+            s_bF6Pressed = FALSE;
+        }
+
+        if (key == 0x41) { // F8
+            if (!s_bF8Pressed) {
+                s_bF8Pressed = TRUE;
+                g_SharedState.load_state_requested = TRUE;
+            }
+        } else {
+            s_bF8Pressed = FALSE;
+        }
     }
 
     static u16 last_kbd_pad = 0xFFFF;

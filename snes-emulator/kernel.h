@@ -30,11 +30,7 @@
 #include <circle/gpiopin.h>
 #include "shared_state.h"
 #include "osd.h"
-#include "snes_orchestrator.h"
-#include "md_orchestrator.h"
-#include "nes_orchestrator.h"
-#include "pce_orchestrator.h"
-#include "sms_orchestrator.h"
+#include "emu_orchestrator.h"
 
 enum TShutdownMode {
     ShutdownNone,
@@ -95,11 +91,7 @@ private:
     CUSBKeyboardDevice *m_pKeyboard;
 
     COSDMenu           *m_pOSDMenu;
-    CSNESOrchestrator  *m_pSNESOrchestrator;
-    CMDOrchestrator    *m_pMDOrchestrator;
-    CNESOrchestrator   *m_pNESOrchestrator;
-    CPCEOrchestrator   *m_pPCEOrchestrator;
-    CSMSOrchestrator   *m_pSMSOrchestrator;
+    CEmuOrchestrator   *m_pEmuOrchestrator;
 
     volatile TShutdownMode m_ShutdownMode;
 

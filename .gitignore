@@ -2,17 +2,26 @@
 *.o
 *.d
 
-# Ignore mega-emulator build outputs
+# Ignore build outputs across all emulator target directories
+/main-emulator/*.elf
+/main-emulator/*.img
+/main-emulator/*.lst
+/main-emulator/*.map
+
 /mega-emulator/*.elf
 /mega-emulator/*.img
 /mega-emulator/*.lst
 /mega-emulator/*.map
 
-# Ignore snes-emulator build outputs
 /snes-emulator/*.elf
 /snes-emulator/*.img
 /snes-emulator/*.lst
 /snes-emulator/*.map
+
+/master-emulator/*.elf
+/master-emulator/*.img
+/master-emulator/*.lst
+/master-emulator/*.map
 
 # Other files to ignore
 /roms/
@@ -20,4 +29,8 @@
 /res/Jojoca.png
 /snes-emulator/pico
 /snes-emulator/pico_int_offs.h
+/main-emulator/pico
+/main-emulator/pico_int_offs.h
+/mega-emulator/pico
+/master-emulator/pico
 .vscode/

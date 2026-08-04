@@ -6,7 +6,7 @@
 
 A unified, low-latency, bare-metal multi-console emulator for the Raspberry Pi 3B+. This project merges the **SNES-PI** and **MEGA-PI** emulators into a single bare-metal kernel. It includes support for the **Super Nintendo (SNES)**, **Nintendo Entertainment System (NES)** (via Nestopia), **Sega Mega Drive / Sega CD (Genesis)** (via PicoDrive), **Sega Master System (SMS)** (via PicoDrive), and **PC Engine / PC Engine CD (TurboGrafx-16)** (via Beetle PCE Fast), allowing real-time switching between systems directly from the On-Screen Display (OSD) menu.
 
-Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, **Nestopia**, and **Beetle PCE Fast**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
+Built on the **Circle C++ bare-metal environment**, **lr-snes9x2010**, **PicoDrive**, **Nestopia**, and **Beetle PCE Fast**, it runs directly on the ARM CPU without an underlying operating system, ensuring maximum speed, minimal input latency, and exact hardware timing.
 
 🎥 **Video Demonstration**: [Watch MEGA-SNES Pi Metal running on a Raspberry Pi 3B+](https://youtu.be/jyMUjcQem-0)
 
@@ -17,16 +17,18 @@ Built on the **Circle C++ bare-metal environment**, **Snes9x**, **PicoDrive**, *
 * **Multi-Console Emulation**: Run SNES, NES, Sega Master System, Sega Mega Drive/Mega CD, and PC Engine/PC Engine CD games from a single boot image.
 * **Low Latency**: Direct hardware access bypassing OS overhead, providing sub-millisecond input and audio response.
 * **Unified OSD Menu**: Dynamic graphical user interface featuring:
-  * Dynamic header banners changing based on the selected system.
+  * Dynamic header banners rendered in high-legibility 12x22 font changing based on the selected system.
   * Real-time console switching via **L** and **R** shoulder buttons.
+  * Selection state persistence: returning to OSD menu remembers the exact active tab and last game played.
   * 8-tab browsing per system:
     * **SNES/NES/SMS**: `ALL`, `FAV`, and 6 auto-balanced alphabetical tabs.
     * **Mega Drive**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `MCD`.
     * **PC Engine**: `ALL`, `FAV`, 5 auto-balanced alphabetical tabs, and `PCD` (PC Engine CD).
+  * 9 built-in color themes (`default`, `green`, `grayscale`, `cyberpunk`, `sapphire`, `synthwave`, `arctic`, `amber`, `ruby`) with optional auto-rotation on every power cycle.
   * Favorite lists (`favorites.txt`) managed directly from the UI.
 * **Save States Support**: Game states can be saved/loaded in Slot 0 (stored as `.s0` files alongside the ROMs) using **SELECT + D-pad Left** (or **L Shoulder/Trigger**) to save, and **SELECT + D-pad Right** (or **R Shoulder/Trigger**) to load.
-* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**).
-* **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for SNES, YM2413 FM audio for SMS).
+* **Rewind Feature**: Rewind up to 5 seconds of gameplay using **SELECT + D-pad Up** (or keyboard **F6**). Supported across all systems including SNES, SA-1, and all Mega Drive games (including *The Cursed Knight* and *Steel Empire*).
+* **High-Fidelity Audio**: Hardware-authentic audio resampling and interpolation (Gaussian audio for standard SNES games, a low-overhead profile for SA-1 games, and YM2413 FM audio for SMS).
 * **Display Scaling**: Nearest-neighbor scaling for Sega games and linear/Gaussian aspect scaling for SNES games.
 * **Screensaver & Audio Mute**: Automatically dims the screen by 50% and mutes audio output after controller inactivity. Pressing any controller button immediately restores full brightness and audio. Configurable via `cmdline.txt`.
 
@@ -40,7 +42,7 @@ To load games and BIOS files, organize your SD card root directories as follows:
 SD:/
  ├── cmdline.txt             (Boot parameters including screensaver timeout)
  ├── system_order.txt        (Optional text file to customize console order and default boot system)
- ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, custom, all)
+ ├── osd_theme.txt           (Optional text file to select OSD theme: default, green, grayscale, cyberpunk, sapphire, synthwave, arctic, amber, ruby, custom, all)
  ├── osd_colors.txt          (Optional text file to override OSD element colors: background, border, text, etc.)
  ├── bios/
  │    ├── bios_CD_U.bin      (Sega CD - US Region BIOS)
@@ -60,14 +62,20 @@ SD:/
 > [!TIP]
 > **Configuring Screensaver Timeout**: Add or edit `screensaver=<seconds>` in `cmdline.txt` on the SD card root (e.g. `screensaver=60` for 60 seconds, `screensaver=120` for 2 minutes, or `screensaver=0` to disable the screensaver completely).
 
+> [!IMPORTANT]
+> **Pi 3 Thermal Safety**: The bundled `config.txt` leaves Pi 3 clock management to firmware and disables forced turbo. A flashing over-temperature indicator means the system needs improved cooling; stop playing until it cools down and add active cooling before attempting any overclock.
+
 > [!TIP]
 > **Configuring Splash Screen Duration**: Add or edit `splash=<seconds>` in `cmdline.txt` on the SD card root (e.g. `splash=4` for 4 seconds, `splash=2` for 2 seconds, or `splash=0` to completely skip the splash screen on boot).
+
+> [!TIP]
+> **Multiple Splash Screens & Automatic Rotation**: You can now store multiple splash screens on your SD card! Simply create a `splash/` folder on the SD card root (e.g., `SD:/splash/retro1.raw16`, `SD:/splash/retro2.raw16`) or use numbered files on the root (e.g., `SD:/Splash_Screen1.raw16`, `SD:/Splash_Screen2.raw16`). The emulator will automatically discover all splash images and cycle to the next splash screen on every boot!
 
 > [!TIP]
 > **Customizing System Order**: Create or edit `system_order.txt` on the SD card root to set your preferred system cycling order for **L** / **R** shoulder buttons. The first system in the list will automatically become the default boot system on startup (e.g., `megadrive`, `snes`, `nes`, `mastersystem`, `pce`).
 
 > [!TIP]
-> **Customizing OSD Theme**: Create or edit `osd_theme.txt` on the SD card root and set one of these values: `default`, `green` (old-computer CRT style), `grayscale`, `custom`, or `all` (cycles through default, green, and grayscale on every power cycle).
+> **Customizing OSD Theme**: Create or edit `osd_theme.txt` on the SD card root and set one of these values: `default` (slate blue), `green` (CRT green), `grayscale` (stealth slate), `cyberpunk` (neon cyan), `sapphire` (royal blue), `synthwave` (electric violet), `arctic` (polar mint), `amber` (solar gold), `ruby` (crimson red), `custom`, or `all` (cycles through all 9 themes on every boot).
 
 > [!TIP]
 > **Customizing OSD Colors**: Set `osd_theme.txt` to `custom`, then create or edit `osd_colors.txt` on the SD card root using `key=value` lines (example: `background=#000000`, `border=8,12,16`, `text=26,28,30`). The repository includes multiple ready-to-copy palettes in `osd_colors.txt` (High Contrast Dark, Warm Amber Terminal, Ice Blue).
@@ -217,34 +225,41 @@ You will also need `make` and `zip` if you don't already have them installed:
 brew install make zip
 ```
 
-#### 2. Building the Unified Dual Emulator (Default)
-To build the unified kernel:
+#### 2. Building the 5-in-1 Bare-Metal Emulator
+To build the main 5-in-1 multi-console emulator kernel:
 ```bash
-cd snes-emulator
+cd main-emulator
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
 ```
-This produces `snes-emulator/boot/kernel8-32.img`. Copy the files inside the `snes-emulator/boot/` directory to the FAT32 boot partition of your SD card.
+This produces `main-emulator/kernel8-32.img`.
 
-#### 3. Building the Standalone Mega Drive Emulator
-To build the standalone Sega emulator:
-```bash
-cd mega-emulator
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-```
-#### 4. Building the Standalone Master System Emulator
-To build the standalone Sega Master System emulator:
-```bash
-cd master-emulator
-make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
-```
-This produces `master-emulator/boot/kernel8-32.img`. Copy the files inside `master-emulator/boot/` to your SD card.
+#### 3. Building Standalone Emulator Targets
+- **Super Nintendo**: `cd snes-emulator && make -j$(nproc)` $\rightarrow$ produces `snes-emulator/kernel8-32.img`
+- **Sega Mega Drive**: `cd mega-emulator && make -j$(nproc)` $\rightarrow$ produces `mega-emulator/kernel8-32.img`
+- **Sega Master System**: `cd master-emulator && make -j$(nproc)` $\rightarrow$ produces `master-emulator/kernel8-32.img`
 
 #### 5. Generating the SD Card Release Package
-To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, and `bios`) automatically:
+To compile and package all boot files along with the required SD card folder tree (`roms/snes`, `roms/megadrive`, `roms/megacd`, `roms/mastersystem`, `roms/nes`, `roms/pce`, and `bios`) automatically:
 ```bash
 ./build_release.sh
 ```
 This script clean builds the unified project and saves the final package to `release/sdcard_release.zip`. Extract the contents of this zip directly onto the root of a FAT32-formatted SD Card.
+
+#### 6. Deploying to SD Card (WSL & Linux Helper Scripts)
+Quickly deploy built kernels or full release packages directly to your SD card (supports configurable drive letters e.g. `F`, `G:`, or `DRIVE=F`, with built-in safety protection blocking system drive `C:`):
+```bash
+# Copy compiled kernel image to SD card (default drive E:)
+./copy-kernel-to-sd.sh
+
+# Copy compiled kernel image to a specific drive (e.g. F:)
+./copy-kernel-to-sd.sh F
+
+# Extract full release package directly onto SD card (default drive E:)
+./copy-release-to-sd.sh
+
+# Extract full release package directly onto a specific drive (e.g. F:)
+./copy-release-to-sd.sh F
+```
 
 ---
 
@@ -256,7 +271,7 @@ This project is built upon the incredible work of the following open-source proj
   * Repository: [rsta2/circle](https://github.com/rsta2/circle)
 * **PicoDrive**: A fast, highly-optimized Sega Mega Drive/Genesis/Master System and Sega CD emulator.
   * Repository: [notaz/picodrive](https://github.com/notaz/picodrive)
-* **Snes9x**: A portable, high-compatibility Super Nintendo Entertainment System (SNES) emulator.
+* **lr-snes9x2010**: The libretro port of the Snes9x 1.52.4 Super Nintendo Entertainment System (SNES) emulator.
   * Repository: [snes9xgit/snes9x](https://github.com/snes9xgit/snes9x)
 * **Nestopia**: A highly accurate Nintendo Entertainment System (NES/Famicom) emulator used as the base for this project's NES implementation.
   * Project page: [nestopia.sourceforge.net](http://nestopia.sourceforge.net/)

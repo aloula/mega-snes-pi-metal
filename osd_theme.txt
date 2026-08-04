@@ -4,11 +4,17 @@
 # Valid values (case-insensitive):
 #   default    -> base slate blue theme
 #   green      -> old computer CRT-style green phosphor
-#   grayscale  -> monochrome grayscale
-#   custom     -> use cool OLED color presets from osd_colors.txt
-#   all        -> cycle through all themes (default, green, grayscale) on every power cycle
+#   grayscale  -> monochrome grayscale / stealth
+#   cyberpunk  -> electric neon cyan & night drive blue
+#   sapphire   -> royal sapphire & cobalt blue
+#   synthwave  -> electric violet & indigo glow
+#   arctic     -> polar mint & frost teal
+#   amber      -> solar amber gold & arcade CRT warm
+#   ruby       -> crimson red & blood wine
+#   custom     -> use color overrides from osd_colors.txt
+#   all        -> cycle through all built-in themes on every boot
 #
 # You can write one value per line, or comma/semicolon/pipe-separated.
 # First valid value found is applied.
 
-custom
+all

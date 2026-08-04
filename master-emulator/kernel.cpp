@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include <video_utils.h>
 #include <circle/usb/usbdevice.h>
 #include <circle/sound/pwmsoundbasedevice.h>
 #include <circle/sound/hdmisoundbasedevice.h>
@@ -262,7 +263,6 @@ TShutdownMode CKernel::Run(void) {
 void CKernel::RunOrchestrator() {
     m_Logger.Write("orchestrator", LogNotice, "Core 0: Orchestrator Domain Active");
 
-    u64 last_menu_time = 0;
     u64 menu_enter_time = CTimer::GetClockTicks64();
     boolean just_entered_menu = TRUE;
 
@@ -301,51 +301,111 @@ void CKernel::RunOrchestrator() {
                 continue;
             }
 
-            if (current_time - last_menu_time >= 150000) {
-                last_menu_time = current_time;
+            static u16 prev_pad1 = 0;
+            u16 pad1 = g_SharedState.pad1 | g_SharedState.pad2;
+            u16 pressed = pad1 & ~prev_pad1;
+            prev_pad1 = pad1;
 
-                u16 pad1 = g_SharedState.pad1;
-                u16 pad2 = g_SharedState.pad2;
-                u16 pad_combined = pad1 | pad2;
+            boolean isUpHeld = (pad1 & (1 << 0)) != 0;
+            boolean isDownHeld = (pad1 & (1 << 1)) != 0;
 
-                if (pad_combined & (1 << 0)) { // Up
-                    m_pOSDMenu->MoveUp();
-                } else if (pad_combined & (1 << 1)) { // Down
-                    m_pOSDMenu->MoveDown();
-                } else if (pad_combined & (1 << 2)) { // Left
-                    m_pOSDMenu->MoveLeft();
-                } else if (pad_combined & (1 << 3)) { // Right
-                    m_pOSDMenu->MoveRight();
-                } else if (pad_combined & (1 << 10)) { // Gamesir X -> Unfavorite
-                    m_pOSDMenu->UnfavoriteCurrent();
-                } else if (pad_combined & (1 << 9)) { // Gamesir Y -> Favorite
-                    m_pOSDMenu->FavoriteCurrent();
-                } else if (pad_combined & ((1 << 4) | (1 << 5) | (1 << 6) | (1 << 7))) { // Launch Game
-                    const char *pRomName = m_pOSDMenu->GetSelectedRom();
-                    unsigned nRomSize = m_pOSDMenu->GetSelectedRomSize();
-                    if (pRomName != nullptr && nRomSize > 0) {
-                        m_Logger.Write("orchestrator", LogNotice, "Starting game: %s (size %u)", pRomName, nRomSize);
-                        char fullPath[256];
-                        snprintf(fullPath, sizeof(fullPath), "SD:/roms/%s", pRomName);
-                        
-                        memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
-                        g_SharedState.emu_write_idx = 0;
-                        g_SharedState.emu_read_idx = 0;
-                        g_SharedState.start_line[0] = 8;
-                        g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 224;
-                        g_SharedState.start_line[1] = 8;
-                        g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 224;
-                        g_SharedState.video_frame_ready = FALSE;
-                        DataMemBarrier();
+            int repeatKey = 0;
+            if (isUpHeld) {
+                repeatKey = 1; // UP
+            } else if (isDownHeld) {
+                repeatKey = 2; // DOWN
+            }
 
-                        if (m_pEmuOrchestrator->LoadROM(fullPath, nRomSize)) {
-                            g_SharedState.audio_ring_buffer.Init();
-                            g_SharedState.in_menu = FALSE;
-                            g_SharedState.escape_pressed = FALSE;
-                            just_entered_menu = TRUE;
+            static int activeRepeatKey = 0;
+            static u64 lastRepeatTime = 0;
+            static u64 repeatKeyStartTime = 0;
+            static boolean repeatPhase = FALSE;
+
+            boolean doUp = (pressed & (1 << 0)) != 0;
+            boolean doDown = (pressed & (1 << 1)) != 0;
+
+            if (repeatKey != 0) {
+                if (activeRepeatKey != repeatKey) {
+                    activeRepeatKey = repeatKey;
+                    lastRepeatTime = CTimer::GetClockTicks64();
+                    repeatKeyStartTime = lastRepeatTime;
+                    repeatPhase = FALSE;
+                } else {
+                    u64 now = CTimer::GetClockTicks64();
+                    u64 elapsedMs = (now - lastRepeatTime) / 1000;
+                    u64 heldTotalMs = (now - repeatKeyStartTime) / 1000;
+                    
+                    u64 threshold = 400; // Initial delay before repeat starts (400ms)
+                    if (repeatPhase) {
+                        if (heldTotalMs >= 4500) {
+                            threshold = 12; // Speed 4: Hyper Scroll (~83 items/sec)
+                        } else if (heldTotalMs >= 2800) {
+                            threshold = 22; // Speed 3: Turbo Scroll (~45 items/sec) - NEW
+                        } else if (heldTotalMs >= 1400) {
+                            threshold = 45; // Speed 2: Fast Scroll (~22 items/sec) - NEW
+                        } else {
+                            threshold = 80; // Speed 1: Normal Scroll (~12.5 items/sec)
                         }
+                    }
+                    
+                    if (elapsedMs >= threshold) {
+                        if (repeatKey == 1) doUp = TRUE;
+                        if (repeatKey == 2) doDown = TRUE;
+                        repeatPhase = TRUE;
+                        lastRepeatTime = CTimer::GetClockTicks64();
+                    }
+                }
+            } else {
+                activeRepeatKey = 0;
+                repeatPhase = FALSE;
+            }
+
+            boolean doLeft = (pressed & (1 << 2)) != 0;
+            boolean doRight = (pressed & (1 << 3)) != 0;
+
+            if (doUp) {
+                m_pOSDMenu->MoveUp();
+            }
+            if (doDown) {
+                m_pOSDMenu->MoveDown();
+            }
+            if (doLeft) {
+                m_pOSDMenu->MoveLeft();
+            }
+            if (doRight) {
+                m_pOSDMenu->MoveRight();
+            }
+            if (pressed & (1 << 10)) { // Gamesir X -> Unfavorite
+                m_pOSDMenu->UnfavoriteCurrent();
+            }
+            if (pressed & (1 << 9)) { // Gamesir Y -> Favorite
+                m_pOSDMenu->FavoriteCurrent();
+            }
+            if (pressed & ((1 << 4) | (1 << 5) | (1 << 6) | (1 << 7))) { // Launch Game
+                const char *pRomName = m_pOSDMenu->GetSelectedRom();
+                unsigned nRomSize = m_pOSDMenu->GetSelectedRomSize();
+                if (pRomName != nullptr && nRomSize > 0) {
+                    m_Logger.Write("orchestrator", LogNotice, "Starting game: %s (size %u)", pRomName, nRomSize);
+                    char fullPath[256];
+                    snprintf(fullPath, sizeof(fullPath), "SD:/roms/%s", pRomName);
+                    
+                    memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
+                    g_SharedState.emu_write_idx = 0;
+                    g_SharedState.emu_read_idx = 0;
+                    g_SharedState.start_line[0] = 8;
+                    g_SharedState.game_w[0] = 256;
+                    g_SharedState.game_h[0] = 224;
+                    g_SharedState.start_line[1] = 8;
+                    g_SharedState.game_w[1] = 256;
+                    g_SharedState.game_h[1] = 224;
+                    g_SharedState.video_frame_ready = FALSE;
+                    DataMemBarrier();
+
+                    if (m_pEmuOrchestrator->LoadROM(fullPath, nRomSize)) {
+                        g_SharedState.audio_ring_buffer.Init();
+                        g_SharedState.in_menu = FALSE;
+                        g_SharedState.escape_pressed = FALSE;
+                        just_entered_menu = TRUE;
                     }
                 }
             }
@@ -356,6 +416,8 @@ void CKernel::RunOrchestrator() {
 
             // Check if user requested return to OSD menu
             if (g_SharedState.escape_pressed) {
+                g_SharedState.video_frame_ready = FALSE;
+                g_SharedState.audio_ring_buffer.Init();
                 g_SharedState.in_menu = TRUE;
                 g_SharedState.escape_pressed = FALSE;
                 m_pOSDMenu->Update();
@@ -366,12 +428,12 @@ void CKernel::RunOrchestrator() {
             if (g_SharedState.save_state_requested) {
                 g_SharedState.save_state_requested = FALSE;
                 m_pEmuOrchestrator->SaveState(0);
-                m_ActLED.Blink(3, 50, 50);
+                m_ActLED.Blink(1, 20, 10);
             }
             if (g_SharedState.load_state_requested) {
                 g_SharedState.load_state_requested = FALSE;
                 m_pEmuOrchestrator->LoadState(0);
-                m_ActLED.Blink(3, 50, 50);
+                m_ActLED.Blink(1, 20, 10);
             }
             if (g_SharedState.rewind_requested) {
                 g_SharedState.rewind_requested = FALSE;
@@ -427,14 +489,6 @@ static void UpdateScaleTable(int src_w) {
             s_ScaleTableCache.weight[x] = 0;
         }
         accum += step;
-    }
-}
-
-static inline void DimScanline50(u16 *buf, int count = 640) {
-    u64 *p64 = (u64 *)buf;
-    int count64 = count / 4;
-    for (int i = 0; i < count64; i++) {
-        p64[i] = (p64[i] >> 1) & 0x7BEF7BEF7BEF7BEFULL;
     }
 }
 
@@ -508,10 +562,23 @@ void CKernel::RunVideoDomain() {
         u16 pad2 = g_SharedState.pad2;
         static u16 s_last_check_pad1 = 0;
         static u16 s_last_check_pad2 = 0;
+        static boolean s_prev_in_menu = TRUE;
+
+        // Reset pad tracking references when transitioning from game to menu mode
+        if (g_SharedState.in_menu && !s_prev_in_menu) {
+            s_last_check_pad1 = 0;
+            s_last_check_pad2 = 0;
+            if (g_SharedState.screensaver_active) {
+                g_SharedState.menu_needs_redraw = TRUE;
+            } else {
+                g_SharedState.last_input_time = now;
+            }
+        }
+        s_prev_in_menu = g_SharedState.in_menu;
 
         boolean input_touched = (pad1 != 0 || pad2 != 0 || pad1 != s_last_check_pad1 || pad2 != s_last_check_pad2 ||
-                                 g_SharedState.escape_pressed || g_SharedState.save_state_requested ||
-                                 g_SharedState.load_state_requested || g_SharedState.rewind_requested);
+                                 g_SharedState.save_state_requested || g_SharedState.load_state_requested ||
+                                 g_SharedState.rewind_requested);
 
         if (input_touched) {
             g_SharedState.last_input_time = now;
@@ -572,7 +639,7 @@ void CKernel::RunVideoDomain() {
                 DrawBox(pBackBuffer, SCREEN_WIDTH, x1, y1, x2, y2, COLOR15(8, 12, 16), 2);
 
                 char title_str[64];
-                snprintf(title_str, sizeof(title_str), "### Master System - 5 in 1 Emulator ###");
+                snprintf(title_str, sizeof(title_str), "### Sega Master System ###");
                 int title_w = strlen(title_str) * 8;
                 int title_x = (SCREEN_WIDTH - title_w) / 2;
                 DrawString(pBackBuffer, SCREEN_WIDTH, title_str, title_x, y1 + 15, COLOR15(22, 24, 26), 0);
@@ -580,7 +647,7 @@ void CKernel::RunVideoDomain() {
                 if (num_lines > 0) {
                     char count_str[32];
                     snprintf(count_str, sizeof(count_str), "[%d/%d]", selected + 1, num_lines);
-                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 100, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
+                    DrawString(pBackBuffer, SCREEN_WIDTH, count_str, x2 - 84, y1 + 15, COLOR15(22, 24, 26), COLOR15(2, 3, 5));
                 }
                 
                 DrawRect(pBackBuffer, SCREEN_WIDTH, x1 + 20, y1 + 40, x2 - 20, y1 + 41, COLOR15(4, 6, 8));
@@ -972,7 +1039,37 @@ void CKernel::KeyboardStatusHandlerRaw(unsigned char ucModifiers, const unsigned
         if (key == 0x28) pad |= (1 << 7);           // Enter -> SMS Pause
         if (key == 0x2C) pad |= (1 << 11);          // Space -> Select
         if (key == 0x29) g_SharedState.escape_pressed = TRUE; // ESC -> Menu
-        if (key == 0x3F) g_SharedState.rewind_requested = TRUE; // F6 -> Rewind state
+
+        static boolean s_bF5Pressed = FALSE;
+        static boolean s_bF6Pressed = FALSE;
+        static boolean s_bF8Pressed = FALSE;
+
+        if (key == 0x3E) { // F5
+            if (!s_bF5Pressed) {
+                s_bF5Pressed = TRUE;
+                g_SharedState.save_state_requested = TRUE;
+            }
+        } else {
+            s_bF5Pressed = FALSE;
+        }
+
+        if (key == 0x3F) { // F6
+            if (!s_bF6Pressed) {
+                s_bF6Pressed = TRUE;
+                g_SharedState.rewind_requested = TRUE;
+            }
+        } else {
+            s_bF6Pressed = FALSE;
+        }
+
+        if (key == 0x41) { // F8
+            if (!s_bF8Pressed) {
+                s_bF8Pressed = TRUE;
+                g_SharedState.load_state_requested = TRUE;
+            }
+        } else {
+            s_bF8Pressed = FALSE;
+        }
     }
 
     g_SharedState.pad1 = pad;

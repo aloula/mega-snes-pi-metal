@@ -127,21 +127,7 @@ static void EmuSoundCallback(int len) {
     g_SharedState.audio_ring_buffer.Write(g_AudioTempBuf, num_stereo_samples);
 }
 
-// lprintf implementation
-extern "C" void lprintf(const char *fmt, ...) {
-    char buf[256];
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-    // Strip trailing newlines
-    int len = strlen(buf);
-    while (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r')) {
-        buf[len-1] = '\0';
-        len--;
-    }
-    CLogger::Get()->Write(FromOrchestrator, LogNotice, "%s", buf);
-}
+
 
 // plat_mmap stubs
 extern "C" void *plat_mmap(unsigned long addr, size_t size, int need_exec, int is_fixed) {
@@ -411,7 +397,7 @@ boolean CEmuOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     temp_state.size = 0;
     temp_state.pos = 0;
     int size_ret = PicoStateFP(&temp_state, 1, nullptr, state_skip, nullptr, state_fseek);
-    size_t min_size = is_cd ? (1536 * 1024) : (512 * 1024);
+    size_t min_size = is_cd ? (2048 * 1024) : (512 * 1024);
     if (size_ret == 0 && temp_state.pos > 0) {
         m_nStateSize = temp_state.pos + 262144; // Add 256KB safety margin for dynamic runtime state growth
         if (m_nStateSize < min_size) m_nStateSize = min_size;
@@ -536,11 +522,30 @@ boolean CEmuOrchestrator::IsPAL() const {
 }
 
 void CEmuOrchestrator::CaptureRewindState() {
-    if (!m_bRomLoaded || m_nStateSize == 0) return;
+    if (!m_bRomLoaded || m_nStateSize == 0 ||
+        (PicoIn.quirks & PQUIRK_DISABLE_REWIND)) return;
 
     m_nRewindFrameCounter++;
     u32 framesPerSec = IsPAL() ? 50 : 60;
     if (m_nRewindFrameCounter >= framesPerSec) {
+        // Titles that run tight VDP DMA/FIFO sequences can leave the 68000/Z80
+        // microstate unrecoverable if snapshotted mid-transfer (screen freeze +
+        // looping audio when later rewound into). Defer capture by a frame at a
+        // time instead of forcing it at an unsafe boundary; frame counter is
+        // left elevated so the check retries every subsequent frame.
+        static u32 s_nRewindDeferStreak = 0;
+        if ((PicoIn.quirks & PQUIRK_SAFE_REWIND) &&
+            (Pico.video.pending || Pico.video.fifo_cnt || Pico.video.fifo_bgcnt ||
+             (Pico.video.status & (PVS_CPUWR | PVS_CPURD | PVS_DMAFILL | PVS_DMABG | PVS_FIFORUN)))) {
+            s_nRewindDeferStreak++;
+            return;
+        }
+        if (s_nRewindDeferStreak > 0) {
+            CLogger::Get()->Write(FromOrchestrator, LogNotice,
+                "Rewind capture deferred %u frame(s) for VDP-busy safety, capturing now", s_nRewindDeferStreak);
+            s_nRewindDeferStreak = 0;
+        }
+
         m_nRewindFrameCounter = 0;
 
         if (m_pRewindBuffers[m_nRewindWriteIdx] != nullptr) {
@@ -567,8 +572,8 @@ void CEmuOrchestrator::CaptureRewindState() {
 void CEmuOrchestrator::RewindState() {
     if (!m_bRomLoaded || m_nRewindCount == 0) return;
 
-    // Jump 5 seconds back (oldest state in 6-slot buffer)
-    int loadIdx = (m_nRewindCount == 6) ? m_nRewindWriteIdx : 0;
+    // Pop the most recently saved rewind snapshot from the ring buffer (1 step back)
+    int loadIdx = (m_nRewindWriteIdx + 6 - 1) % 6;
     size_t loadSize = m_nRewindStateSizes[loadIdx];
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewinding MD/SegaCD state... loading index %d (size %u)", loadIdx, (unsigned)loadSize);
@@ -582,11 +587,10 @@ void CEmuOrchestrator::RewindState() {
         int ret = PicoStateFP(&state, 0, state_read, nullptr, state_eof, state_fseek);
         if (ret == 0) {
             CLogger::Get()->Write(FromOrchestrator, LogNotice, "Rewind state loaded successfully!");
-            memcpy(m_pRewindBuffers[0], m_pRewindBuffers[loadIdx], loadSize);
-            m_nRewindStateSizes[0] = loadSize;
-            m_nRewindWriteIdx = 1;
-            m_nRewindCount = 1;
+            m_nRewindWriteIdx = loadIdx;
+            m_nRewindCount--;
             m_nRewindFrameCounter = 0;
+            g_SharedState.audio_ring_buffer.Init();
         } else {
             CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to load rewind state! error=%d", ret);
         }
