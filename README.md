@@ -1,6 +1,6 @@
 # 5-in-1 Game Console Emulator
 
-![Baremetal Emulator](res/5-in-1_Baremetal_Emulator.png)
+![Baremetal Emulator](res/SplashScreen2.png)
 
 *Read this README in other languages: [English](README.md) | [Português do Brasil](README.pt-BR.md)*
 
