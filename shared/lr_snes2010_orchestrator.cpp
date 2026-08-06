@@ -482,9 +482,9 @@ void CLRSnes2010Orchestrator::PublishVideoFrame(const void *data, unsigned width
             memcpy(destination + y * width, source + y * pitch, width * sizeof(u16));
         }
     }
-    g_SharedState.game_w[index] = width;
-    g_SharedState.game_h[index] = height;
-    g_SharedState.start_line[index] = 0;
+    g_SharedState.frame_geom[index].game_w = width;
+    g_SharedState.frame_geom[index].game_h = height;
+    g_SharedState.frame_geom[index].start_line = 0;
     g_SharedState.emu_read_idx = index;
     g_SharedState.emu_write_idx = 1 - index;
     DataMemBarrier();

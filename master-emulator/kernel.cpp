@@ -266,6 +266,13 @@ void CKernel::RunOrchestrator() {
     u64 menu_enter_time = CTimer::GetClockTicks64();
     boolean just_entered_menu = TRUE;
 
+    // Configured via cmdline.txt: menu_lockout=<seconds> (default: 2, 0 to disable).
+    // Blocks all OSD input for this many seconds after (re-)entering the menu, so a
+    // held START+SELECT combo can't immediately re-select and relaunch a game.
+    int menu_lockout_sec = m_Options.GetAppOptionSignedDecimal("menu_lockout", 2);
+    if (menu_lockout_sec < 0) menu_lockout_sec = 0;
+    u64 menu_lockout_us = (u64)menu_lockout_sec * 1000000ULL;
+
     while (m_ShutdownMode == ShutdownNone) {
         // Check safe shutdown / reset GPIO pins for Retroflag PiCase (every 100ms to reduce overhead/bus lag)
         {
@@ -294,7 +301,7 @@ void CKernel::RunOrchestrator() {
             }
 
             u64 current_time = CTimer::GetClockTicks64();
-            if (current_time - menu_enter_time < 2000000) {
+            if (current_time - menu_enter_time < menu_lockout_us) {
                 g_SharedState.pad1 = 0;
                 g_SharedState.pad2 = 0;
                 CTimer::SimpleMsDelay(10);
@@ -392,12 +399,12 @@ void CKernel::RunOrchestrator() {
                     memset((void *)g_SharedState.emu_frame_buffer, 0, sizeof(g_SharedState.emu_frame_buffer));
                     g_SharedState.emu_write_idx = 0;
                     g_SharedState.emu_read_idx = 0;
-                    g_SharedState.start_line[0] = 8;
-                    g_SharedState.game_w[0] = 256;
-                    g_SharedState.game_h[0] = 224;
-                    g_SharedState.start_line[1] = 8;
-                    g_SharedState.game_w[1] = 256;
-                    g_SharedState.game_h[1] = 224;
+                    g_SharedState.frame_geom[0].start_line = 8;
+                    g_SharedState.frame_geom[0].game_w = 256;
+                    g_SharedState.frame_geom[0].game_h = 224;
+                    g_SharedState.frame_geom[1].start_line = 8;
+                    g_SharedState.frame_geom[1].game_w = 256;
+                    g_SharedState.frame_geom[1].game_h = 224;
                     g_SharedState.video_frame_ready = FALSE;
                     DataMemBarrier();
 
@@ -727,9 +734,9 @@ void CKernel::RunVideoDomain() {
                 DataMemBarrier();
 
                 int read_idx = g_SharedState.emu_read_idx;
-                int game_w = g_SharedState.game_w[read_idx];
-                int game_h = g_SharedState.game_h[read_idx];
-                int start_l = g_SharedState.start_line[read_idx];
+                int game_w = g_SharedState.frame_geom[read_idx].game_w;
+                int game_h = g_SharedState.frame_geom[read_idx].game_h;
+                int start_l = g_SharedState.frame_geom[read_idx].start_line;
 
                 if (game_w <= 0) game_w = 256;
                 if (game_h <= 0) game_h = 192;
@@ -765,31 +772,8 @@ void CKernel::RunVideoDomain() {
 
                     const u16 *src_row = pSrc + src_y * 320;
 
-                    for (int x = 0; x < 640; x++) {
-                        u16 i1 = s_ScaleTableCache.idx1[x];
-                        u16 i2 = s_ScaleTableCache.idx2[x];
-                        u8 w = s_ScaleTableCache.weight[x];
-
-                        u16 c1 = src_row[i1];
-                        if (w == 0 || i1 == i2) {
-                            line_buf[x] = c1;
-                        } else {
-                            u16 c2 = src_row[i2];
-                            u32 r1 = (c1 >> 11) & 0x1F;
-                            u32 g1 = (c1 >> 5) & 0x3F;
-                            u32 b1 = c1 & 0x1F;
-
-                            u32 r2 = (c2 >> 11) & 0x1F;
-                            u32 g2 = (c2 >> 5) & 0x3F;
-                            u32 b2 = c2 & 0x1F;
-
-                            u32 r = (r1 * (32 - w) + r2 * w) >> 5;
-                            u32 g = (g1 * (32 - w) + g2 * w) >> 5;
-                            u32 b = (b1 * (32 - w) + b2 * w) >> 5;
-
-                            line_buf[x] = (r << 11) | (g << 5) | b;
-                        }
-                    }
+                    ScaleLineRGB565(line_buf, src_row, s_ScaleTableCache.idx1,
+                                     s_ScaleTableCache.idx2, s_ScaleTableCache.weight, 640);
 
                     if (g_SharedState.screensaver_active) DimScanline50(line_buf);
                     memcpy(dst_row, line_buf, 640 * sizeof(u16));

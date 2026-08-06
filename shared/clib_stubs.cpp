@@ -971,12 +971,12 @@ __attribute__((weak)) struct zipent* readzip(ZIP* zip) { return nullptr; }
 __attribute__((weak)) int seekcompresszip(ZIP* zip, struct zipent* ent) { return -1; }
 
 __attribute__((weak)) void emu_video_mode_change(int start_line, int line_count, int start_col, int col_count) {
-    g_SharedState.start_line[0] = start_line;
-    g_SharedState.start_line[1] = start_line;
-    g_SharedState.game_h[0] = line_count;
-    g_SharedState.game_h[1] = line_count;
-    g_SharedState.game_w[0] = col_count;
-    g_SharedState.game_w[1] = col_count;
+    g_SharedState.frame_geom[0].start_line = start_line;
+    g_SharedState.frame_geom[1].start_line = start_line;
+    g_SharedState.frame_geom[0].game_h = line_count;
+    g_SharedState.frame_geom[1].game_h = line_count;
+    g_SharedState.frame_geom[0].game_w = col_count;
+    g_SharedState.frame_geom[1].game_w = col_count;
 }
 
 __attribute__((weak)) int mp3_get_bitrate(void *f, int size) { return 0; }

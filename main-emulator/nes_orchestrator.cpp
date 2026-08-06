@@ -534,9 +534,9 @@ void CNESOrchestrator::VideoUnlockCallback(void* userData, Nes::Core::Video::Out
     (void)userData;
     (void)output;
     int idx = g_SharedState.emu_write_idx;
-    g_SharedState.game_w[idx] = 256;
-    g_SharedState.game_h[idx] = 240;
-    g_SharedState.start_line[idx] = 0;
+    g_SharedState.frame_geom[idx].game_w = 256;
+    g_SharedState.frame_geom[idx].game_h = 240;
+    g_SharedState.frame_geom[idx].start_line = 0;
 
     g_SharedState.emu_read_idx = idx;
     g_SharedState.emu_write_idx = 1 - idx;

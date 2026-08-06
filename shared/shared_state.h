@@ -15,6 +15,18 @@ enum EmuMode {
     EmuMode_FAV
 };
 
+// Per-buffer-slot frame geometry. Grouping these into one struct per buffer index
+// (instead of three parallel int[2] arrays) puts each index on its own cache line,
+// so the core producing frame write_idx and the core consuming frame read_idx never
+// touch the same 64-byte line - previously start_line[0]/[1], game_w[0]/[1], and
+// game_h[0]/[1] each packed both indices together, causing cross-core false sharing
+// on every single frame.
+struct FrameGeometry {
+    volatile int start_line;
+    volatile int game_w;
+    volatile int game_h;
+} __attribute__((aligned(64)));
+
 struct SharedState {
     volatile EmuMode active_emu_mode __attribute__((aligned(64)));
     volatile EmuMode system_order[6] __attribute__((aligned(64)));
@@ -43,9 +55,7 @@ struct SharedState {
     volatile int emu_write_idx __attribute__((aligned(64)));
     volatile int emu_read_idx __attribute__((aligned(64)));
     volatile boolean video_frame_ready __attribute__((aligned(64)));
-    volatile int start_line[2] __attribute__((aligned(64)));
-    volatile int game_w[2] __attribute__((aligned(64)));
-    volatile int game_h[2] __attribute__((aligned(64)));
+    FrameGeometry frame_geom[2] __attribute__((aligned(64)));
 
     // Audio ring buffer
     AudioRingBuffer audio_ring_buffer __attribute__((aligned(64)));

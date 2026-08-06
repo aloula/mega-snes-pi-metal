@@ -114,6 +114,12 @@ static void ApplyMDPicoConfig() {
     PicoIn.sndOut = g_AudioTempBuf;
     PicoIn.writeSound = EmuSoundCallback;
     PicoIn.autoRgnOrder = 0x184; // Prefer USA (NTSC 60Hz), then EUR (PAL 50Hz), then JAP (NTSC 60Hz)
+    // PicoLoadMedia() resets quirks to 0, so this must be re-applied after every load
+    // (see the ApplyMDPicoConfig() call following PicoLoadMedia() in LoadROM()).
+    // Without it, CaptureRewindState()'s VDP-busy guard never engages and a rewind
+    // snapshot taken mid-DMA/FIFO-transfer can leave the 68000 microstate
+    // unrecoverable, freezing the screen with looping audio when later rewound into.
+    PicoIn.quirks |= PQUIRK_SAFE_REWIND;
 }
 
 static void ResetMDAudioAfterStateChange() {
@@ -490,9 +496,9 @@ void CMDOrchestrator::RunFrame() {
 
     // Query active VDP width and height after frame execution
     int is_32col = (Pico.est.rendstatus & PDRAW_32_COLS) || !(Pico.video.reg[12] & 1);
-    g_SharedState.game_w[idx] = is_32col ? 256 : 320;
-    g_SharedState.game_h[idx] = (Pico.video.reg[1] & 8) ? 240 : 224;
-    g_SharedState.start_line[idx] = (Pico.video.reg[1] & 8) ? 0 : 8;
+    g_SharedState.frame_geom[idx].game_w = is_32col ? 256 : 320;
+    g_SharedState.frame_geom[idx].game_h = (Pico.video.reg[1] & 8) ? 240 : 224;
+    g_SharedState.frame_geom[idx].start_line = (Pico.video.reg[1] & 8) ? 0 : 8;
 
     // Capture rewind state if 1 second elapsed
     CaptureRewindState();

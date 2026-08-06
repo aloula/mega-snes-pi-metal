@@ -91,7 +91,10 @@ static int state_fseek(void *file, long offset, int whence)
    return (int)state->pos;
 }
 
-#define ROM_BUFFER_SIZE (16 * 1024 * 1024)
+// Largest known licensed SMS/Game Gear carts top out around 1MB (8Mbit); 4MB gives
+// generous headroom for oversized homebrew while freeing ~12MB versus the old size
+// shared with main-emulator's Genesis buffer, which actually needs it.
+#define ROM_BUFFER_SIZE (4 * 1024 * 1024)
 
 extern "C" {
 unsigned int p32x_event_times[1] = {0};

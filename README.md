@@ -69,6 +69,9 @@ SD:/
 > **Configuring Splash Screen Duration**: Add or edit `splash=<seconds>` in `cmdline.txt` on the SD card root (e.g. `splash=4` for 4 seconds, `splash=2` for 2 seconds, or `splash=0` to completely skip the splash screen on boot).
 
 > [!TIP]
+> **Configuring OSD Menu Input Lockout**: When you return to the OSD with START + SELECT, the launch buttons (A/B/Start) are briefly ignored so a held combo can't immediately relaunch a game. Add or edit `menu_lockout=<seconds>` in `cmdline.txt` on the SD card root to change this delay (e.g. `menu_lockout=2` for the default 2 seconds, `menu_lockout=1` for 1 second, or `menu_lockout=0` to disable the lockout completely).
+
+> [!TIP]
 > **Multiple Splash Screens & Automatic Rotation**: You can now store multiple splash screens on your SD card! Simply create a `splash/` folder on the SD card root (e.g., `SD:/splash/retro1.raw16`, `SD:/splash/retro2.raw16`) or use numbered files on the root (e.g., `SD:/Splash_Screen1.raw16`, `SD:/Splash_Screen2.raw16`). The emulator will automatically discover all splash images and cycle to the next splash screen on every boot!
 
 > [!TIP]

@@ -1334,12 +1334,12 @@ void CKernel::RunOrchestrator() {
     g_SharedState.rom_loading = FALSE;
     g_SharedState.emu_write_idx = 0;
     g_SharedState.emu_read_idx = 0;
-    g_SharedState.start_line[0] = 0;
-    g_SharedState.game_w[0] = 256;
-    g_SharedState.game_h[0] = 224;
-    g_SharedState.start_line[1] = 0;
-    g_SharedState.game_w[1] = 256;
-    g_SharedState.game_h[1] = 224;
+    g_SharedState.frame_geom[0].start_line = 0;
+    g_SharedState.frame_geom[0].game_w = 256;
+    g_SharedState.frame_geom[0].game_h = 224;
+    g_SharedState.frame_geom[1].start_line = 0;
+    g_SharedState.frame_geom[1].game_w = 256;
+    g_SharedState.frame_geom[1].game_h = 224;
 
     static boolean just_entered_menu = TRUE;
 
@@ -1488,7 +1488,14 @@ void CKernel::RunOrchestrator() {
             }
 
             u64 now_ticks = CTimer::GetClockTicks64();
-            boolean is_locked_out = ((now_ticks - menu_enter_time) / 1000) < 2000; // 2 seconds lockout
+            // Configured via cmdline.txt: menu_lockout=<seconds> (default: 2, 0 to disable).
+            static int menu_lockout_ms = -1;
+            if (menu_lockout_ms < 0) {
+                int menu_lockout_sec = m_Options.GetAppOptionSignedDecimal("menu_lockout", 2);
+                if (menu_lockout_sec < 0) menu_lockout_sec = 0;
+                menu_lockout_ms = menu_lockout_sec * 1000;
+            }
+            boolean is_locked_out = ((now_ticks - menu_enter_time) / 1000) < (u64)menu_lockout_ms;
 
             if (!is_locked_out && (pressed & ((1 << 4) | (1 << 5) | (1 << 10))) && start_released) { // SNES A, B or Start -> Select ROM
                 const char *pRomName = m_pOSDMenu->GetSelectedRom();
@@ -1513,40 +1520,40 @@ void CKernel::RunOrchestrator() {
                     }
 
                     if (targetMode == EmuMode_SNES) {
-                        g_SharedState.start_line[0] = 0;
-                        g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 224;
-                        g_SharedState.start_line[1] = 0;
-                        g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 224;
+                        g_SharedState.frame_geom[0].start_line = 0;
+                        g_SharedState.frame_geom[0].game_w = 256;
+                        g_SharedState.frame_geom[0].game_h = 224;
+                        g_SharedState.frame_geom[1].start_line = 0;
+                        g_SharedState.frame_geom[1].game_w = 256;
+                        g_SharedState.frame_geom[1].game_h = 224;
                     } else if (targetMode == EmuMode_MD) {
-                        g_SharedState.start_line[0] = 8;
-                        g_SharedState.game_w[0] = 320;
-                        g_SharedState.game_h[0] = 224;
-                        g_SharedState.start_line[1] = 8;
-                        g_SharedState.game_w[1] = 320;
-                        g_SharedState.game_h[1] = 224;
+                        g_SharedState.frame_geom[0].start_line = 8;
+                        g_SharedState.frame_geom[0].game_w = 320;
+                        g_SharedState.frame_geom[0].game_h = 224;
+                        g_SharedState.frame_geom[1].start_line = 8;
+                        g_SharedState.frame_geom[1].game_w = 320;
+                        g_SharedState.frame_geom[1].game_h = 224;
                     } else if (targetMode == EmuMode_NES) {
-                        g_SharedState.start_line[0] = 0;
-                        g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 240;
-                        g_SharedState.start_line[1] = 0;
-                        g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 240;
+                        g_SharedState.frame_geom[0].start_line = 0;
+                        g_SharedState.frame_geom[0].game_w = 256;
+                        g_SharedState.frame_geom[0].game_h = 240;
+                        g_SharedState.frame_geom[1].start_line = 0;
+                        g_SharedState.frame_geom[1].game_w = 256;
+                        g_SharedState.frame_geom[1].game_h = 240;
                     } else if (targetMode == EmuMode_SMS) {
-                        g_SharedState.start_line[0] = 8;
-                        g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 224;
-                        g_SharedState.start_line[1] = 8;
-                        g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 224;
+                        g_SharedState.frame_geom[0].start_line = 8;
+                        g_SharedState.frame_geom[0].game_w = 256;
+                        g_SharedState.frame_geom[0].game_h = 224;
+                        g_SharedState.frame_geom[1].start_line = 8;
+                        g_SharedState.frame_geom[1].game_w = 256;
+                        g_SharedState.frame_geom[1].game_h = 224;
                     } else { // EmuMode_PCE
-                        g_SharedState.start_line[0] = 0;
-                        g_SharedState.game_w[0] = 256;
-                        g_SharedState.game_h[0] = 240;
-                        g_SharedState.start_line[1] = 0;
-                        g_SharedState.game_w[1] = 256;
-                        g_SharedState.game_h[1] = 240;
+                        g_SharedState.frame_geom[0].start_line = 0;
+                        g_SharedState.frame_geom[0].game_w = 256;
+                        g_SharedState.frame_geom[0].game_h = 240;
+                        g_SharedState.frame_geom[1].start_line = 0;
+                        g_SharedState.frame_geom[1].game_w = 256;
+                        g_SharedState.frame_geom[1].game_h = 240;
                     }
 
                     g_SharedState.active_emu_mode = targetMode;
@@ -2197,14 +2204,14 @@ void CKernel::RunVideoDomain() {
                 draw_count++;
  
                 int read_idx = g_SharedState.emu_read_idx;
-                int game_h = g_SharedState.game_h[read_idx];
-                int start_line = g_SharedState.start_line[read_idx];
+                int game_h = g_SharedState.frame_geom[read_idx].game_h;
+                int start_line = g_SharedState.frame_geom[read_idx].start_line;
                 alignas(64) u16 scanline_buf[640];
  
                 if (game_h < 1) game_h = 224;
  
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
-                    int game_w = g_SharedState.game_w[read_idx];
+                    int game_w = g_SharedState.frame_geom[read_idx].game_w;
                     if (game_w < 1) game_w = 256;
                     if (game_w > 512) game_w = 512;
                     if (game_h > 480) game_h = 480;
@@ -2224,9 +2231,7 @@ void CKernel::RunVideoDomain() {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
-                                for (int x = 0; x < 640; x++) {
-                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                                }
+                                ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                                 if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                                 memcpy(dest2, scanline_buf, 640 * sizeof(u16));
@@ -2236,9 +2241,7 @@ void CKernel::RunVideoDomain() {
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 256;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
-                                for (int x = 0; x < 640; x++) {
-                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                                }
+                                ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                                 if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
@@ -2254,9 +2257,7 @@ void CKernel::RunVideoDomain() {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                                 u16 *dest2 = dest1 + nPitch;
-                                for (int x = 0; x < 640; x++) {
-                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                                }
+                                ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                                 if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                                 memcpy(dest2, scanline_buf, 640 * sizeof(u16));
@@ -2266,9 +2267,7 @@ void CKernel::RunVideoDomain() {
                             for (int y = 0; y < game_h; y++) {
                                 const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                                 u16 *dest = pBuf + (start_y + y) * nPitch;
-                                for (int x = 0; x < 640; x++) {
-                                    scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                                }
+                                ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                                 if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                                 memcpy(dest, scanline_buf, 640 * sizeof(u16));
                             }
@@ -2288,16 +2287,14 @@ void CKernel::RunVideoDomain() {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 512;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                         u16 *dest2 = dest1 + nPitch;
-                        for (int x = 0; x < 640; x++) {
-                            scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                        }
+                        ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                         if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                         memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                         memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_PCE) {
                     // PCE video rendering (stretches any game resolution to 640x480 for a perfect 4:3 aspect ratio using a high-quality software Sharp Bilinear filter)
-                    int game_w = g_SharedState.game_w[read_idx];
+                    int game_w = g_SharedState.frame_geom[read_idx].game_w;
                     if (game_w < 1) game_w = 256;
                     
                     if (s_PceLayoutMode == -1 && game_h >= 240) {
@@ -2358,16 +2355,14 @@ void CKernel::RunVideoDomain() {
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y_offset + y) * game_w;
                         u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch + start_x;
                         u16 *dest2 = dest1 + nPitch;
-                        for (int x = 0; x < 640; x++) {
-                            scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                        }
+                        ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                         if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                         memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                         memcpy(dest2, scanline_buf, 640 * sizeof(u16));
                     }
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
                     // Master System video rendering in a 512-pitch frame buffer (active area starts at x offset 32).
-                    int game_w = g_SharedState.game_w[read_idx];
+                    int game_w = g_SharedState.frame_geom[read_idx].game_w;
                     if (game_w < 1) game_w = 256;
                     if (game_h < 1) game_h = 192;
                     // In SMS 192-line mode, Pico reports the 192 active lines, but some games use
@@ -2398,9 +2393,7 @@ void CKernel::RunVideoDomain() {
                         last_src_y = src_y;
 
                         const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + src_y) * 512 + 32;
-                        for (int x = 0; x < 640; x++) {
-                            scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                        }
+                        ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                         if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                         memcpy(dest, scanline_buf, 640 * sizeof(u16));
                     }
@@ -2417,7 +2410,7 @@ void CKernel::RunVideoDomain() {
                     if (start_y < 0) start_y = 0;
 
                     // Upscale to full 4:3 (640x448) based on game mode width
-                    int game_w = g_SharedState.game_w[read_idx];
+                    int game_w = g_SharedState.frame_geom[read_idx].game_w;
                     if (game_w != 256) {
                         // H40 Mode: 320x224 scaled 2x to 640x448 (using optimized nearest-neighbor)
                         for (int y = 0; y < game_h; y++) {
@@ -2452,9 +2445,7 @@ void CKernel::RunVideoDomain() {
                             const u16 *src = g_SharedState.emu_frame_buffer[read_idx] + (start_line + y) * 320 + 32;
                             u16 *dest1 = pBuf + (start_y + 2 * y) * nPitch;
                             u16 *dest2 = dest1 + nPitch;
-                            for (int x = 0; x < 640; x++) {
-                                scanline_buf[x] = BlendRGB565(src[idx1[x]], src[idx2[x]], weight[x]);
-                            }
+                            ScaleLineRGB565(scanline_buf, src, idx1, idx2, weight, 640);
                             if (g_SharedState.screensaver_active) DimScanline50(scanline_buf);
                             memcpy(dest1, scanline_buf, 640 * sizeof(u16));
                             memcpy(dest2, scanline_buf, 640 * sizeof(u16));

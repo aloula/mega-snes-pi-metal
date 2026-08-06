@@ -104,9 +104,9 @@ static void pce_video_cb(const void *data, unsigned width, unsigned height, size
     if (data == nullptr) return;
 
     int idx = g_SharedState.emu_write_idx;
-    g_SharedState.game_w[idx] = width;
-    g_SharedState.game_h[idx] = height;
-    g_SharedState.start_line[idx] = 0;
+    g_SharedState.frame_geom[idx].game_w = width;
+    g_SharedState.frame_geom[idx].game_h = height;
+    g_SharedState.frame_geom[idx].start_line = 0;
 
     u16 *dest = g_SharedState.emu_frame_buffer[idx];
     const u16 *src = (const u16 *)data;
