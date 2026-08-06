@@ -35,6 +35,18 @@ if [ ! -f "deps/circle/Config.mk" ]; then
     (cd deps/circle && ./configure -r 3 --prefix arm-none-eabi- --multicore --kernel-max-size 24 -f)
 fi
 
+# Config2.mk is loaded by Circle's Rules.mk but (unlike Config.mk) is never touched
+# by `configure`, so regenerating it here is safe even if Config.mk already exists.
+# It widens the heap allocator's bucket sizes up to 8MB - the stock default tops out
+# at 512KB, and any single allocation above that can never be reclaimed once freed
+# (see circle/sysconfig.h). This project routinely allocates well above 512KB
+# (Sega CD save states alone are 2MB), so without this every large ROM/state buffer
+# permanently leaks heap space instead of being reused by the next one.
+echo -e "${BLUE}Widening Circle heap allocator buckets (required by this project)...${NC}"
+cat > deps/circle/Config2.mk <<'EOF'
+DEFINE += -DHEAP_BLOCK_BUCKET_SIZES=0x40,0x400,0x1000,0x4000,0x10000,0x40000,0x80000,0x100000,0x200000,0x400000,0x800000
+EOF
+
 if [ ! -f "deps/circle/lib/libcircle.a" ] || [ ! -f "deps/circle/addon/fatfs/libfatfs.a" ]; then
     echo -e "${BLUE}Building Circle core libraries and addons...${NC}"
     (cd deps/circle && ./makeall && cd addon/fatfs && make -j$(nproc) && cd ../SDCard && make -j$(nproc))

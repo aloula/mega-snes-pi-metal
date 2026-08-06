@@ -1,5 +1,6 @@
 #include "nes_orchestrator.h"
 #include "shared_state.h"
+#include "heap_bucket_rounding.h"
 #include <circle/alloc.h>
 #include <circle/logger.h>
 #include <circle/timer.h>
@@ -151,7 +152,7 @@ boolean CNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize)
         delete[] m_pRomBuffer;
         m_pRomBuffer = nullptr;
     }
-    m_pRomBuffer = new u8[nRomSize];
+    m_pRomBuffer = new u8[RoundUpToCanonicalBufferSize(nRomSize)];
     if (m_pRomBuffer == nullptr) {
         fclose(f);
         CLogger::Get()->Write("orchestrator", LogError, "Failed to allocate memory for NES ROM buffer");
@@ -292,6 +293,28 @@ boolean CNESOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize)
     m_LastPad1 = 0xFFFF;
     m_LastPad2 = 0xFFFF;
     return TRUE;
+}
+
+void CNESOrchestrator::Unload()
+{
+    if (!m_bRomLoaded) return;
+
+    if (m_pRomBuffer != nullptr) {
+        delete[] m_pRomBuffer;
+        m_pRomBuffer = nullptr;
+    }
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
+        m_nRewindStateSizes[i] = 0;
+    }
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_nStateSize = 0;
+    m_bRomLoaded = FALSE;
 }
 
 void CNESOrchestrator::RunFrame()

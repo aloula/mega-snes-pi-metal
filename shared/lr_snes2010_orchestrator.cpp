@@ -1,5 +1,6 @@
 #include "lr_snes2010_orchestrator.h"
 #include "shared_state.h"
+#include "heap_bucket_rounding.h"
 
 #include <circle/logger.h>
 #include <circle/synchronize.h>
@@ -87,7 +88,7 @@ boolean CLRSnes2010Orchestrator::LoadROM(const char *pRomName, unsigned nRomSize
         return FALSE;
     }
 
-    u8 *romBuffer = new u8[nRomSize];
+    u8 *romBuffer = new u8[RoundUpToCanonicalBufferSize(nRomSize)];
     FRESULT readResult = f_read(&romFile, romBuffer, nRomSize, &bytesRead);
     f_close(&romFile);
     if (readResult != FR_OK || bytesRead != nRomSize) {
@@ -147,17 +148,42 @@ boolean CLRSnes2010Orchestrator::LoadROM(const char *pRomName, unsigned nRomSize
                                "Allocating lr-snes9x2010 rewind buffers (6 slots of %u bytes)",
                                (unsigned)m_nStateSize);
         for (unsigned i = 0; i < 6; i++) {
-            m_pRewindBuffers[i] = new u8[m_nStateSize];
+            m_pRewindBuffers[i] = new u8[RoundUpToCanonicalBufferSize(m_nStateSize)];
         }
     }
 
     m_nManualStateSize = m_nStateSize;
     if (m_nManualStateSize > 0) {
-        m_pStateBuffer = new u8[m_nManualStateSize];
+        m_pStateBuffer = new u8[RoundUpToCanonicalBufferSize(m_nManualStateSize)];
     }
     LoadSRAM();
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Loaded SNES ROM with lr-snes9x2010: %s", pRomName);
     return TRUE;
+}
+
+void CLRSnes2010Orchestrator::Unload() {
+    if (!m_bRomLoaded) return;
+
+    SaveSRAM();
+    retro_unload_game();
+
+    delete[] m_pRomBuffer;
+    m_pRomBuffer = nullptr;
+    delete[] m_pStateBuffer;
+    m_pStateBuffer = nullptr;
+    m_nManualStateSize = 0;
+
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
+    }
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_nStateSize = 0;
+    m_bRomLoaded = FALSE;
 }
 
 void CLRSnes2010Orchestrator::RunFrame() {

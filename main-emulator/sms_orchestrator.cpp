@@ -242,6 +242,24 @@ boolean CSMSOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     return TRUE;
 }
 
+void CSMSOrchestrator::Unload() {
+    if (!m_bRomLoaded) return;
+
+    PicoCartUnload();
+
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
+        m_nRewindStateSizes[i] = 0;
+    }
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_bRomLoaded = FALSE;
+}
+
 void CSMSOrchestrator::RunFrame() {
     if (!m_bRomLoaded) return;
 

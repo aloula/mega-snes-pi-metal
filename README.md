@@ -85,9 +85,9 @@ SD:/
 
 ---
 
-### 🎮 Controller Layout (Gamesir Nova Lite & Standard Xbox 360)
+### 🎮 Controller Layout (Gamesir Nova Lite, Standard Xbox 360 & 8BitDo M30)
 
-The emulator supports standard XInput gamepads out-of-the-box (like the **Gamesir Nova Lite** detected under USB Vendor/Product ID `ven3537-1040`).
+The emulator supports standard XInput gamepads out-of-the-box (like the **Gamesir Nova Lite** detected under USB Vendor/Product ID `ven3537-1040`), as well as standard USB HID-class gamepads detected automatically from their USB report descriptor — including the **8BitDo M30**, both the wired version and the 2.4G wireless receiver (USB Vendor/Product ID `0ca3-0024`).
 
 ### 🖥️ OSD Menu Navigation
 * **D-pad**: Navigate ROM list (Up / Down) or switch tabs (Left / Right).

@@ -1,5 +1,6 @@
 #include "pce_orchestrator.h"
 #include "shared_state.h"
+#include "heap_bucket_rounding.h"
 #include <circle/logger.h>
 #include <circle/timer.h>
 #include <circle/synchronize.h>
@@ -291,7 +292,7 @@ boolean CPCEOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     if (m_nStateSize > 0) {
         CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating PCE rewind buffer (6 slots of %u bytes)", m_nStateSize);
         for (int i = 0; i < 6; i++) {
-            m_pRewindBuffers[i] = new u8[m_nStateSize];
+            m_pRewindBuffers[i] = new u8[RoundUpToCanonicalBufferSize(m_nStateSize)];
         }
     }
 
@@ -324,8 +325,39 @@ boolean CPCEOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
     return TRUE;
 }
 
+void CPCEOrchestrator::Unload() {
+    if (!m_bRomLoaded) return;
+
+    SaveSRAM();
+    retro_unload_game();
+
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
+        m_nRewindStateSizes[i] = 0;
+    }
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_nStateSize = 0;
+    m_bRomLoaded = FALSE;
+}
+
 void CPCEOrchestrator::RunFrame() {
     if (!m_bRomLoaded) return;
+
+    // Ensure the video thread has consumed the previous frame before writing.
+    // Adaptive wait keeps latency low without burning a full core on long waits.
+    unsigned wait_spins = 0;
+    while (g_SharedState.video_frame_ready) {
+        if (wait_spins < 200) {
+            wait_spins++;
+        } else {
+            CTimer::SimpleusDelay(10);
+        }
+    }
 
     retro_run();
     FlushPceSingleAudioBuffer();
@@ -352,7 +384,7 @@ void CPCEOrchestrator::SaveState(int slot) {
         return;
     }
 
-    u8 *buf = new u8[stateSize];
+    u8 *buf = new u8[RoundUpToCanonicalBufferSize(stateSize)];
     if (!buf) {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to allocate buffer for state save");
         return;
@@ -405,7 +437,7 @@ void CPCEOrchestrator::LoadState(int slot) {
         return;
     }
 
-    u8 *buf = new u8[stateSize];
+    u8 *buf = new u8[RoundUpToCanonicalBufferSize(stateSize)];
     if (!buf) {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to allocate buffer for state load");
         fclose(f);

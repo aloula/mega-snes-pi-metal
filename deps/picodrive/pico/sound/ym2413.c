@@ -82,7 +82,6 @@ size_t ym2413_pack_state(void *buf_, size_t size)
 	save_u32(buf, &b, opll->noise);
 	save_u16(buf, &b, opll->short_noise);
 
-	printf("ym2413 state size: %zu\n", b);
 	assert(b <= size);
 	return b;
 }

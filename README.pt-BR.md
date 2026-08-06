@@ -85,9 +85,9 @@ SD:/
 
 ---
 
-### 🎮 Mapeamento de Controles (Gamesir Nova Lite e Xbox 360 Padrão)
+### 🎮 Mapeamento de Controles (Gamesir Nova Lite, Xbox 360 Padrão e 8BitDo M30)
 
-O emulador suporta gamepads padrão XInput nativamente (como o **Gamesir Nova Lite**, detectado com Vendor/Product ID `ven3537-1040`).
+O emulador suporta gamepads padrão XInput nativamente (como o **Gamesir Nova Lite**, detectado com Vendor/Product ID `ven3537-1040`), além de gamepads USB HID padrão detectados automaticamente a partir do seu descritor de relatório USB — incluindo o **8BitDo M30**, tanto na versão com cabo quanto no receptor sem fio 2.4G (Vendor/Product ID `0ca3-0024`).
 
 ### 🖥️ Navegação no Menu OSD
 * **D-pad**: Navegar na lista de ROMs (Cima / Baixo) ou alternar abas (Esquerda / Direita).

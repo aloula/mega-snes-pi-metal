@@ -1,5 +1,6 @@
 #include "md_orchestrator.h"
 #include "shared_state.h"
+#include "heap_bucket_rounding.h"
 #include <circle/alloc.h>
 #include <circle/logger.h>
 #include <circle/timer.h>
@@ -420,11 +421,31 @@ boolean CMDOrchestrator::LoadROM(const char *pRomName, unsigned nRomSize) {
 
     CLogger::Get()->Write(FromOrchestrator, LogNotice, "Allocating rewind buffer (6 slots of %u bytes)", m_nStateSize);
     for (int i = 0; i < 6; i++) {
-        m_pRewindBuffers[i] = new u8[m_nStateSize];
+        m_pRewindBuffers[i] = new u8[RoundUpToCanonicalBufferSize(m_nStateSize)];
     }
 
     m_bRomLoaded = TRUE;
     return TRUE;
+}
+
+void CMDOrchestrator::Unload() {
+    if (!m_bRomLoaded) return;
+
+    PicoCartUnload();
+    PicoExitMCD();
+
+    for (int i = 0; i < 6; i++) {
+        if (m_pRewindBuffers[i] != nullptr) {
+            delete[] m_pRewindBuffers[i];
+            m_pRewindBuffers[i] = nullptr;
+        }
+        m_nRewindStateSizes[i] = 0;
+    }
+    m_nRewindWriteIdx = 0;
+    m_nRewindCount = 0;
+    m_nRewindFrameCounter = 0;
+    m_nStateSize = 0;
+    m_bRomLoaded = FALSE;
 }
 
 void CMDOrchestrator::RunFrame() {

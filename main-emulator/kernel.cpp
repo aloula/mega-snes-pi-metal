@@ -244,6 +244,11 @@ static EmuMode s_SystemOrder[6] = { EmuMode_SNES, EmuMode_NES, EmuMode_SMS, EmuM
 static int s_NumSystems = 6;
 static int s_SystemOrderIdx = 0;
 static EmuMode s_MenuEmuMode = EmuMode_SNES;
+// Tracks which orchestrator currently holds a loaded ROM's buffers, so we can release
+// them when switching to a different system instead of leaking one system's worth of
+// memory (ROM buffer + rewind buffers) into every other system played afterward.
+// EmuMode_FAV is used as the "nothing loaded yet" sentinel since it's never a real target.
+static EmuMode s_CurrentlyLoadedMode = EmuMode_FAV;
 
 static char *TrimToken(char *s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -1551,6 +1556,24 @@ void CKernel::RunOrchestrator() {
                     DataMemBarrier();
                     CTimer::SimpleMsDelay(50); // Delay to let Video Core render the LOADING box
 
+                    // Release the previous system's ROM/rewind buffers before loading a
+                    // different system, so memory footprint doesn't accumulate forever
+                    // across a multi-system play session.
+                    if (s_CurrentlyLoadedMode != EmuMode_FAV && s_CurrentlyLoadedMode != targetMode) {
+                        if (s_CurrentlyLoadedMode == EmuMode_SNES) {
+                            m_pSNESOrchestrator->Unload();
+                        } else if (s_CurrentlyLoadedMode == EmuMode_MD) {
+                            m_pMDOrchestrator->Unload();
+                        } else if (s_CurrentlyLoadedMode == EmuMode_NES) {
+                            m_pNESOrchestrator->Unload();
+                        } else if (s_CurrentlyLoadedMode == EmuMode_SMS) {
+                            m_pSMSOrchestrator->Unload();
+                        } else if (s_CurrentlyLoadedMode == EmuMode_PCE) {
+                            m_pPCEOrchestrator->Unload();
+                        }
+                        s_CurrentlyLoadedMode = EmuMode_FAV;
+                    }
+
                     boolean loaded = FALSE;
                     if (targetMode == EmuMode_SNES) {
                         loaded = m_pSNESOrchestrator->LoadROM(fullPath, nRomSize);
@@ -1564,6 +1587,8 @@ void CKernel::RunOrchestrator() {
                     } else { // EmuMode_PCE
                         loaded = m_pPCEOrchestrator->LoadROM(fullPath, nRomSize);
                     }
+
+                    s_CurrentlyLoadedMode = loaded ? targetMode : EmuMode_FAV;
 
                     g_SharedState.rom_loading = FALSE;
                     DataMemBarrier();
@@ -2592,6 +2617,35 @@ void CKernel::RunInputDomain() {
 
 // Event handlers
 void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *pState) {
+    // Generic HID gamepads (e.g. 8BitDo M30 2.4G receiver) are parsed by Circle's
+    // usbgamepadstandard.cpp, which reports buttons as raw HID-usage-order bits
+    // (bit0, bit1, ...) rather than translating them to the symbolic GamePadButtonA/
+    // B/X/Y/etc constants that every mapping table below expects (those are only set
+    // by the dedicated Xbox360/PS3/PS4/SwitchPro drivers). Detect this controller by
+    // its confirmed report signature (10 raw buttons, no hat switch, 5 axes) and
+    // translate its bits - correlated against Windows' own button numbering for this
+    // exact device (A=3, B=2, C=6, X=4, Y=1, Z=5, L=7, R=8, Select=9, Start=10) - into
+    // the symbolic bits the rest of this function already knows how to map correctly.
+    boolean bIsM30_24G = (pState->nbuttons == 10 && pState->nhats == 0 && pState->naxes == 5);
+
+    TGamePadState TranslatedState = *pState;
+    if (bIsM30_24G) {
+        unsigned nRaw = (unsigned) pState->buttons;
+        unsigned nTranslated = 0;
+        if (nRaw & 0x001) nTranslated |= GamePadButtonY;      // Y
+        if (nRaw & 0x002) nTranslated |= GamePadButtonB;      // B
+        if (nRaw & 0x004) nTranslated |= GamePadButtonA;      // A
+        if (nRaw & 0x008) nTranslated |= GamePadButtonX;      // X
+        if (nRaw & 0x010) nTranslated |= GamePadButtonLT;     // Z (-> Sega Z path)
+        if (nRaw & 0x020) nTranslated |= GamePadButtonRT;     // C (-> Sega C path)
+        if (nRaw & 0x040) nTranslated |= GamePadButtonLB;     // L
+        if (nRaw & 0x080) nTranslated |= GamePadButtonRB;     // R
+        if (nRaw & 0x100) nTranslated |= GamePadButtonSelect; // Select
+        if (nRaw & 0x200) nTranslated |= GamePadButtonStart;  // Start
+        TranslatedState.buttons = nTranslated;
+        pState = &TranslatedState;
+    }
+
     u16 pad = 0;
 
     // 1. Check D-pad buttons (for Xbox 360 and others mapping D-pad to buttons)
@@ -2599,6 +2653,18 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     if (pState->buttons & GamePadButtonDown)  pad |= (1 << 1); // Down
     if (pState->buttons & GamePadButtonLeft)  pad |= (1 << 2); // Left
     if (pState->buttons & GamePadButtonRight) pad |= (1 << 3); // Right
+
+    // 1b. 8BitDo M30 2.4G reports its D-pad as two extra "analog" axes rather than
+    // buttons or a hat switch: axes[3] is horizontal (0=Left, 127=neutral, 255=Right)
+    // and axes[4] is vertical (0=Up, 127=neutral, 255=Down), confirmed by testing.
+    if (bIsM30_24G && !(pad & 0xF)) {
+        int x = TranslatedState.axes[3].value;
+        int y = TranslatedState.axes[4].value;
+        if (x < 64)  pad |= (1 << 2); // Left
+        if (x > 192) pad |= (1 << 3); // Right
+        if (y < 64)  pad |= (1 << 0); // Up
+        if (y > 192) pad |= (1 << 1); // Down
+    }
 
     // 2. Check hats (D-pad) as fallback
     if (pState->nhats > 0 && !(pad & 0xF)) {

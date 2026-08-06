@@ -23,15 +23,54 @@
 #include <circle/util.h>
 #include <assert.h>
 
+// The heap allocator serves any request from a fixed ladder of bucket sizes
+// (see HEAP_BLOCK_BUCKET_SIZES in sysconfig.h) and can only reuse a freed block
+// for a future allocation that rounds to the SAME bucket - anything requested at
+// its raw, unrounded byte count spreads unrelated callers across many buckets and
+// each new distinct size permanently claims a fresh slice of the heap arena.
+// This mainly bites large, size-varying allocations (ROM/save-state buffers, CD
+// image hunk/codec buffers, etc.) coming from many different call sites across
+// this project's five emulator cores and their third-party CD-image libraries -
+// rounding those up here, in one place, means callers that ask for similar sizes
+// share a bucket instead of each opening a new one. Small allocations (below the
+// threshold below) are left untouched: Circle's own drivers (USB/SD/sound/etc.)
+// never request blocks this large, so this only affects game-data-sized requests.
+static size_t RoundLargeAllocation (size_t nSize)
+{
+	static const size_t s_Sizes[] = {
+		0x40000,  // 256 KB
+		0x80000,  // 512 KB
+		0x100000, // 1 MB
+		0x200000, // 2 MB
+		0x400000, // 4 MB
+		0x800000, // 8 MB
+	};
+
+	if (nSize < 0x20000)		// below 128 KB: leave as-is
+	{
+		return nSize;
+	}
+
+	for (unsigned i = 0; i < sizeof s_Sizes / sizeof s_Sizes[0]; i++)
+	{
+		if (nSize <= s_Sizes[i])
+		{
+			return s_Sizes[i];
+		}
+	}
+
+	return nSize;
+}
+
 void *malloc (size_t nSize)
 {
-	return CMemorySystem::HeapAllocate (nSize, HEAP_DEFAULT_MALLOC);
+	return CMemorySystem::HeapAllocate (RoundLargeAllocation (nSize), HEAP_DEFAULT_MALLOC);
 }
 
 void *memalign (size_t nAlign, size_t nSize)
 {
 	assert (nAlign <= HEAP_BLOCK_ALIGN);
-	return CMemorySystem::HeapAllocate (nSize, HEAP_DEFAULT_MALLOC);
+	return CMemorySystem::HeapAllocate (RoundLargeAllocation (nSize), HEAP_DEFAULT_MALLOC);
 }
 
 void free (void *pBlock)
@@ -48,7 +87,7 @@ void *calloc (size_t nBlocks, size_t nSize)
 	}
 	assert (nSize >= nBlocks);
 
-	void *pNewBlock = CMemorySystem::HeapAllocate (nSize, HEAP_DEFAULT_MALLOC);
+	void *pNewBlock = CMemorySystem::HeapAllocate (RoundLargeAllocation (nSize), HEAP_DEFAULT_MALLOC);
 	if (pNewBlock != 0)
 	{
 		memset (pNewBlock, 0, nSize);
@@ -59,7 +98,7 @@ void *calloc (size_t nBlocks, size_t nSize)
 
 void *realloc (void *pBlock, size_t nSize)
 {
-	return CMemorySystem::HeapReAllocate (pBlock, nSize);
+	return CMemorySystem::HeapReAllocate (pBlock, RoundLargeAllocation (nSize));
 }
 
 void *palloc (void)

@@ -225,9 +225,36 @@ void CUSBHIDDevice::CompletionRoutine (CUSBRequest *pURB)
 		}
 		else
 		{
-			if (pURB->GetUSBError () != USBErrorFrameOverrun)
+			static const char *s_UsbErrorNames[] =
+			{
+				"Stall", "Transaction", "Babble", "FrameOverrun",
+				"DataToggle", "HostBus", "Split", "Timeout", "Aborted", "Unknown"
+			};
+			TUSBError Error = pURB->GetUSBError ();
+			unsigned nErrorIdx = (unsigned) Error;
+			const char *pErrorName = nErrorIdx < sizeof s_UsbErrorNames / sizeof s_UsbErrorNames[0]
+						? s_UsbErrorNames[nErrorIdx] : "?";
+
+			// FrameOverrun is a known-transient condition already retried here.
+			// Transaction/Timeout are also common on wireless receivers (e.g. 2.4G
+			// gamepad dongles) while the RF link between dongle and controller is
+			// still settling right after USB configuration - treat those as
+			// transient too instead of giving up permanently after a single poll.
+			if (   Error != USBErrorFrameOverrun
+			    && Error != USBErrorTransaction
+			    && Error != USBErrorTimeout)
 			{
 				bRestart = FALSE;
+
+				CLogger::Get ()->Write (FromUSBHID, LogWarning,
+							"Interrupt transfer failed (error=%s), giving up on retries",
+							pErrorName);
+			}
+			else
+			{
+				CLogger::Get ()->Write (FromUSBHID, LogNotice,
+							"Interrupt transfer failed (error=%s), retrying",
+							pErrorName);
 			}
 		}
 	}

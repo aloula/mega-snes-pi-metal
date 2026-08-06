@@ -13,6 +13,7 @@ public:
 
     boolean Initialize();
     boolean LoadROM(const char *pRomName, unsigned nRomSize);
+    void Unload();
     void RunFrame();
 
     void SaveState(int slot = 0);

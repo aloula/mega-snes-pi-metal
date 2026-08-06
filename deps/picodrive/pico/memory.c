@@ -1757,13 +1757,11 @@ static void z80_md_bank_write(unsigned int a, unsigned char data)
 
 static unsigned char z80_md_in(unsigned short p)
 {
-  elprintf(EL_ANOMALY, "Z80 port %04x read", p);
   return 0xff;
 }
 
 static void z80_md_out(unsigned short p, unsigned char d)
 {
-  elprintf(EL_ANOMALY, "Z80 port %04x write %02x", p, d);
 }
 
 static void z80_mem_setup(void)
