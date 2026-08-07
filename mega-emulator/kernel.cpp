@@ -554,12 +554,15 @@ void CKernel::RunOrchestrator() {
                 just_entered_menu = TRUE;
             }
 
-            // Check if save or load state is requested
+            // Check if save or load state is requested. SaveState() may defer a
+            // frame at a time for VDP-busy safety - keep the request flag set so
+            // it retries next frame instead of silently dropping it.
             if (g_SharedState.save_state_requested) {
-                g_SharedState.save_state_requested = FALSE;
-                m_pEmuOrchestrator->SaveState(0);
-                // Quick activity LED flash to confirm save
-                m_ActLED.Blink(1, 20, 10);
+                if (m_pEmuOrchestrator->SaveState(0)) {
+                    g_SharedState.save_state_requested = FALSE;
+                    // Quick activity LED flash to confirm save
+                    m_ActLED.Blink(1, 20, 10);
+                }
             }
             if (g_SharedState.load_state_requested) {
                 g_SharedState.load_state_requested = FALSE;
@@ -1071,7 +1074,7 @@ void CKernel::RunInputDomain() {
             if (m_pGamePad[nDevice-1] == nullptr) {
                 m_pGamePad[nDevice-1] = (CUSBGamePadDevice *)
                     m_DeviceNameService.GetDevice("upad", nDevice, FALSE);
-                
+
                 if (m_pGamePad[nDevice-1] != nullptr) {
                     m_pGamePad[nDevice-1]->RegisterRemovedHandler(GamePadRemovedHandler, this);
                     m_pGamePad[nDevice-1]->RegisterStatusHandler(GamePadStatusHandler);

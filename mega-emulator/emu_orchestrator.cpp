@@ -481,8 +481,24 @@ void CEmuOrchestrator::RunFrame() {
 
 extern "C" int PicoState(const char *fname, int is_save);
 
-void CEmuOrchestrator::SaveState(int slot) {
-    if (!m_bRomLoaded) return;
+// Titles that run tight VDP DMA/FIFO sequences can leave the 68000/Z80 microstate
+// unrecoverable if snapshotted mid-transfer (screen freeze + looping audio when
+// later restored). Shared by CaptureRewindState() and SaveState() so neither ever
+// serializes state while a transfer is in flight.
+static inline boolean IsVdpUnsafeForStateCapture() {
+    return (PicoIn.quirks & PQUIRK_SAFE_REWIND) &&
+           (Pico.video.pending || Pico.video.fifo_cnt || Pico.video.fifo_bgcnt ||
+            (Pico.video.status & (PVS_CPUWR | PVS_CPURD | PVS_DMAFILL | PVS_DMABG | PVS_FIFORUN)));
+}
+
+boolean CEmuOrchestrator::SaveState(int slot) {
+    if (!m_bRomLoaded) return TRUE;
+
+    if (IsVdpUnsafeForStateCapture()) {
+        CLogger::Get()->Write(FromOrchestrator, LogNotice,
+            "Save state deferred for VDP-busy safety, retrying next frame");
+        return FALSE;
+    }
 
     char stateName[160];
     strncpy(stateName, m_CurrentRomName, sizeof(stateName) - 8);
@@ -500,6 +516,7 @@ void CEmuOrchestrator::SaveState(int slot) {
     } else {
         CLogger::Get()->Write(FromOrchestrator, LogError, "Failed to save state! error=%d", ret);
     }
+    return TRUE;
 }
 
 void CEmuOrchestrator::LoadState(int slot) {
@@ -534,15 +551,11 @@ void CEmuOrchestrator::CaptureRewindState() {
     m_nRewindFrameCounter++;
     u32 framesPerSec = IsPAL() ? 50 : 60;
     if (m_nRewindFrameCounter >= framesPerSec) {
-        // Titles that run tight VDP DMA/FIFO sequences can leave the 68000/Z80
-        // microstate unrecoverable if snapshotted mid-transfer (screen freeze +
-        // looping audio when later rewound into). Defer capture by a frame at a
-        // time instead of forcing it at an unsafe boundary; frame counter is
+        // Defer capture by a frame at a time instead of forcing it at an unsafe
+        // VDP-busy boundary (see IsVdpUnsafeForStateCapture()); frame counter is
         // left elevated so the check retries every subsequent frame.
         static u32 s_nRewindDeferStreak = 0;
-        if ((PicoIn.quirks & PQUIRK_SAFE_REWIND) &&
-            (Pico.video.pending || Pico.video.fifo_cnt || Pico.video.fifo_bgcnt ||
-             (Pico.video.status & (PVS_CPUWR | PVS_CPURD | PVS_DMAFILL | PVS_DMABG | PVS_FIFORUN)))) {
+        if (IsVdpUnsafeForStateCapture()) {
             s_nRewindDeferStreak++;
             return;
         }

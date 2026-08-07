@@ -1639,11 +1639,14 @@ void CKernel::RunOrchestrator() {
 
             // Check if save or load state is requested
             if (g_SharedState.save_state_requested) {
-                g_SharedState.save_state_requested = FALSE;
+                // MD/Sega CD may defer the save a frame at a time for VDP-busy
+                // safety (see CMDOrchestrator::SaveState) - keep the request
+                // flag set so it retries next frame instead of silently dropping it.
+                boolean saveHandled = TRUE;
                 if (g_SharedState.active_emu_mode == EmuMode_SNES) {
                     m_pSNESOrchestrator->SaveState(0);
                 } else if (g_SharedState.active_emu_mode == EmuMode_MD) {
-                    m_pMDOrchestrator->SaveState(0);
+                    saveHandled = m_pMDOrchestrator->SaveState(0);
                 } else if (g_SharedState.active_emu_mode == EmuMode_NES) {
                     m_pNESOrchestrator->SaveState(0);
                 } else if (g_SharedState.active_emu_mode == EmuMode_SMS) {
@@ -1651,8 +1654,11 @@ void CKernel::RunOrchestrator() {
                 } else {
                     m_pPCEOrchestrator->SaveState(0);
                 }
-                // Quick activity LED flash to confirm save
-                m_ActLED.Blink(1, 20, 10);
+                if (saveHandled) {
+                    g_SharedState.save_state_requested = FALSE;
+                    // Quick activity LED flash to confirm save
+                    m_ActLED.Blink(1, 20, 10);
+                }
             }
             if (g_SharedState.load_state_requested) {
                 g_SharedState.load_state_requested = FALSE;
@@ -2613,26 +2619,27 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     // (bit0, bit1, ...) rather than translating them to the symbolic GamePadButtonA/
     // B/X/Y/etc constants that every mapping table below expects (those are only set
     // by the dedicated Xbox360/PS3/PS4/SwitchPro drivers). Detect this controller by
-    // its confirmed report signature (10 raw buttons, no hat switch, 5 axes) and
-    // translate its bits - correlated against Windows' own button numbering for this
-    // exact device (A=3, B=2, C=6, X=4, Y=1, Z=5, L=7, R=8, Select=9, Start=10) - into
-    // the symbolic bits the rest of this function already knows how to map correctly.
-    boolean bIsM30_24G = (pState->nbuttons == 10 && pState->nhats == 0 && pState->naxes == 5);
+    // its confirmed report signature (21 raw button positions, no hat switch, 4 axes)
+    // and translate its bits - captured directly off real hardware via an on-screen
+    // debug overlay (not guessed): Y=0x080 B=0x100 A=0x200 X=0x400 Z=0x020 C=0x040
+    // L=0x008 R=0x010 Select=0x80000 Start=0x100000 - into the symbolic bits the
+    // rest of this function already knows how to map correctly.
+    boolean bIsM30_24G = (pState->nbuttons == 21 && pState->nhats == 0 && pState->naxes == 4);
 
     TGamePadState TranslatedState = *pState;
     if (bIsM30_24G) {
         unsigned nRaw = (unsigned) pState->buttons;
         unsigned nTranslated = 0;
-        if (nRaw & 0x001) nTranslated |= GamePadButtonY;      // Y
-        if (nRaw & 0x002) nTranslated |= GamePadButtonB;      // B
-        if (nRaw & 0x004) nTranslated |= GamePadButtonA;      // A
-        if (nRaw & 0x008) nTranslated |= GamePadButtonX;      // X
-        if (nRaw & 0x010) nTranslated |= GamePadButtonLT;     // Z (-> Sega Z path)
-        if (nRaw & 0x020) nTranslated |= GamePadButtonRT;     // C (-> Sega C path)
-        if (nRaw & 0x040) nTranslated |= GamePadButtonLB;     // L
-        if (nRaw & 0x080) nTranslated |= GamePadButtonRB;     // R
-        if (nRaw & 0x100) nTranslated |= GamePadButtonSelect; // Select
-        if (nRaw & 0x200) nTranslated |= GamePadButtonStart;  // Start
+        if (nRaw & 0x00080) nTranslated |= GamePadButtonY;      // Y
+        if (nRaw & 0x00100) nTranslated |= GamePadButtonB;      // B
+        if (nRaw & 0x00200) nTranslated |= GamePadButtonA;      // A
+        if (nRaw & 0x00400) nTranslated |= GamePadButtonX;      // X
+        if (nRaw & 0x00020) nTranslated |= GamePadButtonLT;     // Z (-> Sega Z path)
+        if (nRaw & 0x00040) nTranslated |= GamePadButtonRT;     // C (-> Sega C path)
+        if (nRaw & 0x00008) nTranslated |= GamePadButtonLB;     // L
+        if (nRaw & 0x00010) nTranslated |= GamePadButtonRB;     // R
+        if (nRaw & 0x80000) nTranslated |= GamePadButtonSelect; // Select
+        if (nRaw & 0x100000) nTranslated |= GamePadButtonStart; // Start
         TranslatedState.buttons = nTranslated;
         pState = &TranslatedState;
     }
@@ -2645,16 +2652,30 @@ void CKernel::GamePadStatusHandler(unsigned nDeviceIndex, const TGamePadState *p
     if (pState->buttons & GamePadButtonLeft)  pad |= (1 << 2); // Left
     if (pState->buttons & GamePadButtonRight) pad |= (1 << 3); // Right
 
-    // 1b. 8BitDo M30 2.4G reports its D-pad as two extra "analog" axes rather than
-    // buttons or a hat switch: axes[3] is horizontal (0=Left, 127=neutral, 255=Right)
-    // and axes[4] is vertical (0=Up, 127=neutral, 255=Down), confirmed by testing.
+    // 1b. 8BitDo M30 2.4G reports its D-pad as two analog axes rather than buttons or
+    // a hat switch: axes[0] is horizontal (0=Left, 128=neutral, 255=Right) and axes[1]
+    // is vertical (0=Up, 128=neutral, 255=Down) - captured directly off real hardware
+    // via the on-screen debug overlay. The dongle's first report(s) right after the
+    // RF link connects can read near 0 on these axes before the real (centered) value
+    // arrives, misreading as a held Up/Left press until the user's next button press
+    // forces a fresh report - so ignore the axes for a brief settle window per device
+    // slot, timed from that slot's first-ever report.
     if (bIsM30_24G && !(pad & 0xF)) {
-        int x = TranslatedState.axes[3].value;
-        int y = TranslatedState.axes[4].value;
-        if (x < 64)  pad |= (1 << 2); // Left
-        if (x > 192) pad |= (1 << 3); // Right
-        if (y < 64)  pad |= (1 << 0); // Up
-        if (y > 192) pad |= (1 << 1); // Down
+        static u64 s_nFirstReportTicks[8] = {0};
+        const u64 SETTLE_WINDOW_US = 1000000; // 1 second
+        unsigned nSlot = (nDeviceIndex < 8) ? nDeviceIndex : 0;
+        u64 now = CTimer::GetClockTicks64();
+        if (s_nFirstReportTicks[nSlot] == 0) {
+            s_nFirstReportTicks[nSlot] = now;
+        }
+        if (now - s_nFirstReportTicks[nSlot] >= SETTLE_WINDOW_US) {
+            int x = TranslatedState.axes[0].value;
+            int y = TranslatedState.axes[1].value;
+            if (x < 64)  pad |= (1 << 2); // Left
+            if (x > 192) pad |= (1 << 3); // Right
+            if (y < 64)  pad |= (1 << 0); // Up
+            if (y > 192) pad |= (1 << 1); // Down
+        }
     }
 
     // 2. Check hats (D-pad) as fallback

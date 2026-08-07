@@ -16,7 +16,9 @@ public:
     void Unload();
     void RunFrame();
 
-    void SaveState(int slot = 0);
+    // Returns FALSE if the save was deferred for VDP-busy safety (see
+    // md_orchestrator.cpp) and should be retried on a later frame.
+    boolean SaveState(int slot = 0);
     void LoadState(int slot = 0);
     boolean IsPAL() const;
 
